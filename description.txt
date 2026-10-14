@@ -1,0 +1,1 @@
+Equip dialogue town NPCs with almost any damaging weapon (melee, ranged, magic, summon, etc.). Followers auto-attack enemies; magic needs no mana. Chat keywords make NPCs follow you. Optional MiniMax AI chat and proactive lines (API key in server config). Nurse heals with potions; Dryad applies aura buffs from equipped potions. Multiplayer supported.

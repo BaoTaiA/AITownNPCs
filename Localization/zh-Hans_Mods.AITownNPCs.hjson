@@ -1,0 +1,288 @@
+Items: {
+	ReinforcementHeart: {
+		DisplayName: 强化之心
+		Tooltip:
+			'''
+			装备于 NPC「强化之心」槽
+			每枚提供 +300 生命上限，最多叠加 20
+			'''
+	}
+}
+
+UI: {
+	Equip: 装备
+	WeaponSlot: 武器
+	AmmoSlot: 弹药
+	HeartSlot: 强化之心
+	HeartSlotOnly: 只能放入强化之心（最多 20 个）
+	PotionSlotA: HP
+	PotionSlotB: MP
+	LifePotionOnly: HP 格只能放回血药水
+	ManaPotionOnly: MP 格只能放回蓝药水
+	BuffSlot1: 增益1
+	BuffSlot2: 增益2
+	BuffSlot3: 增益3
+	BuffSlot4: 增益4
+	BuffSlot5: 增益5
+	BuffSlot6: 增益6
+	BuffSlot7: 增益7
+	BuffSlot8: 增益8
+	BuffSlot9: 增益9
+	BuffSlot10: 增益10
+	BuffPotionOnly: 树妖只能装备增益药水
+	AmmoNotSupported: 不支持该弹药
+	WeaponNotSupported: 不支持该类型装备
+	EquipBusy: 该 NPC 装备栏正被其他玩家使用
+	ChatTabAll: 全部
+	ChatTabFollow: 跟随
+	ChatFollowEmpty: （跟随频道暂无消息）
+}
+
+Follow: {
+	Start: "{0}；开始跟随（{1}）"
+	Stop: "{0}；停止跟随（{1}）"
+	NoNpcNearby: 附近没有可跟随的 NPC（靠近后再说「跟着我」）
+	NoFollower: 当前没有 NPC 在跟随你
+	NpcBusy: 该 NPC 正在跟随其他玩家
+}
+
+Ai: {
+	Unavailable: AI 暂不可用（检查 API Key 或网络）
+	RateLimited: 你发言的太快了，NPC反应不过来
+	NoModelAutoDisabled: "{0}没有可用的大模型，AI对话与超能力已自动关闭"
+}
+
+Config: {
+	Headers: {
+		Follow: 对话跟随
+		Ai: AI 对话
+		Superpower: NPC 超能力
+	}
+
+	FollowTriggerDistance: {
+		Label: 跟随/对话距离
+		Tooltip: 固定选项（像素）：50 / 100 / 200 / 300 / 400；用于「跟着我」和玩家主动打字。路过招呼固定 50px、停留 10 秒、同 NPC 10 分钟冷却（打字也计入）；聊天框 @NPC 名可全图呼叫；打字无冷却
+	}
+
+	FollowStartKeyword: {
+		Label: 启动关键词
+		Tooltip: 聊天框发送该文本让附近 NPC 开始跟随（默认：跟着我）
+	}
+
+	FollowStopKeyword: {
+		Label: 停止关键词
+		Tooltip: 聊天框发送该文本让正在跟随的 NPC 离开（默认：你走吧）
+	}
+
+	AiEnabled: {
+		Label: 启用 AI 对话
+		Tooltip: 靠近城镇 NPC 时，聊天框普通发言会触发 AI 回复
+	}
+
+	ProviderId: {
+		Label: 模型提供商
+		Tooltip: 选择 MiniMax / 火山方舟（非下拉）；接口地址内置
+	}
+
+	Provider: {
+		Label: 模型提供商
+		Tooltip: 选择 MiniMax / 火山方舟（非下拉）；接口地址内置
+	}
+
+	Model: {
+		Label: 模型
+		Tooltip: 当前提供商的模型名；为空时用该提供商默认
+	}
+
+	ApiKey: {
+		Label: API Key
+		Tooltip: 当前提供商的密钥；仅主机/服务器，勿泄露
+	}
+
+	AiMaxTokens: {
+		Label: 最大生成 Token
+		Tooltip: 对话回复长度上限
+	}
+
+	AiShortTermTurns: {
+		Label: 短期记忆条数
+		Tooltip: 每个玩家与每个 NPC 的近期对话与事件（默认 20）；满时优先删闲聊、保留大事
+	}
+
+	AiProactiveEnabled: {
+		Label: 启用主动发言
+		Tooltip: 路过招呼（50px、停满10秒、10分钟冷却，打字也计入）；跟随碎碎念约7～15秒。玩家主动打字本身无冷却
+	}
+
+	SuperpowerEnabled: {
+		Label: 启用超能力
+		Tooltip: 对话经 AI 识别意图后触发城镇 NPC 超能力
+	}
+}
+
+Buffs: {
+	ArmsDealerWeaponBuff: {
+		DisplayName: 军火商配枪
+		Description: 临时借用军火商的枪，时间到自动收回
+	}
+
+	GuideGuidanceBuff: {
+		DisplayName: 向导指引
+		Description: 头顶箭头指向目标方向，持续 5 分钟
+	}
+}
+
+Configs: {
+	AinpcServerConfig: {
+		DisplayName: AI Town NPCs 服务器配置
+
+		FollowTriggerDistance: {
+			Label: 跟随/对话距离
+			Tooltip: 与NPC对话有效距离
+		}
+
+		FollowStartKeyword: {
+			Label: 启动关键词
+			Tooltip: 默认「跟着我」
+		}
+
+		FollowStopKeyword: {
+			Label: 停止关键词
+			Tooltip: 默认「你走吧」
+		}
+
+		AiEnabled: {
+			Label: 启用 AI 对话
+			Tooltip: 靠近 NPC 聊天触发 AI
+		}
+
+		ProviderId: {
+			Label: 模型提供商
+			Tooltip: 选择大模型提供商
+		}
+
+		Provider: {
+			Label: 模型提供商
+			Tooltip: 选择大模型提供商
+		}
+
+		Model: {
+			Label: 模型
+			Tooltip: 当前提供商；空则默认
+		}
+
+		ApiKey: {
+			Label: API Key
+			Tooltip: 当前提供商密钥
+		}
+
+		AiMaxTokens: {
+			Label: 最大 Token
+			Tooltip: 对话生成上限
+		}
+
+		AiShortTermTurns: {
+			Label: 短期记忆条数
+			Tooltip: 默认20；满时优先删闲聊、保留大事事件
+		}
+
+		AiProactiveEnabled: {
+			Label: 启用主动发言
+			Tooltip: NPC主动发言
+		}
+
+		SuperpowerEnabled: {
+			Label: 启用超能力
+			Tooltip: 对话经 AI 识别意图后触发城镇 NPC 超能力
+		}
+
+		FollowTriggerDistancePixels: {
+			// Label: Follow Trigger Distance Pixels
+			// Tooltip: ""
+		}
+
+		MiniMaxApiKey: {
+			// Label: Mini Max Api Key
+			// Tooltip: ""
+		}
+
+		MiniMaxModel: {
+			// Label: Mini Max Model
+			// Tooltip: ""
+		}
+
+		VolcArkApiKey: {
+			// Label: Volc Ark Api Key
+			// Tooltip: ""
+		}
+
+		VolcArkModel: {
+			// Label: Volc Ark Model
+			// Tooltip: ""
+		}
+	}
+
+	AiProvider: {
+		// Tooltip: ""
+
+		MiniMax: {
+			Label: MiniMax
+			// Tooltip: ""
+		}
+
+		VolcArk: {
+			Label: 火山方舟
+			// Tooltip: ""
+		}
+	}
+
+	FollowChatDistance: {
+		D50: {
+			Label: "50"
+			// Tooltip: ""
+		}
+
+		D100: {
+			Label: "100"
+			// Tooltip: ""
+		}
+
+		D200: {
+			Label: "200"
+			// Tooltip: ""
+		}
+
+		D300: {
+			Label: "300"
+			// Tooltip: ""
+		}
+
+		D400: {
+			Label: "400"
+			// Tooltip: ""
+		}
+
+		// Tooltip: ""
+	}
+
+	AiProviderSettings: {
+		// Tooltip: ""
+
+		Provider: {
+			// Label: Provider
+			// Tooltip: ""
+		}
+
+		MiniMaxApiKey: {
+			// Label: Mini Max Api Key
+			// Tooltip: ""
+		}
+
+		VolcArkApiKey: {
+			// Label: Volc Ark Api Key
+			// Tooltip: ""
+		}
+	}
+}
+
+// Projectiles.NurseHealProjectile.DisplayName: Nurse Heal Projectile

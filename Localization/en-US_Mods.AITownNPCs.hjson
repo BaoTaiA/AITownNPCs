@@ -1,0 +1,288 @@
+Items: {
+	ReinforcementHeart: {
+		DisplayName: Reinforcement Heart
+		Tooltip:
+			'''
+			Equip in an NPC's Reinforcement Heart slot
+			+300 max life per heart, stacks up to 20
+			'''
+	}
+}
+
+UI: {
+	Equip: Equip
+	WeaponSlot: Weapon
+	AmmoSlot: Ammo
+	HeartSlot: Heart
+	HeartSlotOnly: Only Reinforcement Hearts (max 20)
+	PotionSlotA: HP
+	PotionSlotB: MP
+	LifePotionOnly: HP slot accepts life potions only
+	ManaPotionOnly: MP slot accepts mana potions only
+	BuffSlot1: Buff 1
+	BuffSlot2: Buff 2
+	BuffSlot3: Buff 3
+	BuffSlot4: Buff 4
+	BuffSlot5: Buff 5
+	BuffSlot6: Buff 6
+	BuffSlot7: Buff 7
+	BuffSlot8: Buff 8
+	BuffSlot9: Buff 9
+	BuffSlot10: Buff 10
+	BuffPotionOnly: Dryad can only equip buff potions
+	AmmoNotSupported: This ammo is not supported
+	WeaponNotSupported: This weapon type is not supported
+	EquipBusy: This NPC's equipment is being used by another player
+	ChatTabAll: All
+	ChatTabFollow: Follow
+	ChatFollowEmpty: (No follow-channel messages yet)
+}
+
+Follow: {
+	Start: "{0}; started following ({1})"
+	Stop: "{0}; stopped following ({1})"
+	NoNpcNearby: No followable NPC nearby — stand closer and say the start keyword
+	NoFollower: No NPC is following you
+	NpcBusy: This NPC is already following another player
+}
+
+Ai: {
+	Unavailable: AI unavailable (check API key or network)
+	RateLimited: You're talking too fast — the NPC can't keep up.
+	NoModelAutoDisabled: "{0} has no available language model; AI chat and superpowers have been disabled"
+}
+
+Config: {
+	Headers: {
+		Follow: Dialogue Follow
+		Ai: AI Chat
+		Superpower: NPC Superpowers
+	}
+
+	FollowTriggerDistance: {
+		Label: Follow / chat distance
+		Tooltip: Fixed pixels 50/100/200/300/400 for follow keywords and typed AI chat. Walk-by is fixed 50px, 10s stay, 10min per NPC (typing also starts CD); @NPC name works map-wide; typing itself has no cooldown
+	}
+
+	FollowStartKeyword: {
+		Label: Start keyword
+		Tooltip: Chat this text near an NPC to start following (default: 跟着我)
+	}
+
+	FollowStopKeyword: {
+		Label: Stop keyword
+		Tooltip: Chat this text to dismiss your follower (default: 你走吧)
+	}
+
+	AiEnabled: {
+		Label: Enable AI chat
+		Tooltip: Nearby town NPC replies when you type in chat
+	}
+
+	ProviderId: {
+		Label: Model provider
+		Tooltip: Flat ticks MiniMax / 火山方舟 (not a dropdown); base URL is built-in
+	}
+
+	Provider: {
+		Label: Model provider
+		Tooltip: Flat ticks MiniMax / 火山方舟 (not a dropdown); base URL is built-in
+	}
+
+	Model: {
+		Label: Model
+		Tooltip: Model id for the selected provider; empty uses that provider's default
+	}
+
+	ApiKey: {
+		Label: API Key
+		Tooltip: Key for the selected provider; host/server only — do not share
+	}
+
+	AiMaxTokens: {
+		Label: Max tokens
+		Tooltip: Reply length cap for chat
+	}
+
+	AiShortTermTurns: {
+		Label: Short-term memory entries
+		Tooltip: Recent dialogue and events per player-NPC (default 20); trim chat before events when full
+	}
+
+	AiProactiveEnabled: {
+		Label: Enable proactive speech
+		Tooltip: Walk-by (50px, 10s stay, 10min CD; typing also starts CD); follower chatter about every 7–15s. Typing itself has no cooldown
+	}
+
+	SuperpowerEnabled: {
+		Label: Enable superpowers
+		Tooltip: Chat AI detects intent and runs town NPC superpowers
+	}
+}
+
+Buffs: {
+	ArmsDealerWeaponBuff: {
+		DisplayName: Arms Dealer Loan
+		Description: Temporary loaned gun — reclaimed when the buff ends
+	}
+
+	GuideGuidanceBuff: {
+		DisplayName: Guide's Guidance
+		Description: Arrow above your head points toward the target for 5 minutes
+	}
+}
+
+Configs: {
+	AinpcServerConfig: {
+		DisplayName: AI Town NPCs Server Config
+
+		FollowTriggerDistance: {
+			Label: Follow / chat distance
+			Tooltip: Follow keywords + typed chat; walk-by 50px/10s/10min (typing starts CD); @NPC map-wide; typing itself no CD
+		}
+
+		FollowStartKeyword: {
+			Label: Start keyword
+			Tooltip: Default "跟着我"
+		}
+
+		FollowStopKeyword: {
+			Label: Stop keyword
+			Tooltip: Default "你走吧"
+		}
+
+		AiEnabled: {
+			Label: Enable AI chat
+			Tooltip: Chat near NPC triggers AI
+		}
+
+		ProviderId: {
+			Label: Model provider
+			Tooltip: Flat ticks, not a dropdown
+		}
+
+		Provider: {
+			Label: Model provider
+			Tooltip: Flat ticks, not a dropdown
+		}
+
+		Model: {
+			Label: Model
+			Tooltip: Selected provider; empty uses default
+		}
+
+		ApiKey: {
+			Label: API Key
+			Tooltip: Selected provider key
+		}
+
+		AiMaxTokens: {
+			Label: Max tokens
+			Tooltip: Chat generation cap
+		}
+
+		AiShortTermTurns: {
+			Label: Short-term memory entries
+			Tooltip: Default 20; trim chat before events when full
+		}
+
+		AiProactiveEnabled: {
+			Label: Enable proactive speech
+			Tooltip: Walk-by (10s stay) + follower chatter ~7–15s; typing starts walk-by CD
+		}
+
+		SuperpowerEnabled: {
+			Label: Enable superpowers
+			Tooltip: Chat AI detects intent and runs town NPC superpowers
+		}
+
+		FollowTriggerDistancePixels: {
+			Label: Follow Trigger Distance Pixels
+			Tooltip: ""
+		}
+
+		MiniMaxApiKey: {
+			Label: Mini Max Api Key
+			Tooltip: ""
+		}
+
+		MiniMaxModel: {
+			Label: Mini Max Model
+			Tooltip: ""
+		}
+
+		VolcArkApiKey: {
+			Label: Volc Ark Api Key
+			Tooltip: ""
+		}
+
+		VolcArkModel: {
+			Label: Volc Ark Model
+			Tooltip: ""
+		}
+	}
+
+	AiProvider: {
+		Tooltip: ""
+
+		MiniMax: {
+			Label: MiniMax
+			Tooltip: ""
+		}
+
+		VolcArk: {
+			Label: Volcengine Ark
+			Tooltip: ""
+		}
+	}
+
+	FollowChatDistance: {
+		D50: {
+			Label: "50"
+			Tooltip: ""
+		}
+
+		D100: {
+			Label: "100"
+			Tooltip: ""
+		}
+
+		D200: {
+			Label: "200"
+			Tooltip: ""
+		}
+
+		D300: {
+			Label: "300"
+			Tooltip: ""
+		}
+
+		D400: {
+			Label: "400"
+			Tooltip: ""
+		}
+
+		Tooltip: ""
+	}
+
+	AiProviderSettings: {
+		Tooltip: ""
+
+		Provider: {
+			Label: Provider
+			Tooltip: ""
+		}
+
+		MiniMaxApiKey: {
+			Label: Mini Max Api Key
+			Tooltip: ""
+		}
+
+		VolcArkApiKey: {
+			Label: Volc Ark Api Key
+			Tooltip: ""
+		}
+	}
+}
+
+Projectiles.NurseHealProjectile.DisplayName: Nurse Heal Projectile
