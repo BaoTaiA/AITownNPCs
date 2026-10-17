@@ -13,7 +13,9 @@ namespace AITownNPCs.Common.Ai.Firing
 		private const uint PoseMinInterval = 5;
 
 		/// <summary>
-		/// Pose sync for bind / weapon / facing. Hard dirty (channel / weapon / facing) sends immediately.
+		/// Pose sync after the dummy has used the weapon this tick.
+		/// Swinging, channeling, or a held projectile sends every tick so clients see the swing.
+		/// Idle poses stay on a short interval.
 		/// </summary>
 		public static void SendPoseThrottled(NPC npc, Player dummy, Vector2 mouseWorld) {
 			if (Main.netMode != NetmodeID.Server || npc == null || !npc.active || dummy == null) {
@@ -22,12 +24,15 @@ namespace AITownNPCs.Common.Ai.Firing
 
 			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
 			int weaponType = dummy.inventory[dummy.selectedItem]?.type ?? 0;
-			bool hardDirty = firing.LastPoseChannel != dummy.channel
+			bool busy = dummy.itemAnimation > 0 || dummy.channel || dummy.heldProj >= 0;
+			bool changed = firing.LastPoseChannel != dummy.channel
 				|| firing.LastPoseWeaponType != weaponType
-				|| firing.LastPoseDirection != dummy.direction;
+				|| firing.LastPoseDirection != dummy.direction
+				|| firing.LastPoseItemAnimation != dummy.itemAnimation
+				|| firing.LastPoseHeldProj != dummy.heldProj;
 
 			uint now = Main.GameUpdateCount;
-			if (!hardDirty && now - firing.LastPoseSendTick < PoseMinInterval) {
+			if (!busy && !changed && now - firing.LastPoseSendTick < PoseMinInterval) {
 				return;
 			}
 
@@ -36,6 +41,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			firing.LastPoseChannel = dummy.channel;
 			firing.LastPoseWeaponType = weaponType;
 			firing.LastPoseDirection = dummy.direction;
+			firing.LastPoseHeldProj = dummy.heldProj;
 			SendPose(npc.whoAmI, dummy, mouseWorld);
 		}
 
@@ -129,8 +135,10 @@ namespace AITownNPCs.Common.Ai.Firing
 					NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
 					combat.ItemAnimation = itemAnimation;
 					combat.ItemAnimationMax = itemAnimationMax;
-					combat.ItemRotation = itemRotation;
 					combat.IsChanneling = channel;
+					combat.ItemRotation = itemRotation;
+					npc.direction = direction;
+					npc.spriteDirection = direction;
 				}
 			}
 		}

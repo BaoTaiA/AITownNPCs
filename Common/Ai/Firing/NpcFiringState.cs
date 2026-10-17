@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Ai.Firing
@@ -22,6 +23,31 @@ namespace AITownNPCs.Common.Ai.Firing
 		public bool LastPoseChannel;
 		public int LastPoseWeaponType = -1;
 		public int LastPoseDirection = int.MinValue;
+		public int LastPoseHeldProj = int.MinValue;
+
+		/// <summary>Server: the follower client still has a swing, channel, or projectile in flight.</summary>
+		public bool RemoteBusy;
+
+		/// <summary>Server: keep sending aim until the follower reports the use has ended.</summary>
+		public bool IntentOpen;
+
+		public bool HasPendingIntent;
+
+		/// <summary>Any client: keep running the dummy until it returns to idle on its own.</summary>
+		public bool ClientHoldingUse;
+
+		/// <summary>Multiplayer: this client is simulating for visuals only (not the followed player).</summary>
+		public bool SpectatorClient;
+
+		public bool PendingWantUse;
+		public Vector2 PendingAim;
+		public int PendingWeaponType;
+		public byte PendingWeaponPrefix;
+		public short PendingWeaponStack;
+		public int PendingAmmoType;
+		public byte PendingAmmoPrefix;
+		public short PendingAmmoStack;
+		public bool NeedsReport;
 
 		/// <summary>Equip slot stack sync throttle while firing.</summary>
 		public uint LastAmmoSyncTick;

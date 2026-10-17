@@ -21,6 +21,25 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
+			if (Main.netMode == NetmodeID.Server) {
+				NpcClientUseNet.SendIntent(npc, equip, combat, target, wantUse);
+				return;
+			}
+
+			RunLocal(npc, equip, combat, target, wantUse, aimOverride: null);
+		}
+
+		/// <summary>Follower client: run the player weapon pipeline from a server intent.</summary>
+		public static void RunFromIntent(NPC npc, EquippedTownNPC equip, Vector2 aimWorld, bool wantUse) {
+			if (npc == null || !npc.active || equip == null) {
+				return;
+			}
+
+			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+			RunLocal(npc, equip, combat, target: null, wantUse, aimWorld);
+		}
+
+		private static void RunLocal(NPC npc, EquippedTownNPC equip, NpcCombatState combat, NPC target, bool wantUse, Vector2? aimOverride) {
 			bool hasDummy = NpcDummyPool.TryGetDummy(npc.whoAmI, out Player live) && live != null;
 			bool shouldLease = wantUse
 				|| (hasDummy && (live.itemAnimation > 0 || live.channel || live.heldProj >= 0))
@@ -34,6 +53,13 @@ namespace AITownNPCs.Common.Ai.Firing
 				combat.ItemAnimationMax = 0;
 				combat.IsChanneling = false;
 				firing.ResetUseCycle();
+				if (Main.netMode == NetmodeID.MultiplayerClient) {
+					firing.ClientHoldingUse = false;
+					if (!firing.SpectatorClient) {
+						firing.NeedsReport = true;
+					}
+				}
+
 				return;
 			}
 
@@ -43,7 +69,10 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			ApplyStealth(dummy);
-			ApplyPose(dummy, npc, target);
+			Vector2 aimWorld = aimOverride ?? (target != null && target.active
+				? target.Center
+				: npc.Center + new Vector2(npc.direction * 320f, 0f));
+			ApplyPose(dummy, npc, aimWorld);
 			InstallLoadout(dummy, equip);
 			dummy.noItems = false;
 			dummy.silence = false;
@@ -58,25 +87,25 @@ namespace AITownNPCs.Common.Ai.Firing
 			int weaponStackBefore = equip.Weapon.IsAir ? 0 : equip.Weapon.stack;
 			bool[] wasActive = NpcWeaponProjectile.RentSnapshot();
 
-			Vector2 aimWorld = target != null && target.active
-				? target.Center
-				: npc.Center + new Vector2(npc.direction * 320f, 0f);
-
 			try {
 				NpcDummyLocal.RememberAim(dummy.whoAmI, aimWorld);
-				// Bind client slot before shots so SyncProjectile lands on an active dummy.
-				if (Main.netMode == NetmodeID.Server) {
-					NpcDummyNetSystem.SendPoseThrottled(npc, dummy, aimWorld);
-				}
-
 				RunPlayerUpdate(dummy, aimWorld, wantUse);
+				LogFireProbe(npc, dummy, wantUse);
 				ApplyAimFacing(npc, dummy, aimWorld);
 				NpcDummyPool.LockPose(dummy, npc);
 				ApplyStealth(dummy);
 
+				SyncCombatFromDummy(combat, dummy);
+				// Pose before projectile sync so the client binds the dummy slot first.
+				if (Main.netMode == NetmodeID.Server) {
+					NpcDummyNetSystem.SendPoseThrottled(npc, dummy, aimWorld);
+				}
+
 				NpcWeaponProjectile.TagNewOwned(wasActive, dummy.whoAmI, npc);
 				ReadbackLoadout(dummy, equip);
-				SyncCombatFromDummy(combat, dummy);
+				if (Main.netMode == NetmodeID.MultiplayerClient && !firing.SpectatorClient) {
+					firing.NeedsReport = true;
+				}
 			}
 			finally {
 				NpcWeaponProjectile.ReturnSnapshot(wasActive);
@@ -121,10 +150,20 @@ namespace AITownNPCs.Common.Ai.Firing
 					NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
 					NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
 					EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+					if (Main.netMode == NetmodeID.Server) {
+						NpcClientUseNet.SendIntent(npc, equip, combat, target: null, allowFire: false);
+					}
+
 					FlushPendingEquipSync(npc, equip, firing);
 					combat.ResetUse();
 					combat.IsChanneling = false;
 					firing.ResetUseCycle();
+					firing.RemoteBusy = false;
+					firing.IntentOpen = false;
+					firing.HasPendingIntent = false;
+					firing.ClientHoldingUse = false;
+					firing.SpectatorClient = false;
+					firing.NeedsReport = false;
 				}
 			}
 
@@ -144,15 +183,12 @@ namespace AITownNPCs.Common.Ai.Firing
 			dummy.releaseUseTile = false;
 		}
 
-		private static void ApplyPose(Player dummy, NPC npc, NPC target) {
+		private static void ApplyPose(Player dummy, NPC npc, Vector2 aimWorld) {
 			dummy.gravDir = 1f;
 			dummy.gravity = 0f;
 			dummy.maxFallSpeed = 0f;
 			dummy.velocity = Vector2.Zero;
 
-			Vector2 aimWorld = target != null && target.active
-				? target.Center
-				: npc.Center + new Vector2(npc.direction * 320f, 0f);
 			ApplyAimFacing(npc, dummy, aimWorld);
 			NpcDummyPool.LockPose(dummy, npc);
 		}
@@ -265,6 +301,24 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		private static uint _lastUpdateFailLogTick;
 		private const uint UpdateFailLogInterval = 300;
+		private static uint _lastFireProbeTick;
+		private const uint FireProbeInterval = 180;
+
+		private static void LogFireProbe(NPC npc, Player dummy, bool wantUse) {
+			if (Main.netMode != NetmodeID.Server || !wantUse || dummy == null) {
+				return;
+			}
+
+			uint now = Main.GameUpdateCount;
+			if (now - _lastFireProbeTick < FireProbeInterval) {
+				return;
+			}
+
+			_lastFireProbeTick = now;
+			int weapon = dummy.inventory[dummy.selectedItem]?.type ?? 0;
+			ModContent.GetInstance<AITownNPCs>()?.Logger.Info(
+				$"Dummy fire npc={npc.whoAmI} anim={dummy.itemAnimation} channel={dummy.channel} held={dummy.heldProj} weapon={weapon}");
+		}
 
 		private static void RunPlayerUpdate(Player dummy, Vector2 aimWorld, bool wantUse) {
 			try {
@@ -296,14 +350,14 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static void SyncCombatFromDummy(NpcCombatState combat, Player dummy) {
 			combat.ItemAnimation = dummy.itemAnimation;
 			combat.ItemAnimationMax = dummy.itemAnimationMax;
-			combat.ItemRotation = dummy.itemRotation;
 			combat.IsChanneling = dummy.channel;
+			combat.ItemRotation = dummy.itemRotation;
 		}
 
 		private const uint EquipSyncMinInterval = 10;
 
 		private static void SyncAmmo(NPC npc, EquippedTownNPC equip, NpcFiringState firing, bool force) {
-			if (Main.netMode == NetmodeID.SinglePlayer) {
+			if (Main.netMode != NetmodeID.Server) {
 				return;
 			}
 
@@ -319,7 +373,7 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		private static void SyncWeapon(NPC npc, EquippedTownNPC equip, NpcFiringState firing, bool force) {
-			if (Main.netMode == NetmodeID.SinglePlayer) {
+			if (Main.netMode != NetmodeID.Server) {
 				return;
 			}
 
@@ -342,7 +396,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			EquippedTownNPC equip,
 			NpcFiringState firing,
 			bool onlyIfIntervalElapsed = false) {
-			if (Main.netMode == NetmodeID.SinglePlayer || firing == null || equip == null) {
+			if (Main.netMode != NetmodeID.Server || firing == null || equip == null) {
 				return;
 			}
 

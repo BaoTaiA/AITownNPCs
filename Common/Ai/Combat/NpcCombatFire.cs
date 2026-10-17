@@ -57,18 +57,23 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
-			bool wantUse = allowFire
+			bool allow = allowFire
 				&& target != null
 				&& target.active
 				&& CanFireWeapon(equip)
 				&& HasLineOfSight(npc, target);
-			wantUse = NpcWeaponChannel.Apply(npc, equip, wantUse);
 
 			if (target != null && target.active) {
 				AimAtTarget(npc, combat, equip, target);
 			}
 
-			NpcDummyActor.Tick(npc, equip, combat, target, wantUse);
+			// Dedicated server only says whether combat may fire. The follower client
+			// applies the press rhythm against its own dummy, same as single player.
+			if (Main.netMode != NetmodeID.Server) {
+				allow = NpcWeaponChannel.Apply(npc, equip, allow);
+			}
+
+			NpcDummyActor.Tick(npc, equip, combat, target, allow);
 		}
 
 		public static void Stop(NPC npc) {

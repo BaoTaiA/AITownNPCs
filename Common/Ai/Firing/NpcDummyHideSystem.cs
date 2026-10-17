@@ -61,6 +61,47 @@ namespace AITownNPCs.Common.Ai.Firing
 			return !NpcDummyPool.IsDummy(Player.whoAmI);
 		}
 
+		public override void ModifyHitNPCWithItem(Item item, NPC npc, ref NPC.HitModifiers modifiers) {
+			if (!IsSpectatorDummy(Player.whoAmI)) {
+				return;
+			}
+
+			// Numbers come from follower HitVisual; do not invent local CombatText.
+			modifiers.FinalDamage *= 0f;
+			modifiers.Knockback *= 0f;
+			modifiers.DisableCrit();
+		}
+
+		public override void ModifyHitNPCWithProj(Projectile proj, NPC npc, ref NPC.HitModifiers modifiers) {
+			// SpectatorVisual projectiles are handled in NpcWeaponProjectile.ModifyHitNPC.
+			if (proj != null && NpcWeaponProjectile.IsSpectatorVisual(proj)) {
+				return;
+			}
+
+			if (!IsSpectatorDummy(Player.whoAmI)) {
+				return;
+			}
+
+			modifiers.FinalDamage *= 0f;
+			modifiers.Knockback *= 0f;
+			modifiers.DisableCrit();
+		}
+
+		private static bool IsSpectatorDummy(int dummyWho) {
+			if (!NpcDummyPool.IsDummy(dummyWho)) {
+				return false;
+			}
+
+			if (!NpcDummyPool.TryGetNpcWho(dummyWho, out int npcWho)
+				|| npcWho < 0
+				|| npcWho >= Main.maxNPCs) {
+				return false;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			return npc != null && npc.active && npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+		}
+
 		public override bool ImmuneTo(PlayerDeathReason damageSource, int cooldownCounter, bool dodgeable) {
 			return NpcDummyPool.IsDummy(Player.whoAmI);
 		}
@@ -200,12 +241,16 @@ namespace AITownNPCs.Common.Ai.Firing
 			WithDummiesHidden(() => orig(self));
 		}
 
+		/// <summary>
+		/// Let dummies draw HeldItem/ArmOverItem (body layers stay hidden via HideDrawLayers).
+		/// Still suspend dummies for targeting/UI searches elsewhere.
+		/// </summary>
 		private static void DrawPlayers_NoDummy(On_Main.orig_DrawPlayers_AfterProjectiles orig, Main self) {
-			WithDummiesHidden(() => orig(self));
+			orig(self);
 		}
 
 		private static void DrawPlayersBehind_NoDummy(On_Main.orig_DrawPlayers_BehindNPCs orig, Main self) {
-			WithDummiesHidden(() => orig(self));
+			orig(self);
 		}
 
 		private static void WithDummiesHidden(Action action) {

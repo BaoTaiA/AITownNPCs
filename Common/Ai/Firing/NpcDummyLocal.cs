@@ -7,6 +7,7 @@ namespace AITownNPCs.Common.Ai.Firing
 {
 	/// <summary>
 	/// Isolates a dummy as the local player for Update or projectile AI, without the real player's input or cursor.
+	/// Role (authority vs spectator) is frozen on NpcFiringState.SpectatorClient before Enter; do not re-read Main.myPlayer for damage.
 	/// </summary>
 	public static class NpcDummyLocal
 	{
@@ -27,9 +28,16 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static bool _savedMouseLeft;
 		private static bool _savedMouseRight;
 		private static bool _savedInventory;
+		private static bool _savedHasFocus;
 		private static Vector2 _savedScreen;
 
 		public static bool IsRunning => _active;
+
+		/// <summary>
+		/// True while this client is pretending the dummy is the local player.
+		/// Vanilla player/projectile packets from that window must not leave the client.
+		/// </summary>
+		public static bool SuppressVanillaSend => _active || ProjFrames.Count > 0;
 
 		public static bool WasWantUse(int dummyWho) {
 			return LastWantUse.TryGetValue(dummyWho, out bool use) && use;
@@ -58,6 +66,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			_savedMouseLeft = Main.mouseLeft;
 			_savedMouseRight = Main.mouseRight;
 			_savedInventory = Main.playerInventory;
+			_savedHasFocus = Main.hasFocus;
 			_savedScreen = Main.screenPosition;
 
 			CopyTriggers(SavedCurrent, PlayerInput.Triggers.Current);
@@ -68,11 +77,18 @@ namespace AITownNPCs.Common.Ai.Firing
 			ApplyUseTriggers(wantUse, wasDown);
 
 			Main.myPlayer = dummy.whoAmI;
+			// Dedicated server has no window. Player.Update clears controlUseItem,
+			// then copies the mouse back only while Main.hasFocus is true.
+			Main.hasFocus = true;
 			Main.mouseLeft = wantUse;
 			Main.mouseRight = false;
 			Main.mouseX = (int)(aimWorld.X - Main.screenPosition.X);
 			Main.mouseY = (int)(aimWorld.Y - Main.screenPosition.Y);
 			dummy.controlUseItem = wantUse;
+			if (wantUse && !wasDown) {
+				dummy.releaseUseItem = true;
+			}
+
 			dummy.controlUseTile = false;
 			dummy.controlHook = false;
 			dummy.controlJump = false;
@@ -105,6 +121,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			Main.mouseLeft = _savedMouseLeft;
 			Main.mouseRight = _savedMouseRight;
 			Main.playerInventory = _savedInventory;
+			Main.hasFocus = _savedHasFocus;
 			Main.screenPosition = _savedScreen;
 
 			Main.myPlayer = _savedMyPlayer;
