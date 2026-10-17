@@ -1,6 +1,7 @@
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Net;
 using Microsoft.Xna.Framework;
+using Terraria.DataStructures;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -42,7 +43,46 @@ namespace AITownNPCs.Common.Roles.Dryad
 			}
 
 			state.LastPulsedWardWhoAmI = wardWhoAmI;
-			PulseBuffs(npc, wardCenter);
+			ApplyPulse(npc, wardCenter);
+		}
+
+		public static bool HasBuffPotion(NPC npc) {
+			if (!TryGetEquip(npc, out EquippedTownNPC equip, out int slotCount)) {
+				return false;
+			}
+
+			for (int s = 0; s < slotCount; s++) {
+				Item potion = equip.Slots[s];
+				if (potion != null && !potion.IsAir && potion.type > ItemID.None && potion.buffType > 0) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>Spawn one stationary vanilla ward at her feet and consume potions once.</summary>
+		public static bool TryCastWard(NPC npc) {
+			if (npc == null || !npc.active) {
+				return false;
+			}
+
+			int id = NpcProjectileSpawn.SpawnServerOwned(
+				npc.GetSource_FromAI(),
+				npc.Bottom,
+				Vector2.Zero,
+				ProjectileID.DryadsWardCircle,
+				0,
+				0f);
+			if (id < 0 || id >= Main.maxProjectiles || !Main.projectile[id].active) {
+				return false;
+			}
+
+			DryadRoleState state = npc.GetGlobalNPC<DryadRoleGlobal>().State;
+			state.LastPulsedWardWhoAmI = id;
+			state.WardActive = true;
+			ApplyPulse(npc, Main.projectile[id].Center);
+			return true;
 		}
 
 		public static bool IsBusy(DryadRoleState state) => state.WardActive;
@@ -71,10 +111,10 @@ namespace AITownNPCs.Common.Roles.Dryad
 			return wardWhoAmI >= 0;
 		}
 
-		private static void PulseBuffs(NPC npc, Vector2 auraCenter) {
-			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
-			int slotCount = System.Math.Clamp(profile.Slots.Length, 0, EquippedTownNPC.MaxSlots);
+		public static void ApplyPulse(NPC npc, Vector2 auraCenter) {
+			if (!TryGetEquip(npc, out EquippedTownNPC equip, out int slotCount)) {
+				return;
+			}
 			bool anyConsumed = false;
 
 			for (int s = 0; s < slotCount; s++) {
@@ -104,6 +144,13 @@ namespace AITownNPCs.Common.Roles.Dryad
 			if (anyConsumed) {
 				npc.netUpdate = true;
 			}
+		}
+
+		private static bool TryGetEquip(NPC npc, out EquippedTownNPC equip, out int slotCount) {
+			equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
+			slotCount = profile == null ? 0 : System.Math.Clamp(profile.Slots.Length, 0, EquippedTownNPC.MaxSlots);
+			return equip != null && slotCount > 0;
 		}
 
 		private static bool IsSharedWithPlayerInventory(Item item) {

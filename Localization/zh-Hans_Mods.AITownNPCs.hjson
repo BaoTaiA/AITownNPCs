@@ -130,6 +130,11 @@ Buffs: {
 		DisplayName: 向导指引
 		Description: 头顶箭头指向目标方向，持续 5 分钟
 	}
+
+	SuperHeartBuff: {
+		DisplayName: 超级爱心
+		Description: 每秒额外回复 50 点生命，持续 1 分钟
+	}
 }
 
 Configs: {

@@ -130,6 +130,11 @@ Buffs: {
 		DisplayName: Guide's Guidance
 		Description: Arrow above your head points toward the target for 5 minutes
 	}
+
+	SuperHeartBuff: {
+		DisplayName: Super Heart
+		Description: Restores an extra 50 life per second for 1 minute
+	}
 }
 
 Configs: {

@@ -12,6 +12,9 @@ namespace AITownNPCs.Common.ChatLog
 		public byte B = 255;
 		public string Text = string.Empty;
 
+		/// <summary>Client tick when this line was shown live. 0 means history, not a fresh line.</summary>
+		public uint ClientShowTick;
+
 		public Color Color => new(R, G, B);
 
 		public TagCompound ToTag() => new() {

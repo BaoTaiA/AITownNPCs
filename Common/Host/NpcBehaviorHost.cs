@@ -1,7 +1,7 @@
 using AITownNPCs.Common.Ai.Combat;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Roles;
-using AITownNPCs.Common.Superpower.Nurse;
+using AITownNPCs.Common.Superpower;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -26,8 +26,8 @@ namespace AITownNPCs.Common.Host
 				return true;
 			}
 
-			if (NurseEmergencyHealState.IsBusy(npc.whoAmI)) {
-				return true; // NurseEmergencyHealGlobal already returns false; do not fight it.
+			if (NpcVisitState.IsStaying(npc.whoAmI)) {
+				return true; // NpcVisitGlobal already returns false; do not fight it.
 			}
 
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
@@ -43,8 +43,8 @@ namespace AITownNPCs.Common.Host
 				return;
 			}
 
-			// Emergency heal stay: do not let follow/role/combat yank the nurse away.
-			if (NurseEmergencyHealState.IsBusy(npc.whoAmI)) {
+			// Visit stay: do not let follow/role/combat yank the NPC away.
+			if (NpcVisitState.IsStaying(npc.whoAmI)) {
 				return;
 			}
 

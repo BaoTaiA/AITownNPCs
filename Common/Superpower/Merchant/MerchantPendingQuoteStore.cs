@@ -40,9 +40,19 @@ namespace AITownNPCs.Common.Superpower.Merchant
 		}
 
 		public string BuildQuoteAnnounce() {
-			return "这些我收：" + BuildIconChatLine()
-			       + " 总共" + SuperpowerCoinUtil.FormatCopper(TotalPrice)
-			       + "，确定吗？回复「可以」或「不要」。";
+			string body = "这些我收：" + BuildIconChatLine()
+			              + " 总共" + SuperpowerCoinUtil.FormatCopper(TotalPrice)
+			              + "，确定吗？回复「可以」或「不要」。";
+			if (PlayerWhoAmI < 0 || PlayerWhoAmI >= Main.maxPlayers) {
+				return body;
+			}
+
+			Player player = Main.player[PlayerWhoAmI];
+			if (player == null || !player.active || string.IsNullOrEmpty(player.name)) {
+				return body;
+			}
+
+			return "@" + player.name + " " + body;
 		}
 	}
 

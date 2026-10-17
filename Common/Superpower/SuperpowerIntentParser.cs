@@ -128,6 +128,7 @@ namespace AITownNPCs.Common.Superpower
 			NPCID.Merchant => "示例：收垃圾/卖垃圾 → merchant_buy_trash；送点火把/送货 → merchant_delivery。"
 			                 + "收购与送货冷却独立；卖垃圾≠玩家买货≠送货。",
 			NPCID.Nurse => "示例：我要死了/救我/快来救我 → nurse_emergency_heal；刚被拒后说求你了/真的 → 仍 nurse_emergency_heal。",
+			NPCID.Dryad => "示例：来个增益/来个群体 → dryad_group_buff；刚被拒后说求你了/真的 → 仍 dryad_group_buff。",
 			NPCID.ArmsDealer => "示例：给我一把枪 → arms_temp_weapon。",
 			NPCID.Demolitionist => "示例：炸开这里/放雷管 → demo_blast；火力支援/扔雷掩护 → demo_fire_support；冷却独立。",
 			NPCID.Cyborg => "示例：火力支援 → cyborg_fire_support。",

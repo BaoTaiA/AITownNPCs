@@ -96,14 +96,17 @@ namespace AITownNPCs.Common.Ai.Chat
 				string trimmed = text.Trim();
 				NPC target = null;
 				string utterance = trimmed;
+				bool addressedCall = false;
 
 				if (NpcAddressResolver.TryResolve(trimmed, out NpcAddressResolver.AddressMatch addressed)) {
+					addressedCall = true;
 					target = addressed.Npc;
 					utterance = string.IsNullOrWhiteSpace(addressed.StrippedText)
 						? "（玩家在呼叫你）"
 						: addressed.StrippedText;
 				}
 				else if (trimmed.StartsWith("@")) {
+					addressedCall = true;
 					target = NpcFollowQuery.FindFollower(player);
 					if (target == null) {
 						return;
@@ -138,7 +141,7 @@ namespace AITownNPCs.Common.Ai.Chat
 					return;
 				}
 
-				if (NpcAiFacade.RequestReply(player, target, utterance, proactive: false)) {
+				if (NpcAiFacade.RequestReply(player, target, utterance, proactive: false, addressed: addressedCall)) {
 					NpcAiRateLimit.Record(playerWhoAmI);
 					startedAi = true;
 				}

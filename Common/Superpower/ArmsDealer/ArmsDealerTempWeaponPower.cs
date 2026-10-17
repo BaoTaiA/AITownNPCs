@@ -169,18 +169,18 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 		private static (int ammoId, int stack) PickAmmo(int weaponId) {
 			_ = weaponId;
 			if (NPC.downedPlantBoss) {
-				return (ItemID.ChlorophyteBullet, 100);
+				return (ItemID.ChlorophyteBullet, 800);
 			}
 
 			if (Main.hardMode) {
-				return (ItemID.CrystalBullet, 150);
+				return (ItemID.CrystalBullet, 800);
 			}
 
 			if (NPC.downedBoss2) {
-				return (ItemID.MeteorShot, 150);
+				return (ItemID.MeteorShot, 800);
 			}
 
-			return (ItemID.MusketBall, 200);
+			return (ItemID.MusketBall, 800);
 		}
 	}
 }

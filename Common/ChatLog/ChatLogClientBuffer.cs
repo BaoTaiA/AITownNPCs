@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Terraria;
 
 namespace AITownNPCs.Common.ChatLog
 {
@@ -33,7 +34,7 @@ namespace AITownNPCs.Common.ChatLog
 			RecentFingerprintSet.Clear();
 			ScrollOffset = 0;
 			foreach (ChatLogEntry entry in entries) {
-				AddInternal(entry, markUnread: false);
+				AddInternal(entry, markUnread: false, live: false);
 			}
 		}
 
@@ -62,10 +63,10 @@ namespace AITownNPCs.Common.ChatLog
 				}
 			}
 
-			AddInternal(entry, markUnreadIfHidden);
+			AddInternal(entry, markUnreadIfHidden, live: true);
 		}
 
-		private static void AddInternal(ChatLogEntry entry, bool markUnread) {
+		private static void AddInternal(ChatLogEntry entry, bool markUnread, bool live) {
 			if (entry.Id != 0) {
 				SeenIds.Add(entry.Id);
 			}
@@ -76,6 +77,10 @@ namespace AITownNPCs.Common.ChatLog
 			while (RecentFingerprints.Count > 64) {
 				string old = RecentFingerprints.Dequeue();
 				RecentFingerprintSet.Remove(old);
+			}
+
+			if (live) {
+				entry.ClientShowTick = Main.GameUpdateCount == 0 ? 1u : Main.GameUpdateCount;
 			}
 
 			Follow.Add(entry);

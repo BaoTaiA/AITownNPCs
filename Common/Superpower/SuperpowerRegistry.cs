@@ -66,6 +66,7 @@ namespace AITownNPCs.Common.Superpower
 			Register(new Guide.GuideClearItemsPower());
 			Register(new Guide.GuideWorldQueryPower());
 			Register(new Nurse.NurseEmergencyHealPower());
+			Register(new Dryad.DryadGroupBuffPower());
 			Register(new ArmsDealer.ArmsDealerTempWeaponPower());
 			Register(new Merchant.MerchantBuyTrashPower());
 			Register(new Merchant.MerchantEmergencyDeliveryPower());

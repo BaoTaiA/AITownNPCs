@@ -21,6 +21,7 @@ namespace AITownNPCs.Common.Ai.Chat
 			public int PlayerWhoAmI;
 			public string Utterance;
 			public bool Proactive;
+			public bool Addressed;
 		}
 
 		private static readonly HashSet<int> BusyNpcs = new();
@@ -36,7 +37,7 @@ namespace AITownNPCs.Common.Ai.Chat
 			NPC npc,
 			string userUtterance,
 			bool proactive,
-			bool mentionPlayer = false) {
+			bool addressed = false) {
 			if (Main.netMode == NetmodeID.MultiplayerClient) {
 				return false;
 			}
@@ -45,14 +46,12 @@ namespace AITownNPCs.Common.Ai.Chat
 				return false;
 			}
 
-			// mentionPlayer ignored: decided at announce time via NpcDialoguePolicy.
-			_ = mentionPlayer;
-
 			int npcWho = npc.whoAmI;
 			var req = new PendingRequest {
 				PlayerWhoAmI = player.whoAmI,
 				Utterance = userUtterance.Trim(),
-				Proactive = proactive
+				Proactive = proactive,
+				Addressed = addressed && !proactive
 			};
 
 			if (proactive) {
@@ -209,6 +208,7 @@ namespace AITownNPCs.Common.Ai.Chat
 			AinpcServerConfig config = AinpcServerConfig.Instance;
 			string utterance = req.Utterance;
 			bool proactive = req.Proactive;
+			bool addressed = req.Addressed;
 			bool useSuperpower = !proactive
 				&& config != null
 				&& config.SuperpowerEnabled
@@ -269,8 +269,8 @@ namespace AITownNPCs.Common.Ai.Chat
 							}
 
 							reply = AiPromptBuilder.CleanReply(reply);
-							if (NpcDialoguePolicy.ShouldMentionPlayer(n) && !string.IsNullOrEmpty(p.name)) {
-								reply = "@" + p.name + " " + reply;
+							if (addressed) {
+								reply = PrefixAddress(reply, p.name);
 							}
 
 							string sk = AiConversationMemory.MakeKey(
@@ -302,6 +302,18 @@ namespace AITownNPCs.Common.Ai.Chat
 			});
 
 			return true;
+		}
+
+		private static string PrefixAddress(string reply, string playerName) {
+			if (string.IsNullOrEmpty(playerName) || string.IsNullOrEmpty(reply)) {
+				return reply;
+			}
+
+			if (reply.TrimStart().StartsWith("@")) {
+				return reply;
+			}
+
+			return "@" + playerName + " " + reply;
 		}
 
 		private static int BumpGeneration(int npcWho) {

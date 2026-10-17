@@ -32,6 +32,8 @@ namespace AITownNPCs.Common.UI
 		private const int VanillaInputExtra = 28;
 		private const float VanillaLineHeight = 21f;
 		private const float ChatLeft = 88f;
+		private const int FollowLineLifeTicks = 60 * 10;
+		private const int FollowLineFadeTicks = 60;
 
 		private static FieldInfo _showCountField;
 		private static ChatTab _activeTab = ChatTab.All;
@@ -117,12 +119,12 @@ namespace AITownNPCs.Common.UI
 		private static void OnDrawChat(On_RemadeChatMonitor.orig_DrawChat orig, RemadeChatMonitor self, bool drawingPlayerChat) {
 			ApplyShowCount(self);
 
-			if (!drawingPlayerChat || _activeTab == ChatTab.All) {
-				orig(self, drawingPlayerChat);
+			if (_activeTab == ChatTab.Follow) {
+				DrawFollowHistory(drawingPlayerChat);
 				return;
 			}
 
-			DrawFollowHistory();
+			orig(self, drawingPlayerChat);
 		}
 
 		private static void OnDrawPlayerChat(On_Main.orig_DrawPlayerChat orig, Main self) {
@@ -262,7 +264,16 @@ namespace AITownNPCs.Common.UI
 
 		private static int ChatWidth() => Math.Max(200, Main.screenWidth - 320);
 
-		private static List<PreparedFollowLine> BuildPreparedLines() {
+		private static int LineRemain(ChatLogEntry entry) {
+			if (entry.ClientShowTick == 0 || Main.GameUpdateCount < entry.ClientShowTick) {
+				return 0;
+			}
+
+			int age = (int)(Main.GameUpdateCount - entry.ClientShowTick);
+			return FollowLineLifeTicks - age;
+		}
+
+		private static List<PreparedFollowLine> BuildPreparedLines(bool historyOpen) {
 			var result = new List<PreparedFollowLine>();
 			DynamicSpriteFont font = FontAssets.MouseText.Value;
 			int width = ChatWidth();
@@ -270,28 +281,43 @@ namespace AITownNPCs.Common.UI
 
 			for (int i = 0; i < entries.Count; i++) {
 				ChatLogEntry entry = entries[i];
-				List<List<TextSnippet>> wrapped = Utils.WordwrapStringSmart(entry.Text, entry.Color, font, width, 100);
+				float alpha = 1f;
+				if (!historyOpen) {
+					int remain = LineRemain(entry);
+					if (remain <= 0) {
+						continue;
+					}
+
+					alpha = MathHelper.Clamp(remain / (float)FollowLineFadeTicks, 0f, 1f);
+				}
+
+				Color color = entry.Color * alpha;
+				List<List<TextSnippet>> wrapped = Utils.WordwrapStringSmart(entry.Text, color, font, width, 100);
 				if (wrapped == null || wrapped.Count == 0) {
-					TextSnippet[] snippets = ChatManager.ParseMessage(entry.Text, entry.Color).ToArray();
-					result.Add(new PreparedFollowLine(snippets, entry.Color));
+					TextSnippet[] snippets = ChatManager.ParseMessage(entry.Text, color).ToArray();
+					result.Add(new PreparedFollowLine(snippets, color));
 					continue;
 				}
 
 				foreach (List<TextSnippet> line in wrapped) {
-					result.Add(new PreparedFollowLine(line.ToArray(), entry.Color));
+					result.Add(new PreparedFollowLine(line.ToArray(), color));
 				}
 			}
 
 			return result;
 		}
 
-		private static int CountFollowVisualLines() => BuildPreparedLines().Count;
+		private static int CountFollowVisualLines() => BuildPreparedLines(historyOpen: true).Count;
 
-		private static void DrawFollowHistory() {
-			List<PreparedFollowLine> lines = BuildPreparedLines();
+		private static void DrawFollowHistory(bool historyOpen) {
+			List<PreparedFollowLine> lines = BuildPreparedLines(historyOpen);
 			float bottom = ChatBottomY;
 
 			if (lines.Count == 0) {
+				if (!historyOpen) {
+					return;
+				}
+
 				DynamicSpriteFont font = FontAssets.MouseText.Value;
 				string empty = Language.GetTextValue("Mods.AITownNPCs.UI.ChatFollowEmpty");
 				// Same as vanilla lineIndex 0 (bottom row).
@@ -308,11 +334,15 @@ namespace AITownNPCs.Common.UI
 				return;
 			}
 
-			int offset = ChatLogClientBuffer.ScrollOffset;
+			int offset = historyOpen ? ChatLogClientBuffer.ScrollOffset : 0;
 			int maxOffset = Math.Max(0, lines.Count - TargetShowCount);
-			if (offset > maxOffset) {
+			if (historyOpen && offset > maxOffset) {
 				offset = maxOffset;
 				ChatLogClientBuffer.ScrollOffset = offset;
+			}
+
+			if (offset > maxOffset) {
+				offset = maxOffset;
 			}
 
 			// Vanilla: y = screenHeight - 30 - 28 - lineIndex * 21 (lineIndex 0 = bottom).
