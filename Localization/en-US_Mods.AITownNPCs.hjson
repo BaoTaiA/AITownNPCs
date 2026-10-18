@@ -33,6 +33,8 @@ UI: {
 	AmmoNotSupported: This ammo is not supported
 	WeaponNotSupported: This weapon type is not supported
 	EquipBusy: This NPC's equipment is being used by another player
+	CombatBusy: This NPC is busy fighting
+	FollowInteractBlocked: This NPC is following ({0}) and cannot be interacted with.
 	ChatTabAll: All
 	ChatTabFollow: Follow
 	ChatFollowEmpty: (No follow-channel messages yet)
@@ -44,6 +46,7 @@ Follow: {
 	NoNpcNearby: No followable NPC nearby — stand closer and say the start keyword
 	NoFollower: No NPC is following you
 	NpcBusy: This NPC is already following another player
+	CastingBusy: This NPC is casting and cannot follow right now.
 }
 
 Ai: {

@@ -1,5 +1,6 @@
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Net;
+using AITownNPCs.Common.Superpower;
 using Microsoft.Xna.Framework;
 using Terraria.DataStructures;
 using Terraria;
@@ -61,20 +62,9 @@ namespace AITownNPCs.Common.Roles.Dryad
 			return false;
 		}
 
-		/// <summary>Spawn one stationary vanilla ward at her feet and consume potions once.</summary>
+		/// <summary>Spawn one vanilla ward bound to this dryad and consume potions once.</summary>
 		public static bool TryCastWard(NPC npc) {
-			if (npc == null || !npc.active) {
-				return false;
-			}
-
-			int id = NpcProjectileSpawn.SpawnServerOwned(
-				npc.GetSource_FromAI(),
-				npc.Bottom,
-				Vector2.Zero,
-				ProjectileID.DryadsWardCircle,
-				0,
-				0f);
-			if (id < 0 || id >= Main.maxProjectiles || !Main.projectile[id].active) {
+			if (!SpawnWardCircle(npc, out int id)) {
 				return false;
 			}
 
@@ -82,7 +72,27 @@ namespace AITownNPCs.Common.Roles.Dryad
 			state.LastPulsedWardWhoAmI = id;
 			state.WardActive = true;
 			ApplyPulse(npc, Main.projectile[id].Center);
+			npc.ai[0] = DryadWardBind.CastAi;
+			npc.netUpdate = true;
+			NpcVisitState.BindWard(npc.whoAmI, id);
 			return true;
+		}
+
+		private static bool SpawnWardCircle(NPC npc, out int id) {
+			id = -1;
+			if (npc == null || !npc.active) {
+				return false;
+			}
+
+			id = NpcProjectileSpawn.SpawnServerOwned(
+				npc.GetSource_FromAI(),
+				npc.Center,
+				Vector2.Zero,
+				ProjectileID.DryadsWardCircle,
+				0,
+				0f,
+				proj => proj.ai[1] = npc.whoAmI);
+			return id >= 0 && id < Main.maxProjectiles && Main.projectile[id].active;
 		}
 
 		public static bool IsBusy(DryadRoleState state) => state.WardActive;
@@ -209,5 +219,32 @@ namespace AITownNPCs.Common.Roles.Dryad
 	{
 		public bool WardActive;
 		public int LastPulsedWardWhoAmI = -1;
+	}
+
+	/// <summary>
+	/// Vanilla AI_111 kills the circle unless the dryad's ai[0] is 14.
+	/// Our visit skips town AI, so hold that flag for the one circle this mod spawns (owner 255).
+	/// </summary>
+	public class DryadWardBind : GlobalProjectile
+	{
+		public const float CastAi = 14f;
+
+		public override bool PreAI(Projectile projectile) {
+			if (projectile.type != ProjectileID.DryadsWardCircle || projectile.owner != 255) {
+				return true;
+			}
+
+			int who = (int)projectile.ai[1];
+			if ((uint)who >= (uint)Main.maxNPCs) {
+				return true;
+			}
+
+			NPC npc = Main.npc[who];
+			if (npc.active && npc.type == NPCID.Dryad) {
+				npc.ai[0] = CastAi;
+			}
+
+			return true;
+		}
 	}
 }

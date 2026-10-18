@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using AITownNPCs.Common.Ai.Follow;
+using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -17,6 +19,8 @@ namespace AITownNPCs.Common.Superpower
 		public bool SavedHomeless;
 		public int ReturnTimer;
 		public bool Active;
+		/// <summary>Dryad ward projectile. While it lives, the wait timer does not run.</summary>
+		public int WardProjectile = -1;
 	}
 
 	/// <summary>
@@ -34,6 +38,12 @@ namespace AITownNPCs.Common.Superpower
 			ByNpc.TryGetValue(npcWhoAmI, out NpcVisitSession s) && s.Active;
 
 		public static void ClearAll() => ByNpc.Clear();
+
+		public static void BindWard(int npcWhoAmI, int projectileWho) {
+			if (ByNpc.TryGetValue(npcWhoAmI, out NpcVisitSession session)) {
+				session.WardProjectile = projectileWho;
+			}
+		}
 
 		/// <summary>False when this NPC is already standing through a visit.</summary>
 		public static bool TryBegin(NPC npc, Player player, int stayTicks) {
@@ -56,11 +66,12 @@ namespace AITownNPCs.Common.Superpower
 				Active = true
 			};
 
+			Vector2 from = npc.position;
 			TeleportNearPlayer(npc, player);
 			session.StayPos = npc.Center;
 			npc.homeless = true;
 			npc.velocity = Vector2.Zero;
-			SpawnTeleportDust(npc.Center);
+			NpcFollowNetSystem.BroadcastTeleportFx(npc.whoAmI, from, npc.position, npc.width, npc.height);
 			ByNpc[npc.whoAmI] = session;
 			return true;
 		}
@@ -164,24 +175,15 @@ namespace AITownNPCs.Common.Superpower
 			return false;
 		}
 
-		private static void SpawnTeleportDust(Vector2 pos) {
-			for (int i = 0; i < 24; i++) {
-				Dust.NewDust(pos - new Vector2(8f, 8f), 16, 32, DustID.Teleporter);
-			}
-
-			if (Main.netMode == NetmodeID.Server) {
-				SuperpowerNetSystem.SendNurseTeleportFx(pos);
-			}
-		}
-
 		private static void RestoreHomeAndReturn(NPC npc, NpcVisitSession s) {
+			Vector2 from = npc.position;
 			npc.homeless = s.SavedHomeless;
 			npc.homeTileX = s.SavedHomeX;
 			npc.homeTileY = s.SavedHomeY;
 			npc.Center = s.HomePos;
 			npc.velocity = Vector2.Zero;
 			npc.netUpdate = true;
-			SpawnTeleportDust(npc.Center);
+			NpcFollowNetSystem.BroadcastTeleportFx(npc.whoAmI, from, npc.position, npc.width, npc.height);
 			if (Main.netMode == NetmodeID.Server) {
 				NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, npc.whoAmI);
 			}
@@ -211,6 +213,25 @@ namespace AITownNPCs.Common.Superpower
 					npc.Center = s.StayPos;
 					npc.velocity = Vector2.Zero;
 					npc.netUpdate = true;
+				}
+
+				if (s.WardProjectile >= 0) {
+					int ward = s.WardProjectile;
+					bool wardAlive = ward >= 0 && ward < Main.maxProjectiles
+						&& Main.projectile[ward].active
+						&& Main.projectile[ward].type == ProjectileID.DryadsWardCircle;
+					if (wardAlive) {
+						s.ReturnTimer = StayTicks + 1;
+						npc.ai[0] = DryadWardBind.CastAi;
+					}
+					else {
+						s.WardProjectile = -1;
+						s.ReturnTimer = StayTicks;
+						if (npc.ai[0] == DryadWardBind.CastAi) {
+							npc.ai[0] = 0f;
+							npc.netUpdate = true;
+						}
+					}
 				}
 
 				s.ReturnTimer--;

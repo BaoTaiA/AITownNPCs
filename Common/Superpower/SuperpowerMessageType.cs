@@ -2,6 +2,7 @@ namespace AITownNPCs.Common.Superpower
 {
 	public enum SuperpowerMessageType : byte
 	{
+		/// <summary>Retired. Kept so later superpower packet ids stay put.</summary>
 		NurseTeleportFx = 30,
 		ArmsWeaponReclaimNotify = 31,
 		/// <summary>Server → client: guide guidance target + buff.</summary>

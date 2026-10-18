@@ -5,7 +5,10 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 {
 	public static class NpcBossCombat
 	{
-		public static NPC FindNearestBoss(Player player, NPC attacker = null) {
+		/// <summary>Drop the lock when the followed player is farther than this from the boss.</summary>
+		public const float PlayerKeepRadius = 4000f;
+
+		public static NPC FindNearestBoss(Player player, NPC attacker = null, float maxPlayerDistance = float.MaxValue) {
 			NPC best = null;
 			float bestDist = float.MaxValue;
 
@@ -25,7 +28,7 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 				}
 
 				float dist = player.Distance(other.Center);
-				if (dist >= bestDist) {
+				if (dist > maxPlayerDistance || dist >= bestDist) {
 					continue;
 				}
 

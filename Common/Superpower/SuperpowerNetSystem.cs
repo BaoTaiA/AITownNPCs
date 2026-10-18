@@ -11,18 +11,6 @@ namespace AITownNPCs.Common.Superpower
 {
 	public class SuperpowerNetSystem : ModSystem
 	{
-		public static void SendNurseTeleportFx(Vector2 pos) {
-			if (Main.netMode != NetmodeID.Server) {
-				return;
-			}
-
-			ModPacket packet = ModContent.GetInstance<AITownNPCs>().GetPacket();
-			packet.Write((byte)SuperpowerMessageType.NurseTeleportFx);
-			packet.Write(pos.X);
-			packet.Write(pos.Y);
-			packet.Send();
-		}
-
 		public static void SendGuidanceStart(int playerWhoAmI, Vector2 targetTile, int durationTicks) {
 			if (Main.netMode != NetmodeID.Server || playerWhoAmI < 0 || playerWhoAmI >= Main.maxPlayers) {
 				return;
@@ -71,18 +59,6 @@ namespace AITownNPCs.Common.Superpower
 					string text = reader.ReadString();
 					if (Main.netMode != NetmodeID.Server) {
 						Main.NewText(text, Color.Orange);
-					}
-
-					break;
-				}
-				case SuperpowerMessageType.NurseTeleportFx: {
-					float x = reader.ReadSingle();
-					float y = reader.ReadSingle();
-					if (Main.netMode != NetmodeID.Server) {
-						var pos = new Vector2(x, y);
-						for (int i = 0; i < 20; i++) {
-							Dust.NewDust(pos, 16, 16, DustID.Teleporter);
-						}
 					}
 
 					break;

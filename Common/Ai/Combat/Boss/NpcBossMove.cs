@@ -9,7 +9,6 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 {
 	public static class NpcBossMove
 	{
-		private const float TeleportBossDist = 2000f;
 		private const int PredictTicks = 8;
 		private const float FlyRiseTiles = 5f;
 		private const float LandNearAnchor = 48f;
@@ -29,7 +28,7 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			}
 
 			float dist = npc.Distance(boss.Center);
-			if (dist > TeleportBossDist) {
+			if (dist > NpcBossCombat.PlayerKeepRadius) {
 				NpcCombatLocomotion.TeleportNear(npc, boss.Center + new Vector2(-npc.direction * 96f, -32f));
 				follow.StuckTimer = 0;
 				return;

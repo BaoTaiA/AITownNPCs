@@ -62,13 +62,19 @@ namespace AITownNPCs.Common.Ai.Combat
 			state.TargetRefreshTicks = TargetAcquireInterval;
 
 			if (state.Mode == NpcCombatMode.Boss) {
-				if (NpcBossCombat.GetLockedBoss(state) != null) {
-					state.BossClearTicks = 0;
-					state.HasEngagedTarget = true;
+				NPC locked = NpcBossCombat.GetLockedBoss(state);
+				if (locked != null) {
+					if (player.Distance(locked.Center) <= NpcBossCombat.PlayerKeepRadius) {
+						state.BossClearTicks = 0;
+						state.HasEngagedTarget = true;
+						return;
+					}
+
+					state.EnterFollowOnly();
 					return;
 				}
 
-				NPC fresh = NpcBossCombat.FindNearestBoss(player, npc);
+				NPC fresh = NpcBossCombat.FindNearestBoss(player, npc, NpcNormalCombat.LeashDist);
 				if (fresh != null) {
 					state.Mode = NpcCombatMode.Boss;
 					state.LockedBossWhoAmI = fresh.whoAmI;
@@ -88,7 +94,7 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
-			NPC nearestBoss = NpcBossCombat.FindNearestBoss(player, npc);
+			NPC nearestBoss = NpcBossCombat.FindNearestBoss(player, npc, NpcNormalCombat.LeashDist);
 			if (nearestBoss != null) {
 				state.Mode = NpcCombatMode.Boss;
 				state.LockedBossWhoAmI = nearestBoss.whoAmI;
@@ -129,7 +135,8 @@ namespace AITownNPCs.Common.Ai.Combat
 		/// <summary>Between full scans, keep valid boss lock / sticky normal target without world NPC sweeps.</summary>
 		private static bool TryMaintainCachedTargets(NPC npc, Player player, NpcCombatState state) {
 			if (state.Mode == NpcCombatMode.Boss) {
-				if (NpcBossCombat.GetLockedBoss(state) != null) {
+				NPC boss = NpcBossCombat.GetLockedBoss(state);
+				if (boss != null && player.Distance(boss.Center) <= NpcBossCombat.PlayerKeepRadius) {
 					state.BossClearTicks = 0;
 					state.HasEngagedTarget = true;
 					return true;
@@ -177,9 +184,8 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
-			if (NpcOwnershipSystem.TryGetEquipLockOwner(npc.whoAmI, out _)) {
-				NpcCombatFire.Tick(npc, equip, target: null, allowFire: false);
-				return;
+			if (state.Mode != NpcCombatMode.FollowOnly) {
+				NpcInteractGate.DismissOpenEquip(npc.whoAmI);
 			}
 
 			switch (state.Mode) {

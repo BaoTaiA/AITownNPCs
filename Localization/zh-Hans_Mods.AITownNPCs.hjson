@@ -33,6 +33,8 @@ UI: {
 	AmmoNotSupported: 不支持该弹药
 	WeaponNotSupported: 不支持该类型装备
 	EquipBusy: 该 NPC 装备栏正被其他玩家使用
+	CombatBusy: NPC战斗忙碌中
+	FollowInteractBlocked: NPC正在跟随（{0}），无法使用交互。
 	ChatTabAll: 全部
 	ChatTabFollow: 跟随
 	ChatFollowEmpty: （跟随频道暂无消息）
@@ -44,6 +46,7 @@ Follow: {
 	NoNpcNearby: 附近没有可跟随的 NPC（靠近后再说「跟着我」）
 	NoFollower: 当前没有 NPC 在跟随你
 	NpcBusy: 该 NPC 正在跟随其他玩家
+	CastingBusy: NPC正在施法，暂时无法跟随。
 }
 
 Ai: {
@@ -132,7 +135,7 @@ Buffs: {
 	}
 
 	SuperHeartBuff: {
-		DisplayName: 超级爱心
+		DisplayName: 护士爱心
 		Description: 每秒额外回复 50 点生命，持续 1 分钟
 	}
 }

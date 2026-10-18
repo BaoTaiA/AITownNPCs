@@ -11,6 +11,8 @@ namespace AITownNPCs.Common.Equip
 		/// <summary>NPC whose equipment panel is open under the dialogue; -1 if none.</summary>
 		public int EditingNpcWhoAmI = -1;
 
+		private int _blockedTalkNpc = -1;
+
 		public bool IsEditing => EditingNpcWhoAmI >= 0 && EditingNpcWhoAmI < Main.maxNPCs;
 
 		public NPC EditingNpc {
@@ -39,6 +41,11 @@ namespace AITownNPCs.Common.Equip
 
 			NPC npc = Main.npc[npcWhoAmI];
 			if (!NpcHostRules.IsManagedTownNpc(npc) || !NpcEquipHelper.IsPlayerNearNpc(Player, npc)) {
+				return;
+			}
+
+			if (NpcInteractGate.TryGetBlockMessage(Player, npc, out string blocked)) {
+				Main.NewText(blocked, NpcInteractGate.NoticeColor);
 				return;
 			}
 
@@ -106,6 +113,28 @@ namespace AITownNPCs.Common.Equip
 		}
 
 		public override void PostUpdate() {
+			if (Player.whoAmI == Main.myPlayer) {
+				int talk = Player.talkNPC;
+				string blocked = null;
+				bool blockedTalk = talk >= 0 && talk < Main.maxNPCs
+					&& NpcInteractGate.TryGetBlockMessage(Player, Main.npc[talk], out blocked);
+				if (blockedTalk) {
+					if (IsEditing && EditingNpcWhoAmI == talk) {
+						CloseEquip();
+					}
+
+					Player.SetTalkNPC(-1);
+					Main.npcChatText = string.Empty;
+					if (_blockedTalkNpc != talk) {
+						_blockedTalkNpc = talk;
+						Main.NewText(blocked, NpcInteractGate.NoticeColor);
+					}
+				}
+				else {
+					_blockedTalkNpc = -1;
+				}
+			}
+
 			if (!IsEditing) {
 				return;
 			}

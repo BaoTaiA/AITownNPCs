@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AITownNPCs.Common.Configs;
 using AITownNPCs.Common.Ai.Follow;
+using AITownNPCs.Common.Host;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -38,6 +39,32 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 
 			return list;
+		}
+
+		private static NPC FindNearestOtherFollower(Player player, float range) {
+			NPC best = null;
+			float bestDist = range;
+			for (int i = 0; i < Main.maxNPCs; i++) {
+				NPC npc = Main.npc[i];
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
+					continue;
+				}
+
+				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+				if (!follow.IsFollowing || follow.FollowPlayerWhoAmI == player.whoAmI) {
+					continue;
+				}
+
+				float dist = Vector2.Distance(player.Center, npc.Center);
+				if (dist >= bestDist) {
+					continue;
+				}
+
+				bestDist = dist;
+				best = npc;
+			}
+
+			return best;
 		}
 
 		public static int CountPlayersNearNpc(NPC npc, float range = -1f) {
@@ -122,6 +149,12 @@ namespace AITownNPCs.Common.Ai.Chat
 				else {
 					List<NPC> near = CollectNpcsInChatRange(player);
 					if (near.Count == 0) {
+						NPC otherFollower = FindNearestOtherFollower(player, ChatRange());
+						if (otherFollower != null
+							&& NpcInteractGate.TryGetFollowBlockMessage(player, otherFollower, out string blocked)) {
+							NpcAiSpeech.NotifyPlayerLiteral(playerWhoAmI, blocked, NpcInteractGate.NoticeColor);
+						}
+
 						return;
 					}
 
@@ -133,6 +166,11 @@ namespace AITownNPCs.Common.Ai.Chat
 				}
 
 				if (target == null || !target.active) {
+					return;
+				}
+
+				if (NpcInteractGate.TryGetFollowBlockMessage(player, target, out string followBlocked)) {
+					NpcAiSpeech.NotifyPlayerLiteral(playerWhoAmI, followBlocked, NpcInteractGate.NoticeColor);
 					return;
 				}
 

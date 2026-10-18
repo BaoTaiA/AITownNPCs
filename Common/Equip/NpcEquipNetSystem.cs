@@ -1,4 +1,5 @@
 using System.IO;
+using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Net;
 using Terraria;
@@ -157,6 +158,12 @@ namespace AITownNPCs.Common.Equip
 			if (player == null || !player.active
 			    || !NpcHostRules.IsManagedTownNpc(npc)
 			    || !NpcEquipHelper.IsPlayerNearNpc(player, npc)) {
+				SendOpenResult(sender, npcWhoAmI, false);
+				return;
+			}
+
+			if (NpcInteractGate.TryGetBlockMessage(player, npc, out string blocked)) {
+				NpcAiSpeech.NotifyPlayerLiteral(sender, blocked, NpcInteractGate.NoticeColor);
 				SendOpenResult(sender, npcWhoAmI, false);
 				return;
 			}

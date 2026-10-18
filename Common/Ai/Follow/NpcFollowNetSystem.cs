@@ -3,6 +3,7 @@ using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.Configs;
 using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Net;
+using AITownNPCs.Common.Superpower;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -146,6 +147,11 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
+			if (NpcVisitState.IsStaying(best.whoAmI)) {
+				NotifyPlayer(playerWhoAmI, "Mods.AITownNPCs.Follow.CastingBusy");
+				return;
+			}
+
 			FollowingTownNPC follow = best.GetGlobalNPC<FollowingTownNPC>();
 			if (follow.IsFollowing && follow.FollowPlayerWhoAmI != playerWhoAmI) {
 				NotifyPlayer(playerWhoAmI, "Mods.AITownNPCs.Follow.NpcBusy");
@@ -169,6 +175,7 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			follow.FollowPlayerWhoAmI = playerWhoAmI;
 			modPlayer.FollowingNpcWhoAmI = best.whoAmI;
+			NpcInteractGate.DismissOpenEquip(best.whoAmI, playerWhoAmI);
 			FollowingTownNPC.ApplyFollowNetFlags(best, following: true);
 			SyncFollow(best.whoAmI, playerWhoAmI);
 			NpcFollowEvents.RaiseFollowStarted(player, best);

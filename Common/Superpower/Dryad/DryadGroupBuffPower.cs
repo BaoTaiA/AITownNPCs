@@ -10,7 +10,7 @@ namespace AITownNPCs.Common.Superpower.Dryad
 		public int NpcType => NPCID.Dryad;
 		public int CooldownFrames => 60 * 60 * 5;
 		public string DisplayNameZh => "群体增益";
-		public string DescriptionZh => "传送到玩家身边放一次结界，8 秒后回去";
+		public string DescriptionZh => "传送到玩家身边放原版结界，结界结束后再等 8 秒回去";
 		public string RefuseStyleZh => "温柔、甜美";
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
