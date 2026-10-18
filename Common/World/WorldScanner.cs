@@ -19,6 +19,13 @@ namespace AITownNPCs.Common.World
 		private const int DesertColumnMinSand = 25;
 		private const int DesertMinColumns = 40;
 
+		private const float ShimmerClusterDist = 100f;
+		private const float FurnitureClusterDist = 24f;
+		/// <summary>LargePiles2 style whose top-left frame is the enchanted sword shrine.</summary>
+		private const int SwordShrineFrameX = 918;
+		/// <summary>Shadow Orb tile is one sheet: style 0 is the orb, the next style is the crimson heart.</summary>
+		private const int ShadowOrbStyleWidth = 36;
+
 		private static readonly int[] OreTypes = {
 			TileID.Copper, TileID.Tin,
 			TileID.Iron, TileID.Lead,
@@ -31,42 +38,175 @@ namespace AITownNPCs.Common.World
 			TileID.Mythril, TileID.Orichalcum,
 			TileID.Adamantite, TileID.Titanium,
 			TileID.Chlorophyte,
-			TileID.LunarOre
+			TileID.LunarOre,
+			TileID.Amethyst, TileID.Topaz, TileID.Sapphire,
+			TileID.Emerald, TileID.Ruby, TileID.Diamond,
+			TileID.TreeAmber
 		};
 
-		public static void ScanAll() {
-			WorldCache.Clear();
-
+		public static ScanSession Begin() {
 			int w = Main.maxTilesX;
 			int h = Main.maxTilesY;
 			if (w <= 0 || h <= 0) {
-				return;
+				return null;
 			}
 
-			foreach (int ore in OreTypes) {
-				WorldCache.OreLocations[ore] = new List<Vector2>();
+			return new ScanSession(w, h);
+		}
+
+		public sealed class ScanSession
+		{
+			public readonly ScanBuffer Buffer = new();
+			private readonly int _w;
+			private readonly int _h;
+			private readonly int _cellsX;
+			private readonly int _cellsY;
+			private readonly int _oceanLeft;
+			private readonly int _oceanRight;
+			private readonly int _surfaceBandTop;
+			private readonly int _surfaceBandBot;
+			private readonly int[] _surfaceSandPerColumn;
+			private readonly Dictionary<string, int[,]> _biomeCounts = new();
+			private readonly Dictionary<string, Dictionary<long, int>> _structureCounts = new();
+			private readonly Dictionary<string, Dictionary<long, long>> _structureSumX = new();
+			private readonly Dictionary<string, Dictionary<long, long>> _structureSumY = new();
+			private int _x;
+
+			internal ScanSession(int w, int h) {
+				_w = w;
+				_h = h;
+				foreach (int ore in OreTypes) {
+					Buffer.OreLocations[ore] = new List<Vector2>();
+				}
+
+				_cellsX = (w + BiomeCell - 1) / BiomeCell;
+				_cellsY = (h + BiomeCell - 1) / BiomeCell;
+				_oceanLeft = (int)(w * OceanEdgeFraction);
+				_oceanRight = w - _oceanLeft;
+				_surfaceSandPerColumn = new int[w];
+				_surfaceBandTop = Math.Max(0, (int)Main.worldSurface - 80);
+				_surfaceBandBot = Math.Min(h - 1, (int)Main.worldSurface + 40);
 			}
 
-			int cellsX = (w + BiomeCell - 1) / BiomeCell;
-			int cellsY = (h + BiomeCell - 1) / BiomeCell;
-			var biomeCounts = new Dictionary<string, int[,]>();
+			/// <summary>Scan the next columns. True when the buffer is complete.</summary>
+			public bool Step(int columns) {
+				if (columns < 1) {
+					columns = 1;
+				}
 
-			int oceanLeft = (int)(w * OceanEdgeFraction);
-			int oceanRight = w - oceanLeft;
-			int[] surfaceSandPerColumn = new int[w];
-			int surfaceBandTop = Math.Max(0, (int)Main.worldSurface - 80);
-			int surfaceBandBot = Math.Min(h - 1, (int)Main.worldSurface + 40);
+				int end = Math.Min(_x + columns, _w);
+				for (int x = _x; x < end; x++) {
+					for (int y = 0; y < _h; y++) {
+						Visit(x, y);
+					}
+				}
 
-			var structureCounts = new Dictionary<string, Dictionary<long, int>>();
-			var structureSumX = new Dictionary<string, Dictionary<long, long>>();
-			var structureSumY = new Dictionary<string, Dictionary<long, long>>();
+				_x = end;
+				if (_x < _w) {
+					return false;
+				}
 
-			void TouchStructure(string key, int x, int y) {
-				if (!structureCounts.TryGetValue(key, out Dictionary<long, int> counts)) {
+				Finish();
+				return true;
+			}
+
+			private void Visit(int x, int y) {
+				Tile tile = Main.tile[x, y];
+				if (tile == null) {
+					return;
+				}
+
+				if (tile.LiquidAmount > 0 && tile.LiquidType == LiquidID.Shimmer) {
+					AddCluster(Buffer.Shimmer, x, y, ShimmerClusterDist);
+				}
+
+				if (!tile.HasTile) {
+					return;
+				}
+
+				ushort type = tile.TileType;
+				string biome = BiomeKeyFromTile(type);
+				if (biome != null) {
+					AddBiome(biome, x, y);
+				}
+
+				if (type == TileID.Sand && x >= _oceanLeft && x < _oceanRight
+				    && y >= _surfaceBandTop && y <= _surfaceBandBot) {
+					_surfaceSandPerColumn[x]++;
+				}
+
+				if (type == TileID.Cloud || type == TileID.RainCloud || type == TileID.SnowCloud) {
+					TouchStructure("sky", x, y);
+				}
+				else if (type == TileID.BlueDungeonBrick || type == TileID.GreenDungeonBrick
+				         || type == TileID.PinkDungeonBrick) {
+					TouchStructure("dungeon", x, y);
+				}
+				else if (type == TileID.LihzahrdBrick) {
+					TouchStructure("temple", x, y);
+				}
+				else if (type == TileID.LivingWood || type == TileID.LeafBlock) {
+					TouchStructure("tree", x, y);
+				}
+				else if (type == TileID.SandstoneBrick) {
+					TouchStructure("pyramid", x, y);
+				}
+				else if (type == TileID.Hive) {
+					TouchStructure("hive", x, y);
+				}
+
+				if (Buffer.OreLocations.TryGetValue(type, out List<Vector2> oreList)) {
+					AddCluster(oreList, x, y, OreClusterDist);
+				}
+
+				if (type == TileID.Heart) {
+					AddCluster(Buffer.LifeCrystals, x, y, LifeClusterDist);
+				}
+				else if (type == TileID.LifeFruit) {
+					AddCluster(Buffer.LifeFruits, x, y, LifeClusterDist);
+				}
+				else if (type == TileID.ShadowOrbs) {
+					List<Vector2> list = tile.TileFrameX < ShadowOrbStyleWidth
+						? Buffer.ShadowOrbs
+						: Buffer.CrimsonHearts;
+					AddCluster(list, x, y, LifeClusterDist);
+				}
+				else if (type == TileID.LargePiles2 && tile.TileFrameX == SwordShrineFrameX && tile.TileFrameY == 0) {
+					AddCluster(Buffer.SwordShrines, x, y, LifeClusterDist);
+				}
+				else if (type == TileID.Hellforge) {
+					AddCluster(Buffer.Hellforges, x, y, FurnitureClusterDist);
+				}
+				else if (type == TileID.DemonAltar) {
+					AddCluster(Buffer.Altars, x, y, FurnitureClusterDist);
+				}
+			}
+
+			private void Finish() {
+				FinalizeBiomes(Buffer, _biomeCounts, _cellsX, _cellsY);
+				FinalizeDesert(Buffer, _surfaceSandPerColumn, _oceanLeft, _oceanRight, _surfaceBandTop, _surfaceBandBot);
+				FinalizeOcean(Buffer, _oceanLeft, _oceanRight);
+				FinalizeStructures(Buffer, _structureCounts, _structureSumX, _structureSumY);
+
+				if (Main.dungeonX > 0 && Main.dungeonY > 0) {
+					Buffer.DungeonPos = new Vector2(Main.dungeonX, Main.dungeonY);
+					Buffer.HasDungeon = true;
+				}
+
+				Rectangle ud = GenVars.UndergroundDesertLocation;
+				if (ud.Width > 10 && ud.Height > 10) {
+					AddBiomeCenter(Buffer, "地下沙漠", new Vector2(ud.Center.X, ud.Center.Y));
+				}
+
+				ScanChests(Buffer);
+			}
+
+			private void TouchStructure(string key, int x, int y) {
+				if (!_structureCounts.TryGetValue(key, out Dictionary<long, int> counts)) {
 					counts = new Dictionary<long, int>();
-					structureCounts[key] = counts;
-					structureSumX[key] = new Dictionary<long, long>();
-					structureSumY[key] = new Dictionary<long, long>();
+					_structureCounts[key] = counts;
+					_structureSumX[key] = new Dictionary<long, long>();
+					_structureSumY[key] = new Dictionary<long, long>();
 				}
 
 				int gx = x / StructureGrid;
@@ -74,92 +214,22 @@ namespace AITownNPCs.Common.World
 				long gkey = ((long)gx << 32) | (uint)gy;
 				counts.TryGetValue(gkey, out int c);
 				counts[gkey] = c + 1;
-				structureSumX[key].TryGetValue(gkey, out long sx);
-				structureSumY[key].TryGetValue(gkey, out long sy);
-				structureSumX[key][gkey] = sx + x;
-				structureSumY[key][gkey] = sy + y;
+				_structureSumX[key].TryGetValue(gkey, out long sx);
+				_structureSumY[key].TryGetValue(gkey, out long sy);
+				_structureSumX[key][gkey] = sx + x;
+				_structureSumY[key][gkey] = sy + y;
 			}
 
-			void AddBiome(string key, int x, int y) {
-				if (!biomeCounts.TryGetValue(key, out int[,] grid)) {
-					grid = new int[cellsX, cellsY];
-					biomeCounts[key] = grid;
+			private void AddBiome(string key, int x, int y) {
+				if (!_biomeCounts.TryGetValue(key, out int[,] grid)) {
+					grid = new int[_cellsX, _cellsY];
+					_biomeCounts[key] = grid;
 				}
 
-				int cx = Math.Clamp(x / BiomeCell, 0, cellsX - 1);
-				int cy = Math.Clamp(y / BiomeCell, 0, cellsY - 1);
+				int cx = Math.Clamp(x / BiomeCell, 0, _cellsX - 1);
+				int cy = Math.Clamp(y / BiomeCell, 0, _cellsY - 1);
 				grid[cx, cy]++;
 			}
-
-			for (int x = 0; x < w; x++) {
-				for (int y = 0; y < h; y++) {
-					Tile tile = Main.tile[x, y];
-					if (tile == null || !tile.HasTile) {
-						continue;
-					}
-
-					ushort type = tile.TileType;
-
-					string biome = BiomeKeyFromTile(type);
-					if (biome != null) {
-						AddBiome(biome, x, y);
-					}
-
-					if (type == TileID.Sand && x >= oceanLeft && x < oceanRight
-					    && y >= surfaceBandTop && y <= surfaceBandBot) {
-						surfaceSandPerColumn[x]++;
-					}
-
-					if (type == TileID.Cloud || type == TileID.RainCloud || type == TileID.SnowCloud) {
-						TouchStructure("sky", x, y);
-					}
-					else if (type == TileID.BlueDungeonBrick || type == TileID.GreenDungeonBrick
-					         || type == TileID.PinkDungeonBrick) {
-						TouchStructure("dungeon", x, y);
-					}
-					else if (type == TileID.LihzahrdBrick) {
-						TouchStructure("temple", x, y);
-					}
-					else if (type == TileID.LivingWood || type == TileID.LeafBlock) {
-						TouchStructure("tree", x, y);
-					}
-					else if (type == TileID.SandstoneBrick) {
-						TouchStructure("pyramid", x, y);
-					}
-					else if (type == TileID.Hive) {
-						TouchStructure("hive", x, y);
-					}
-
-					if (WorldCache.OreLocations.TryGetValue(type, out List<Vector2> oreList)) {
-						AddCluster(oreList, x, y, OreClusterDist);
-					}
-
-					if (type == TileID.Heart) {
-						AddCluster(WorldCache.LifeCrystals, x, y, LifeClusterDist);
-					}
-					else if (type == TileID.LifeFruit) {
-						AddCluster(WorldCache.LifeFruits, x, y, LifeClusterDist);
-					}
-				}
-			}
-
-			FinalizeBiomes(biomeCounts, cellsX, cellsY);
-			FinalizeDesert(surfaceSandPerColumn, oceanLeft, oceanRight, surfaceBandTop, surfaceBandBot);
-			FinalizeOcean(oceanLeft, oceanRight);
-			FinalizeStructures(structureCounts, structureSumX, structureSumY);
-
-			if (Main.dungeonX > 0 && Main.dungeonY > 0) {
-				WorldCache.DungeonPos = new Vector2(Main.dungeonX, Main.dungeonY);
-				WorldCache.HasDungeon = true;
-			}
-
-			Rectangle ud = GenVars.UndergroundDesertLocation;
-			if (ud.Width > 10 && ud.Height > 10) {
-				AddBiomeCenter("地下沙漠", new Vector2(ud.Center.X, ud.Center.Y));
-			}
-
-			ScanChests();
-			WorldCache.Ready = true;
 		}
 
 		private static string BiomeKeyFromTile(ushort type) {
@@ -187,10 +257,18 @@ namespace AITownNPCs.Common.World
 				return "雪原";
 			}
 
+			if (type == TileID.Granite) {
+				return "花岗岩";
+			}
+
+			if (type == TileID.Marble) {
+				return "大理石";
+			}
+
 			return null;
 		}
 
-		private static void FinalizeBiomes(Dictionary<string, int[,]> biomeCounts, int cellsX, int cellsY) {
+		private static void FinalizeBiomes(ScanBuffer dest, Dictionary<string, int[,]> biomeCounts, int cellsX, int cellsY) {
 			foreach (KeyValuePair<string, int[,]> kvp in biomeCounts) {
 				int[,] grid = kvp.Value;
 				bool[,] visited = new bool[cellsX, cellsY];
@@ -251,12 +329,12 @@ namespace AITownNPCs.Common.World
 						continue;
 					}
 
-					AddBiomeCenter(kvp.Key, new Vector2(r.sumX / (float)r.count, r.sumY / (float)r.count));
+					AddBiomeCenter(dest, kvp.Key, new Vector2(r.sumX / (float)r.count, r.sumY / (float)r.count));
 				}
 			}
 		}
 
-		private static void FinalizeDesert(int[] sandPerCol, int oceanLeft, int oceanRight, int bandTop, int bandBot) {
+		private static void FinalizeDesert(ScanBuffer dest, int[] sandPerCol, int oceanLeft, int oceanRight, int bandTop, int bandBot) {
 			var desertCols = new List<int>();
 			for (int x = oceanLeft; x < oceanRight; x++) {
 				if (sandPerCol[x] >= DesertColumnMinSand) {
@@ -299,16 +377,17 @@ namespace AITownNPCs.Common.World
 
 			int mid = desertCols[bestStart + bestLen / 2];
 			int y = (bandTop + bandBot) / 2;
-			AddBiomeCenter("沙漠", new Vector2(mid, y));
+			AddBiomeCenter(dest, "沙漠", new Vector2(mid, y));
 		}
 
-		private static void FinalizeOcean(int oceanLeft, int oceanRight) {
+		private static void FinalizeOcean(ScanBuffer dest, int oceanLeft, int oceanRight) {
 			float y = (float)Main.worldSurface;
-			AddBiomeCenter("海洋", new Vector2(oceanLeft / 2f, y));
-			AddBiomeCenter("海洋", new Vector2((Main.maxTilesX + oceanRight) / 2f, y));
+			AddBiomeCenter(dest, "海洋", new Vector2(oceanLeft / 2f, y));
+			AddBiomeCenter(dest, "海洋", new Vector2((Main.maxTilesX + oceanRight) / 2f, y));
 		}
 
 		private static void FinalizeStructures(
+			ScanBuffer dest,
 			Dictionary<string, Dictionary<long, int>> counts,
 			Dictionary<string, Dictionary<long, long>> sumX,
 			Dictionary<string, Dictionary<long, long>> sumY) {
@@ -324,37 +403,37 @@ namespace AITownNPCs.Common.World
 					var pos = new Vector2(x, y);
 					switch (key) {
 						case "sky":
-							WorldCache.SkyIslands.Add(pos);
+							dest.SkyIslands.Add(pos);
 							break;
 						case "dungeon":
-							if (!WorldCache.HasDungeon) {
-								WorldCache.DungeonPos = pos;
-								WorldCache.HasDungeon = true;
+							if (!dest.HasDungeon) {
+								dest.DungeonPos = pos;
+								dest.HasDungeon = true;
 							}
 
 							break;
 						case "temple":
-							WorldCache.TemplePos = pos;
-							WorldCache.HasTemple = true;
+							dest.TemplePos = pos;
+							dest.HasTemple = true;
 							break;
 						case "tree":
-							WorldCache.LifeTrees.Add(pos);
+							dest.LifeTrees.Add(pos);
 							break;
 						case "pyramid":
-							WorldCache.Pyramids.Add(pos);
+							dest.Pyramids.Add(pos);
 							break;
 						case "hive":
-							WorldCache.Hives.Add(pos);
+							dest.Hives.Add(pos);
 							break;
 					}
 				}
 			}
 		}
 
-		private static void AddBiomeCenter(string key, Vector2 pos) {
-			if (!WorldCache.BiomeCenters.TryGetValue(key, out List<Vector2> list)) {
+		private static void AddBiomeCenter(ScanBuffer dest, string key, Vector2 pos) {
+			if (!dest.BiomeCenters.TryGetValue(key, out List<Vector2> list)) {
 				list = new List<Vector2>();
-				WorldCache.BiomeCenters[key] = list;
+				dest.BiomeCenters[key] = list;
 			}
 
 			list.Add(pos);
@@ -371,7 +450,7 @@ namespace AITownNPCs.Common.World
 			clusters.Add(pos);
 		}
 
-		private static void ScanChests() {
+		private static void ScanChests(ScanBuffer dest) {
 			for (int i = 0; i < Main.maxChests; i++) {
 				Chest chest = Main.chest[i];
 				if (chest == null) {
@@ -391,7 +470,7 @@ namespace AITownNPCs.Common.World
 					}
 				}
 
-				WorldCache.Chests.Add(info);
+				dest.Chests.Add(info);
 			}
 		}
 	}

@@ -133,7 +133,7 @@ namespace AITownNPCs.Common.Superpower
 			NPCID.Demolitionist => "示例：炸开这里/放雷管 → demo_blast；火力支援/扔雷掩护 → demo_fire_support；冷却独立。",
 			NPCID.Cyborg => "示例：火力支援 → cyborg_fire_support。",
 			NPCID.TaxCollector => "示例：给我点钱 → tax_grant_gold。",
-			NPCID.Guide => "示例：下雨/暴雪/沙尘暴/雷雨/大风天/调风/晴天 → guide_weather；清理掉落物 → guide_clear_items；丛林/沙漠/蘑菇地/地牢/空岛/金矿/生命水晶在哪、箱子里有没有xx → guide_world_query。天气/清物/指路冷却独立。",
+			NPCID.Guide => "示例：下雨/暴雪/沙尘暴/雷雨/大风天/调风/晴天 → guide_weather；清理掉落物 → guide_clear_items；丛林/沙漠/花岗岩/大理石/地牢/空岛/微光/暗影珠/猩红之心/附魔剑/祭坛/地狱熔炉/金矿/钻石/生命水晶在哪、箱子里有没有xx → guide_world_query。天气/清物/指路冷却独立。",
 			_ => ""
 		};
 

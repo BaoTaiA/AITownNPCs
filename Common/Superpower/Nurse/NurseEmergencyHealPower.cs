@@ -17,7 +17,15 @@ namespace AITownNPCs.Common.Superpower.Nurse
 				return SuperpowerResult.Failed(Id, "dead", "玩家已死亡");
 			}
 
-			// Do not gate on server statLife (!SSC copy often looks full while client is hurt).
+			if (!TryGetTrustedLife(player, out int life, out int lifeMax)) {
+				return SuperpowerResult.Failed(Id, "no_client_state", "请再说一次（客户端状态未同步）");
+			}
+
+			if (lifeMax > 0 && life >= lifeMax) {
+				return SuperpowerResult.Failed(Id, "full_hp", "玩家满血无需治疗",
+					"拒绝风格：" + RefuseStyleZh);
+			}
+
 			if (NurseEmergencyHealState.IsBusy(npc.whoAmI)) {
 				return SuperpowerResult.Failed(Id, "busy", "护士正忙");
 			}
@@ -27,6 +35,22 @@ namespace AITownNPCs.Common.Superpower.Nurse
 			}
 
 			return SuperpowerResult.Ok(Id, true, "已紧急治疗至满血");
+		}
+
+		/// <summary>
+		/// Single-player and the listen host use the local life total.
+		/// Other clients report life with the chat packet; the server copy is not trustworthy without SSC.
+		/// </summary>
+		private static bool TryGetTrustedLife(Player player, out int life, out int lifeMax) {
+			bool localCopy = Main.netMode == NetmodeID.SinglePlayer
+				|| (Main.netMode == NetmodeID.Server && !Main.dedServ && player.whoAmI == Main.myPlayer);
+			if (localCopy) {
+				life = player.statLife;
+				lifeMax = player.statLifeMax2;
+				return true;
+			}
+
+			return PlayerSuperpowerClientSnapshot.TryGetLife(player.whoAmI, out life, out lifeMax);
 		}
 	}
 }

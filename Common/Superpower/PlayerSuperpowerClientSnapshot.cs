@@ -14,11 +14,13 @@ namespace AITownNPCs.Common.Superpower
 		private static readonly ulong[] FavoritedMask = new ulong[Main.maxPlayers];
 		private static readonly byte[] SelectedItem = new byte[Main.maxPlayers];
 		private static readonly long[] CopperOwned = new long[Main.maxPlayers];
+		private static readonly int[] StatLife = new int[Main.maxPlayers];
+		private static readonly int[] StatLifeMax2 = new int[Main.maxPlayers];
 		private static readonly uint[] ExpireTick = new uint[Main.maxPlayers];
 		private static readonly bool[] HasSnapshot = new bool[Main.maxPlayers];
 		private static readonly bool[] Pinned = new bool[Main.maxPlayers];
 
-		public static void Set(int playerWhoAmI, ulong favoritedMask, byte selectedItem, long copperOwned) {
+		public static void Set(int playerWhoAmI, ulong favoritedMask, byte selectedItem, long copperOwned, int statLife, int statLifeMax2) {
 			if (playerWhoAmI < 0 || playerWhoAmI >= Main.maxPlayers) {
 				return;
 			}
@@ -26,6 +28,8 @@ namespace AITownNPCs.Common.Superpower
 			FavoritedMask[playerWhoAmI] = favoritedMask;
 			SelectedItem[playerWhoAmI] = selectedItem;
 			CopperOwned[playerWhoAmI] = copperOwned < 0 ? 0 : copperOwned;
+			StatLife[playerWhoAmI] = statLife < 0 ? 0 : statLife;
+			StatLifeMax2[playerWhoAmI] = statLifeMax2 < 0 ? 0 : statLifeMax2;
 			ExpireTick[playerWhoAmI] = Main.GameUpdateCount + TtlTicks;
 			HasSnapshot[playerWhoAmI] = true;
 		}
@@ -66,6 +70,18 @@ namespace AITownNPCs.Common.Superpower
 			favoritedMask = FavoritedMask[playerWhoAmI];
 			selectedItem = SelectedItem[playerWhoAmI];
 			copperOwned = CopperOwned[playerWhoAmI];
+			return true;
+		}
+
+		public static bool TryGetLife(int playerWhoAmI, out int statLife, out int statLifeMax2) {
+			statLife = 0;
+			statLifeMax2 = 0;
+			if (!TryGet(playerWhoAmI, out _, out _, out _)) {
+				return false;
+			}
+
+			statLife = StatLife[playerWhoAmI];
+			statLifeMax2 = StatLifeMax2[playerWhoAmI];
 			return true;
 		}
 

@@ -36,7 +36,9 @@ namespace AITownNPCs.Common.World
 			["雪"] = "雪原", ["雪原"] = "雪原", ["雪地"] = "雪原", ["冰雪"] = "雪原", ["snow"] = "雪原",
 			["沙漠"] = "沙漠", ["desert"] = "沙漠",
 			["地下沙漠"] = "地下沙漠",
-			["海洋"] = "海洋", ["海"] = "海洋", ["beach"] = "海洋", ["海滩"] = "海洋"
+			["海洋"] = "海洋", ["海"] = "海洋", ["beach"] = "海洋", ["海滩"] = "海洋",
+			["花岗岩"] = "花岗岩", ["花岗岩洞"] = "花岗岩", ["granite"] = "花岗岩",
+			["大理石"] = "大理石", ["大理石洞"] = "大理石", ["marble"] = "大理石"
 		};
 
 		private static readonly Dictionary<string, string> StructureAliases = new(StringComparer.OrdinalIgnoreCase) {
@@ -45,7 +47,13 @@ namespace AITownNPCs.Common.World
 			["神庙"] = "temple", ["丛林神庙"] = "temple", ["temple"] = "temple",
 			["生命树"] = "tree", ["活木"] = "tree", ["活树"] = "tree",
 			["金字塔"] = "pyramid", ["pyramid"] = "pyramid",
-			["蜂巢"] = "hive", ["蜂房"] = "hive", ["hive"] = "hive"
+			["蜂巢"] = "hive", ["蜂房"] = "hive", ["hive"] = "hive",
+			["微光之湖"] = "shimmer", ["微光"] = "shimmer", ["以太"] = "shimmer", ["shimmer"] = "shimmer", ["aether"] = "shimmer",
+			["暗影珠"] = "shadow_orb", ["暗影珠子"] = "shadow_orb",
+			["猩红之心"] = "crimson_heart",
+			["附魔剑祠"] = "sword", ["附魔剑"] = "sword", ["剑祠"] = "sword",
+			["地狱熔炉"] = "hellforge", ["hellforge"] = "hellforge",
+			["恶魔祭坛"] = "altar", ["猩红祭坛"] = "altar", ["祭坛"] = "altar"
 		};
 
 		private static readonly (string hint, int tile)[] OreHints = {
@@ -61,6 +69,12 @@ namespace AITownNPCs.Common.World
 			("精金", TileID.Adamantite), ("钛", TileID.Titanium),
 			("叶绿", TileID.Chlorophyte),
 			("夜明", TileID.LunarOre), ("月矿", TileID.LunarOre),
+			("紫晶", TileID.Amethyst), ("黄玉", TileID.Topaz),
+			("蓝玉", TileID.Sapphire), ("蓝宝石", TileID.Sapphire),
+			("翡翠", TileID.Emerald), ("绿宝石", TileID.Emerald),
+			("红玉", TileID.Ruby), ("红宝石", TileID.Ruby),
+			("钻石", TileID.Diamond),
+			("琥珀", TileID.TreeAmber),
 			("copper", TileID.Copper), ("iron", TileID.Iron), ("gold", TileID.Gold),
 			("hellstone", TileID.Hellstone), ("chlorophyte", TileID.Chlorophyte)
 		};
@@ -157,18 +171,6 @@ namespace AITownNPCs.Common.World
 		}
 
 		private static WorldQueryKind ParseKind(string query, string target) {
-			if (query is "biome" or "群系") {
-				return WorldQueryKind.Biome;
-			}
-
-			if (query is "structure" or "结构") {
-				return WorldQueryKind.Structure;
-			}
-
-			if (query is "ore" or "矿物" or "矿") {
-				return WorldQueryKind.Ore;
-			}
-
 			if (query is "chest" or "宝箱" or "箱子") {
 				return WorldQueryKind.Chest;
 			}
@@ -181,16 +183,20 @@ namespace AITownNPCs.Common.World
 				return WorldQueryKind.LifeFruit;
 			}
 
-			if (BiomeAliases.ContainsKey(target) || ContainsAny(target, BiomeAliases.Keys)) {
-				return WorldQueryKind.Biome;
-			}
-
 			if (StructureAliases.ContainsKey(target) || ContainsAny(target, StructureAliases.Keys)) {
 				return WorldQueryKind.Structure;
 			}
 
-			if (MatchOre(target) >= 0) {
+			if (BiomeAliases.ContainsKey(target) || ContainsAny(target, BiomeAliases.Keys)) {
+				return WorldQueryKind.Biome;
+			}
+
+			if (MatchOre(target) >= 0 || query is "ore" or "矿物" or "矿") {
 				return WorldQueryKind.Ore;
+			}
+
+			if (query is "structure" or "结构") {
+				return WorldQueryKind.Structure;
 			}
 
 			return WorldQueryKind.Biome;
@@ -246,6 +252,12 @@ namespace AITownNPCs.Common.World
 				"tree" => FindNearest(WorldCache.LifeTrees, player),
 				"pyramid" => FindNearest(WorldCache.Pyramids, player),
 				"hive" => FindNearest(WorldCache.Hives, player),
+				"shimmer" => FindNearest(WorldCache.Shimmer, player),
+				"shadow_orb" => FindNearest(WorldCache.ShadowOrbs, player),
+				"crimson_heart" => FindNearest(WorldCache.CrimsonHearts, player),
+				"sword" => FindNearest(WorldCache.SwordShrines, player),
+				"hellforge" => FindNearest(WorldCache.Hellforges, player),
+				"altar" => FindNearest(WorldCache.Altars, player),
 				_ => null
 			};
 		}

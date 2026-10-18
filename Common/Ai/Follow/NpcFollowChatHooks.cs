@@ -217,7 +217,9 @@ namespace AITownNPCs.Common.Ai.Follow
 			ulong favoritedMask = reader.ReadUInt64();
 			byte selectedItem = reader.ReadByte();
 			long copperOwned = reader.ReadInt64();
-			PlayerSuperpowerClientSnapshot.Set(sender, favoritedMask, selectedItem, copperOwned);
+			int statLife = reader.ReadInt32();
+			int statLifeMax2 = reader.ReadInt32();
+			PlayerSuperpowerClientSnapshot.Set(sender, favoritedMask, selectedItem, copperOwned, statLife, statLifeMax2);
 			PlayerSuperpowerClientSnapshot.Pin(sender);
 			RecordHiddenFollowChat(sender, text);
 			TryHandleChatForPlayer(text, sender);
@@ -288,6 +290,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			packet.Write(favoritedMask);
 			packet.Write(selectedItem);
 			packet.Write(copperOwned);
+			packet.Write(local.statLife);
+			packet.Write(local.statLifeMax2);
 			packet.Send();
 		}
 
@@ -334,6 +338,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			packet.Write(favoritedMask);
 			packet.Write(selectedItem);
 			packet.Write(copperOwned);
+			packet.Write(local.statLife);
+			packet.Write(local.statLifeMax2);
 			packet.Send();
 		}
 
@@ -347,7 +353,9 @@ namespace AITownNPCs.Common.Ai.Follow
 			ulong favoritedMask = reader.ReadUInt64();
 			byte selectedItem = reader.ReadByte();
 			long copperOwned = reader.ReadInt64();
-			PlayerSuperpowerClientSnapshot.Set(sender, favoritedMask, selectedItem, copperOwned);
+			int statLife = reader.ReadInt32();
+			int statLifeMax2 = reader.ReadInt32();
+			PlayerSuperpowerClientSnapshot.Set(sender, favoritedMask, selectedItem, copperOwned, statLife, statLifeMax2);
 			PlayerSuperpowerClientSnapshot.Pin(sender);
 			TryHandleChatForPlayer(text, sender);
 		}
@@ -370,7 +378,9 @@ namespace AITownNPCs.Common.Ai.Follow
 						playerWhoAmI,
 						PlayerSuperpowerClientSnapshot.BuildFavoritedMaskLocal(host),
 						(byte)Math.Clamp(host.selectedItem, 0, 255),
-						PlayerSuperpowerClientSnapshot.CountCopperLocal(host));
+						PlayerSuperpowerClientSnapshot.CountCopperLocal(host),
+						host.statLife,
+						host.statLifeMax2);
 					PlayerSuperpowerClientSnapshot.Pin(playerWhoAmI);
 				}
 			}
