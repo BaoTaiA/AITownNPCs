@@ -15,6 +15,8 @@ UI: {
 	AmmoSlot: 弹药
 	HeartSlot: 强化之心
 	HeartSlotOnly: 只能放入强化之心（最多 20 个）
+	WingSlot: 翅膀
+	WingSlotOnly: 只能放入翅膀
 	PotionSlotA: HP
 	PotionSlotB: MP
 	LifePotionOnly: HP 格只能放回血药水

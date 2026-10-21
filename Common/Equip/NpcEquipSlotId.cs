@@ -1,6 +1,6 @@
 namespace AITownNPCs.Common.Equip
 {
-	/// <summary>Slot indices 0–9. Weapon/Ammo/Heal* aliases keep combat/nurse code readable.</summary>
+	/// <summary>Slot indices 0–10. Weapon/Ammo/Heal* aliases keep combat/nurse code readable.</summary>
 	public enum NpcEquipSlotId : byte
 	{
 		Slot0 = 0,
@@ -13,11 +13,15 @@ namespace AITownNPCs.Common.Equip
 		Slot7 = 7,
 		Slot8 = 8,
 		Slot9 = 9,
+		Slot10 = 10,
 
 		Weapon = Slot0,
 		Ammo = Slot1,
 		HealLife = Slot0,
 		HealMana = Slot1,
-		Heart = Slot2
+		Heart = Slot2,
+
+		/// <summary>Default and nurse wing slot. Dryad uses <see cref="Slot10"/> because 0–9 are full.</summary>
+		Wings = Slot3
 	}
 }

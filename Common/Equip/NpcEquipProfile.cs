@@ -68,12 +68,23 @@ namespace AITownNPCs.Common.Equip
 						IsAllowed = (item, slots) => NpcEquipHelper.IsAllowedAmmo(item, slots.Length > 0 ? slots[0] : new Item()),
 						RejectMessage = _ => Language.GetTextValue("Mods.AITownNPCs.UI.AmmoNotSupported")
 					},
-					CreateHeartSlot()
+					CreateHeartSlot(),
+					CreateWingSlot(NpcEquipSlotId.Wings)
 				}
 			};
 		}
 
 		public const string HeartSlotLabelKey = "Mods.AITownNPCs.UI.HeartSlot";
+		public const string WingSlotLabelKey = "Mods.AITownNPCs.UI.WingSlot";
+
+		public static NpcEquipSlotDef CreateWingSlot(NpcEquipSlotId slotId) {
+			return new NpcEquipSlotDef {
+				SlotId = slotId,
+				LabelKey = WingSlotLabelKey,
+				IsAllowed = (item, _) => NpcEquipHelper.IsAllowedWing(item),
+				RejectMessage = _ => Language.GetTextValue("Mods.AITownNPCs.UI.WingSlotOnly")
+			};
+		}
 
 		public static NpcEquipSlotDef CreateHeartSlot(NpcEquipSlotId slotId = NpcEquipSlotId.Heart) {
 			return new NpcEquipSlotDef {
@@ -88,6 +99,17 @@ namespace AITownNPCs.Common.Equip
 		public int FindHeartSlotIndex() {
 			for (int i = 0; i < Slots.Length; i++) {
 				if (Slots[i].LabelKey == HeartSlotLabelKey) {
+					return (int)Slots[i].SlotId;
+				}
+			}
+
+			return -1;
+		}
+
+		/// <summary>Index of the wing slot in the profile, or -1.</summary>
+		public int FindWingSlotIndex() {
+			for (int i = 0; i < Slots.Length; i++) {
+				if (Slots[i].LabelKey == WingSlotLabelKey) {
 					return (int)Slots[i].SlotId;
 				}
 			}

@@ -24,6 +24,7 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 				combat.UseCombatFlight = false;
 				combat.CombatWantDrop = false;
 				npc.noGravity = false;
+				NpcWingFlight.TickAnimation(npc, npc.GetGlobalNPC<FollowingTownNPC>(), Airborne(npc));
 				return;
 			}
 
@@ -32,6 +33,7 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 				combat.UseCombatFlight = false;
 				combat.CombatWantDrop = false;
 				npc.noGravity = false;
+				NpcWingFlight.TickAnimation(npc, npc.GetGlobalNPC<FollowingTownNPC>(), Airborne(npc));
 				return;
 			}
 
@@ -47,21 +49,21 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 			combat.CombatWantDrop = dy > FollowMovement.TileSize * FallBelowTiles
 				&& target.Bottom.Y > npc.Bottom.Y + 24f;
 
-			bool wantFly = combat.UseCombatFlight
+			bool canFly = NpcWingFlight.HasWings(npc);
+			bool wantFly = canFly && (combat.UseCombatFlight
 				|| rise > FollowMovement.TileSize * FlyRiseTiles
-				|| (rise > FollowMovement.TileSize * JumpRiseTiles && !CanJumpReach(rise));
+				|| (rise > FollowMovement.TileSize * JumpRiseTiles && !CanJumpReach(rise)));
 
 			bool grounded = FollowMovement.IsOnGroundOrPlatform(npc.position, npc.width, npc.height);
 			bool stillNeedFly = rise > FollowMovement.TileSize * FlyRiseTiles
 				|| (rise > FollowMovement.TileSize * JumpRiseTiles && !CanJumpReach(rise));
 
-			if ((wantFly || combat.UseCombatFlight)
+			if ((wantFly || (combat.UseCombatFlight && canFly))
 				&& stillNeedFly
 				&& npc.Distance(player.Center) < NpcNormalCombat.LeashDist * 0.95f) {
 				combat.UseCombatFlight = true;
 				combat.CombatWantDrop = false;
 				follow.UseFlyingFollow = true;
-				follow.TickWingsSelf();
 				NpcCombatLocomotion.FlyToward(npc, anchor, ref stuck);
 
 				float near = Vector2.Distance(npc.Center, anchor);
@@ -79,6 +81,8 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 					&& rise > FollowMovement.TileSize * JumpRiseTiles;
 				NpcCombatLocomotion.WalkToward(npc, follow, anchor, wantJump, ref stuck);
 			}
+
+			NpcWingFlight.TickAnimation(npc, follow, !grounded);
 
 			follow.StuckTimer = stuck;
 			FollowingTownNPC.ApplyFollowNetFlags(npc, following: true);
@@ -108,6 +112,10 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 		private static bool CanJumpReach(float risePixels) {
 			float maxJump = FollowMovement.MaxJumpTiles * FollowMovement.TileSize;
 			return risePixels <= maxJump * 0.85f;
+		}
+
+		private static bool Airborne(NPC npc) {
+			return !FollowMovement.IsOnGroundOrPlatform(npc.position, npc.width, npc.height);
 		}
 	}
 }

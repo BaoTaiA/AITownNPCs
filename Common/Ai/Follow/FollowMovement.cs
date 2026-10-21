@@ -129,41 +129,8 @@ namespace AITownNPCs.Common.Ai.Follow
 		}
 
 		public static void ApplyFlyingFollow(NPC npc, Player player, ref int stuckTimer) {
-			npc.noGravity = true;
-			npc.rotation = 0f;
-
 			Vector2 target = player.Center + new Vector2(-player.direction * 48f, 8f);
-			Vector2 to = target - npc.Center;
-			float dist = to.Length();
-
-			if (dist < 12f) {
-				npc.velocity *= 0.9f;
-				if (npc.velocity.LengthSquared() < 0.04f) {
-					npc.velocity = Vector2.Zero;
-				}
-			}
-			else {
-				to /= dist;
-				float speed = MathHelper.Clamp(dist / 80f * MaxSpeedX, 3f, MaxSpeedX);
-				const float inertia = 12f;
-				npc.velocity = (npc.velocity * inertia + to * speed) / (inertia + 1f);
-			}
-
-			if (Math.Abs(npc.velocity.X) > 0.15f) {
-				npc.direction = npc.velocity.X > 0f ? 1 : -1;
-				npc.spriteDirection = npc.direction;
-			}
-
-			bool blocked = Collision.SolidCollision(
-				npc.position + npc.velocity,
-				npc.width,
-				npc.height);
-			if (blocked) {
-				stuckTimer++;
-			}
-			else {
-				stuckTimer = 0;
-			}
+			NpcWingFlight.Apply(npc, target, ref stuckTimer);
 		}
 
 		public static void ApplyGroundFollow(NPC npc, Player player, ref int stuckTimer, FollowingTownNPC follow, float speedMult) {

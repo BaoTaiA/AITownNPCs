@@ -4,8 +4,6 @@ using AITownNPCs.Common.Ai.Combat;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
-using Terraria.GameContent;
-using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -67,6 +65,16 @@ namespace AITownNPCs.Common.Ai.Follow
 				JumpCooldown--;
 			}
 
+			if (!NpcWingFlight.HasWings(npc)) {
+				if (UseFlyingFollow) {
+					UseFlyingFollow = false;
+					WingLandTimer = 0;
+					npc.noGravity = false;
+				}
+
+				return;
+			}
+
 			if (playerFlying) {
 				UseFlyingFollow = true;
 				FlyGraceTimer = FollowMovement.FlyGraceTicks;
@@ -82,67 +90,14 @@ namespace AITownNPCs.Common.Ai.Follow
 				FlyGraceTimer--;
 			}
 
-			bool npcGrounded = FollowMovement.IsOnGroundOrPlatform(npc.position, npc.width, npc.height);
-			bool nearPlayerStand = FollowMovement.IsOnGroundOrPlatform(player)
-				&& Math.Abs(npc.Bottom.Y - player.Bottom.Y) < 20f
-				&& Math.Abs(npc.Center.X - player.Center.X) < 96f;
-			if ((npcGrounded || nearPlayerStand) && FlyGraceTimer <= 0) {
+			// Player is already walking. Do not wait for the NPC to reach their feet.
+			bool playerGrounded = FollowMovement.IsOnGroundOrPlatform(player);
+			if (playerGrounded && FlyGraceTimer <= 0) {
 				UseFlyingFollow = false;
 				JumpCooldown = FollowMovement.JumpCooldownTicks;
 				WingLandTimer = FollowMovement.WingLandTicks;
 				npc.noGravity = false;
 			}
-		}
-
-		public void TickWingsSelf() {
-			if (!UseFlyingFollow) {
-				ResetWings();
-				return;
-			}
-
-			WingFrameCounter++;
-			if (WingFrameCounter >= 4) {
-				WingFrameCounter = 0;
-				WingFrame++;
-				if (WingFrame >= 4) {
-					WingFrame = 0;
-				}
-			}
-		}
-
-		public void TickWings(Player player) {
-			if (FollowMovement.IsPlayerUsingWingFlight(player)) {
-				WingFrame = player.wingFrame;
-				WingFrameCounter = player.wingFrameCounter;
-				return;
-			}
-
-			if (UseFlyingFollow && FollowMovement.IsPlayerOnFlyingMount(player)) {
-				WingFrameCounter++;
-				if (WingFrameCounter >= 4) {
-					WingFrameCounter = 0;
-					WingFrame++;
-					if (WingFrame >= 4) {
-						WingFrame = 0;
-					}
-				}
-
-				return;
-			}
-
-			if (UseFlyingFollow || WingLandTimer > 0) {
-				WingFrame = 2;
-				if (!UseFlyingFollow && WingLandTimer > 0) {
-					WingLandTimer--;
-					if (WingLandTimer == 0) {
-						ResetWings();
-					}
-				}
-
-				return;
-			}
-
-			ResetWings();
 		}
 
 		public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
@@ -170,8 +125,8 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			FollowPlayerWhoAmI = binaryReader.ReadByte();
 			UseFlyingFollow = bitReader.ReadBit();
-			WingFrame = binaryReader.ReadByte();
-			WingFrameCounter = binaryReader.ReadByte();
+			binaryReader.ReadByte();
+			binaryReader.ReadByte();
 			WingLandTimer = binaryReader.ReadByte();
 			npc.noGravity = UseFlyingFollow;
 			ApplyFollowNetFlags(npc, following: true);
@@ -273,45 +228,11 @@ namespace AITownNPCs.Common.Ai.Follow
 		}
 
 		public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
-			DrawButterflyWings(npc, spriteBatch, screenPos, drawColor);
+			if (IsFollowing) {
+				NpcWingFlight.Draw(npc, spriteBatch, screenPos, drawColor, WingFrame);
+			}
+
 			return true;
-		}
-
-		private void DrawButterflyWings(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
-			if (!IsFollowing) {
-				return;
-			}
-
-			Player player = Main.player[FollowPlayerWhoAmI];
-			if (!player.active || player.dead || (!UseFlyingFollow && WingLandTimer <= 0)) {
-				return;
-			}
-
-			if (!ContentSamples.ItemsByType.TryGetValue(ItemID.ButterflyWings, out Item wingItem)) {
-				return;
-			}
-
-			int slot = wingItem.wingSlot;
-			if (slot <= 0) {
-				return;
-			}
-
-			Main.instance.LoadWings(slot);
-			if (TextureAssets.Wings[slot] == null || !TextureAssets.Wings[slot].IsLoaded) {
-				return;
-			}
-
-			Texture2D texture = TextureAssets.Wings[slot].Value;
-			const int frames = 4;
-			int frameHeight = texture.Height / frames;
-			int frame = WingFrame % frames;
-			Rectangle source = new Rectangle(0, frame * frameHeight, texture.Width, frameHeight);
-			Vector2 origin = new Vector2(texture.Width / 2f, frameHeight / 2f);
-			SpriteEffects effects = npc.spriteDirection == 1
-				? SpriteEffects.FlipHorizontally
-				: SpriteEffects.None;
-			Vector2 drawPos = npc.Center - screenPos + new Vector2(-9f * npc.spriteDirection, 2f + npc.gfxOffY);
-			spriteBatch.Draw(texture, drawPos, source, npc.GetAlpha(drawColor), 0f, origin, 1f, effects, 0f);
 		}
 
 		public void ClearFollowLocal(NPC npc = null) {

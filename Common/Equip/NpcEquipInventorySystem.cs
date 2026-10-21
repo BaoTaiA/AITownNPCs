@@ -163,7 +163,7 @@ namespace AITownNPCs.Common.Equip
 			float scale = Main.inventoryScale;
 			int slotSize = (int)(TextureAssets.InventoryBack.Width() * scale);
 			const int gap = 14;
-			const int columns = 5;
+			const int columns = 7;
 			int slotCount = System.Math.Clamp(profile.Slots.Length, 0, EquippedTownNPC.MaxSlots);
 
 			for (int i = 0; i < slotCount; i++) {

@@ -37,31 +37,7 @@ namespace AITownNPCs.Common.Ai.Combat
 		}
 
 		public static void FlyToward(NPC npc, Vector2 goal, ref int stuckTimer) {
-			npc.noGravity = true;
-			npc.rotation = 0f;
-
-			Vector2 to = goal - npc.Center;
-			float dist = to.Length();
-			if (dist < 12f) {
-				npc.velocity *= 0.9f;
-				if (npc.velocity.LengthSquared() < 0.04f) {
-					npc.velocity = Vector2.Zero;
-				}
-			}
-			else {
-				to /= dist;
-				float speed = MathHelper.Clamp(dist / 80f * FollowMovement.MaxSpeedX, 3f, FollowMovement.MaxSpeedX);
-				const float inertia = 12f;
-				npc.velocity = (npc.velocity * inertia + to * speed) / (inertia + 1f);
-			}
-
-			if (System.Math.Abs(npc.velocity.X) > 0.15f) {
-				npc.direction = npc.velocity.X > 0f ? 1 : -1;
-				npc.spriteDirection = npc.direction;
-			}
-
-			bool blocked = Collision.SolidCollision(npc.position + npc.velocity, npc.width, npc.height);
-			stuckTimer = blocked ? stuckTimer + 1 : 0;
+			NpcWingFlight.Apply(npc, goal, ref stuckTimer);
 		}
 
 		public static void TeleportNear(NPC npc, Vector2 worldCenter) {

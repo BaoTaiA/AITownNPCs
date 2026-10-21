@@ -31,8 +31,7 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			bool playerFlying = FollowMovement.IsPlayerInFlight(player);
 			follow.UpdateFlightState(npc, player, playerFlying);
-			follow.TickWings(player);
-			npc.noGravity = follow.UseFlyingFollow;
+			NpcWingFlight.TickAnimation(npc, follow, follow.UseFlyingFollow);
 
 			if (Main.netMode != NetmodeID.MultiplayerClient) {
 				npc.homeless = true;
@@ -69,10 +68,12 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			npc.rotation = 0f;
 
-			// JumpCooldown / wing frames are owned by combat move while follow is paused.
-			// Do not TickWingsSelf here — NpcBossMove / NpcNormalMove already tick once per frame.
-
 			if (Main.netMode == NetmodeID.MultiplayerClient) {
+				NpcWingFlight.TickAnimation(npc, follow, follow.UseFlyingFollow);
+				if (follow.UseFlyingFollow) {
+					NpcWingFlight.PlayVisuals(npc);
+				}
+
 				FollowingTownNPC.ApplyFollowNetFlags(npc, following: true);
 				return;
 			}

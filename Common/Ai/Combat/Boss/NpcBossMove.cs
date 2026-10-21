@@ -23,6 +23,7 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			NPC boss = NpcBossCombat.GetLockedBoss(combat);
 			if (boss == null) {
 				EndFlight(npc, combat, follow);
+				NpcWingFlight.TickAnimation(npc, follow, !FollowMovement.IsOnGroundOrPlatform(npc.position, npc.width, npc.height));
 				FollowMovement.BrakeHorizontal(npc);
 				return;
 			}
@@ -53,7 +54,8 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			bool nearAnchor = Vector2.Distance(npc.Center, anchor) < LandNearAnchor;
 
 			// Prefer ground: fly only when Boss is clearly above, or stuck trying to reach height.
-			bool startFly = bossHigh || (stuck >= StuckFlyTicks && rise > FollowMovement.TileSize * 2f);
+			bool canFly = NpcWingFlight.HasWings(npc);
+			bool startFly = canFly && (bossHigh || (stuck >= StuckFlyTicks && rise > FollowMovement.TileSize * 2f));
 			bool keepFlying = combat.UseCombatFlight && !grounded && (bossHigh || !nearAnchor);
 			bool wantFly = startFly || keepFlying;
 
@@ -65,10 +67,9 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 				wantFly = false;
 			}
 
-			if (wantFly) {
+			if (wantFly && canFly) {
 				combat.UseCombatFlight = true;
 				follow.UseFlyingFollow = true;
-				follow.TickWingsSelf();
 				NpcCombatLocomotion.FlyToward(npc, anchor, ref stuck);
 			}
 			else {
@@ -76,6 +77,8 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 				bool wantJump = grounded && rise > FollowMovement.TileSize * 2f;
 				NpcCombatLocomotion.WalkToward(npc, follow, anchor, wantJump, ref stuck);
 			}
+
+			NpcWingFlight.TickAnimation(npc, follow, !grounded);
 
 			follow.StuckTimer = stuck;
 			FollowingTownNPC.ApplyFollowNetFlags(npc, following: true);

@@ -9,11 +9,11 @@ using Terraria.ModLoader.IO;
 namespace AITownNPCs.Common.Equip
 {
 	/// <summary>
-	/// Equipment storage (up to 10 slots). Combat runtime lives on NpcCombatState.
+	/// Equipment storage (up to 11 slots). Combat runtime lives on NpcCombatState.
 	/// </summary>
 	public class EquippedTownNPC : GlobalNPC
 	{
-		public const int MaxSlots = 10;
+		public const int MaxSlots = 11;
 
 		/// <summary>Raised when weapon slot type/prefix changes or is cleared. Arg = npcWhoAmI.</summary>
 		public static event Action<int> WeaponChanged;

@@ -19,6 +19,10 @@ namespace AITownNPCs.Common.Equip
 			return item != null && !item.IsAir && item.damage > 0;
 		}
 
+		public static bool IsAllowedWing(Item item) {
+			return item != null && !item.IsAir && item.wingSlot > 0;
+		}
+
 		public static float GetEngageRange(Item weapon) {
 			WeaponStance stance = NpcWeaponStance.Resolve(weapon);
 			return stance.Band switch {

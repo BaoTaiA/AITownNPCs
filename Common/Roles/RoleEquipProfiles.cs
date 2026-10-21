@@ -22,14 +22,15 @@ namespace AITownNPCs.Common.Roles
 						IsAllowed = (item, _) => RoleItemRules.IsManaPotion(item),
 						RejectMessage = _ => Language.GetTextValue("Mods.AITownNPCs.UI.ManaPotionOnly")
 					},
-					NpcEquipProfile.CreateHeartSlot()
+					NpcEquipProfile.CreateHeartSlot(),
+					NpcEquipProfile.CreateWingSlot(NpcEquipSlotId.Wings)
 				}
 			};
 		}
 
 		public static NpcEquipProfile CreateDryadBuffs() {
-			// 9 buff slots + Reinforcement Heart (slot index 9).
-			var slots = new NpcEquipSlotDef[10];
+			// 9 buff slots + Reinforcement Heart (slot index 9) + wings (slot index 10).
+			var slots = new NpcEquipSlotDef[11];
 			for (int i = 0; i < 9; i++) {
 				int n = i + 1;
 				slots[i] = new NpcEquipSlotDef {
@@ -41,6 +42,7 @@ namespace AITownNPCs.Common.Roles
 			}
 
 			slots[9] = NpcEquipProfile.CreateHeartSlot(NpcEquipSlotId.Slot9);
+			slots[10] = NpcEquipProfile.CreateWingSlot(NpcEquipSlotId.Slot10);
 
 			return new NpcEquipProfile {
 				CombatEnabled = false,
