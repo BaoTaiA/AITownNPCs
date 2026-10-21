@@ -99,7 +99,12 @@ namespace AITownNPCs.Common.Ai.Firing
 			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 			if (!follow.IsFollowing) {
-				firing.IntentOpen = false;
+				if (firing.IntentOpen) {
+					firing.IntentOpen = false;
+					Vector2 stopAim = npc.Center + new Vector2(npc.direction * 320f, 0f);
+					BroadcastIntent(npc.whoAmI, false, stopAim, equip);
+				}
+
 				firing.ResetIntentThrottle();
 				combat.ItemAnimation = 0;
 				combat.ItemAnimationMax = 0;
@@ -189,12 +194,7 @@ namespace AITownNPCs.Common.Ai.Firing
 
 				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 				if (!follow.IsFollowing) {
-					firing.ClientHoldingUse = false;
-					firing.SpectatorClient = false;
-					if (!firing.NeedsReport) {
-						UntrackClientFire(i);
-					}
-
+					NpcDummyActor.StopAndRelease(npc.whoAmI);
 					continue;
 				}
 
@@ -349,7 +349,12 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			NpcFiringState firing = Main.npc[npcWho].GetGlobalNPC<NpcFiringState>();
+			NPC npc = Main.npc[npcWho];
+			if (wantUse && !npc.GetGlobalNPC<FollowingTownNPC>().IsFollowing) {
+				return;
+			}
+
+			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
 			firing.HasPendingIntent = true;
 			firing.ClientHoldingUse = true;
 			firing.PendingWantUse = wantUse;

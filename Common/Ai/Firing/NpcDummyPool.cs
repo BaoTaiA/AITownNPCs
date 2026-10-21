@@ -254,24 +254,29 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		private static void UnbindSlot(int slot) {
+			if (slot >= 0 && slot < Main.maxPlayers) {
+				Player p = Main.player[slot];
+				if (p != null) {
+					int held = p.heldProj;
+					p.heldProj = -1;
+					if (held >= 0 && held < Main.maxProjectiles) {
+						Projectile proj = Main.projectile[held];
+						if (proj != null && proj.active && proj.owner == slot) {
+							proj.Kill();
+						}
+					}
+
+					p.channel = false;
+					p.itemAnimation = 0;
+					p.itemTime = 0;
+					p.controlUseItem = false;
+					p.active = false;
+					NpcDummyLocal.Forget(slot);
+				}
+			}
+
 			DummyWho.Remove(slot);
 			DummyToNpc.Remove(slot);
-			if (slot < 0 || slot >= Main.maxPlayers) {
-				return;
-			}
-
-			Player p = Main.player[slot];
-			if (p == null) {
-				return;
-			}
-
-			p.heldProj = -1;
-			p.channel = false;
-			p.itemAnimation = 0;
-			p.itemTime = 0;
-			p.controlUseItem = false;
-			p.active = false;
-			NpcDummyLocal.Forget(slot);
 		}
 
 		private static Player Prepare(int slot, bool firstBind = false) {
