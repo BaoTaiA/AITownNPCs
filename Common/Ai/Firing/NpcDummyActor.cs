@@ -46,7 +46,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				|| (NpcDummyPool.TryGetDummyWho(npc.whoAmI, out int dummyWho) && NpcDummyPool.OwnsProjectiles(dummyWho));
 
 			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
-			if (!shouldLease) {
+				if (!shouldLease) {
 				FlushPendingEquipSync(npc, equip, firing);
 				NpcDummyPool.ReleaseWhenIdle(npc.whoAmI);
 				combat.ItemAnimation = 0;
@@ -55,7 +55,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				firing.ResetUseCycle();
 				if (Main.netMode == NetmodeID.MultiplayerClient) {
 					firing.ClientHoldingUse = false;
-					if (!firing.SpectatorClient) {
+					if (NpcFiringState.IsAuthorityClient(npc)) {
 						firing.NeedsReport = true;
 					}
 				}
@@ -96,14 +96,9 @@ namespace AITownNPCs.Common.Ai.Firing
 				ApplyStealth(dummy);
 
 				SyncCombatFromDummy(combat, dummy);
-				// Pose before projectile sync so the client binds the dummy slot first.
-				if (Main.netMode == NetmodeID.Server) {
-					NpcDummyNetSystem.SendPoseThrottled(npc, dummy, aimWorld);
-				}
-
 				NpcWeaponProjectile.TagNewOwned(wasActive, dummy.whoAmI, npc);
 				ReadbackLoadout(dummy, equip);
-				if (Main.netMode == NetmodeID.MultiplayerClient && !firing.SpectatorClient) {
+				if (Main.netMode == NetmodeID.MultiplayerClient && NpcFiringState.IsAuthorityClient(npc)) {
 					firing.NeedsReport = true;
 				}
 			}
@@ -164,8 +159,11 @@ namespace AITownNPCs.Common.Ai.Firing
 					firing.ClientHoldingUse = false;
 					firing.SpectatorClient = false;
 					firing.NeedsReport = false;
+					firing.ResetIntentThrottle();
 				}
 			}
+
+			NpcClientUseNet.UntrackClientFire(npcWhoAmI);
 
 			if (NpcDummyPool.TryGetDummy(npcWhoAmI, out Player dummy) && dummy != null) {
 				dummy.controlUseItem = false;

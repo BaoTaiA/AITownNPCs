@@ -66,7 +66,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			// Numbers come from follower HitVisual; do not invent local CombatText.
+			// Numbers/life sync come from server SendStrikeNPC; do not invent local CombatText.
 			modifiers.FinalDamage *= 0f;
 			modifiers.Knockback *= 0f;
 			modifiers.DisableCrit();
@@ -99,7 +99,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			NPC npc = Main.npc[npcWho];
-			return npc != null && npc.active && npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+			return NpcFiringState.IsSpectatorClient(npc);
 		}
 
 		public override bool ImmuneTo(PlayerDeathReason damageSource, int cooldownCounter, bool dodgeable) {

@@ -28,8 +28,10 @@ namespace AITownNPCs.Common.Ai.Follow
 		public int JumpCooldown;
 		public int WingLandTimer;
 		public bool UseFlyingFollow;
-		/// <summary>Hysteresis: once in close-follow deadzone, stay until farther out.</summary>
+		/// <summary>True while the NPC is inside the ground-follow comfort gap.</summary>
 		public bool InCloseFollow;
+		/// <summary>Last travel direction used for the behind slot. +1 right, -1 left. 0 until set.</summary>
+		public int BehindSign;
 
 		public bool IsFollowing =>
 			FollowPlayerWhoAmI >= 0
@@ -40,6 +42,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			StuckTimer = 0;
 			FarTimer = 0;
 			InCloseFollow = false;
+			BehindSign = 0;
 		}
 
 		public void ResetFlightState(NPC npc = null) {

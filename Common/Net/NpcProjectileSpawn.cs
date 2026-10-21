@@ -80,21 +80,5 @@ namespace AITownNPCs.Common.Net
 
 			return id;
 		}
-
-		/// <summary>Force-sync a projectile that was already spawned (e.g. dummy weapon shots).</summary>
-		public static void SyncExisting(int projWhoAmI) {
-			if (Main.netMode != NetmodeID.Server || projWhoAmI < 0 || projWhoAmI >= Main.maxProjectiles) {
-				return;
-			}
-
-			Projectile proj = Main.projectile[projWhoAmI];
-			if (!proj.active) {
-				return;
-			}
-
-			proj.netImportant = true;
-			proj.netUpdate = true;
-			NetMessage.SendData(MessageID.SyncProjectile, -1, -1, null, projWhoAmI);
-		}
 	}
 }

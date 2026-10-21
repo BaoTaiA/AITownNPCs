@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using AITownNPCs.Common.Net;
 using Terraria;
 using Terraria.ID;
 using Terraria.Localization;
@@ -17,10 +16,6 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		public bool FromNpcWeapon;
 		public int FollowNpcWhoAmI = -1;
-
-		/// <summary>Legacy Visual replica: no AI and no damage.</summary>
-		public bool Replicated;
-		public int ReplicaKey = -1;
 
 		/// <summary>Set once from NpcFiringState.SpectatorClient at spawn. Never re-derived from Main.myPlayer.</summary>
 		public bool SpectatorVisual;
@@ -49,20 +44,11 @@ namespace AITownNPCs.Common.Ai.Firing
 				return false;
 			}
 
-			NpcWeaponProjectile global = proj.GetGlobalProjectile<NpcWeaponProjectile>();
-			if (global.Replicated) {
-				return false;
-			}
-
 			if (NpcDummyPool.IsDummy(proj.owner)) {
 				return true;
 			}
 
-			return global.FromNpcWeapon;
-		}
-
-		public static bool IsLegacyReplica(Projectile proj) {
-			return proj != null && proj.active && proj.GetGlobalProjectile<NpcWeaponProjectile>().Replicated;
+			return proj.GetGlobalProjectile<NpcWeaponProjectile>().FromNpcWeapon;
 		}
 
 		public static bool IsSpectatorVisual(Projectile proj) {
@@ -72,11 +58,6 @@ namespace AITownNPCs.Common.Ai.Firing
 		public override bool PreAI(Projectile projectile) {
 			_localSwap = false;
 			_activeBeforeAi = null;
-			NpcWeaponProjectile global = projectile.GetGlobalProjectile<NpcWeaponProjectile>();
-			if (global.Replicated) {
-				return false;
-			}
-
 			if (!IsDummyOwned(projectile)) {
 				return true;
 			}
@@ -89,14 +70,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			return true;
-		}
-
-		public override bool? CanDamage(Projectile projectile) {
-			if (IsLegacyReplica(projectile)) {
-				return false;
-			}
-
-			return null;
 		}
 
 		public override void PostAI(Projectile projectile) {
@@ -126,10 +99,6 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		public override bool? CanHitNPC(Projectile projectile, NPC target) {
-			if (IsLegacyReplica(projectile)) {
-				return false;
-			}
-
 			if (!IsDummyOwned(projectile)) {
 				return null;
 			}
@@ -179,7 +148,7 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		internal static int TagNewOwned(bool[] wasActive, int dummyWho, NPC npc) {
 			int tagged = 0;
-			bool spectator = npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+			bool spectator = NpcFiringState.IsSpectatorClient(npc);
 			for (int i = 0; i < Main.maxProjectiles; i++) {
 				Projectile proj = Main.projectile[i];
 				if (!proj.active || wasActive[i] || proj.owner != dummyWho) {
@@ -195,9 +164,6 @@ namespace AITownNPCs.Common.Ai.Firing
 				proj.damage = NpcDamageMods.ApplyOutgoing(npc, proj.damage);
 				if (spectator) {
 					global.SpectatorVisual = true;
-				}
-				else {
-					NpcProjectileSpawn.SyncExisting(proj.whoAmI);
 				}
 
 				tagged++;
@@ -217,21 +183,38 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		private static int RouteDummyStrike(On_NPC.orig_StrikeNPC_HitInfo_bool_bool orig, NPC self, NPC.HitInfo hit, bool fromNet, bool noPlayerInteraction) {
-			if (Main.netMode == NetmodeID.MultiplayerClient && !fromNet) {
-				TryQueueAuthorityHit(self, hit);
+			if (Main.netMode == NetmodeID.MultiplayerClient && !fromNet
+				&& TryResolveDummyHit(out int followNpcWho, out bool spectator)) {
+				if (spectator) {
+					// Vanilla lifts a 0 modifier to 1. Drop the local strike so spectators
+					// neither chip HP nor spawn a "1" combat text. Real numbers arrive via SendStrikeNPC.
+					hit.Damage = 0;
+					hit.Knockback = 0f;
+					hit.HideCombatText = true;
+					return orig(self, hit, fromNet, noPlayerInteraction);
+				}
+
+				NpcClientUseNet.QueueHit(followNpcWho, self, hit);
 			}
 
 			return orig(self, hit, fromNet, noPlayerInteraction);
 		}
 
-		private static void TryQueueAuthorityHit(NPC target, NPC.HitInfo hit) {
-			int followNpcWho = -1;
+		/// <summary>
+		/// SpectatorVisual projectiles, or a dummy swing whose NPC is marked spectator.
+		/// Authority hits return the town NPC that should report damage.
+		/// </summary>
+		private static bool TryResolveDummyHit(out int followNpcWho, out bool spectator) {
+			followNpcWho = -1;
+			spectator = false;
+
 			Projectile source = NpcClientUseNet.RoutingProjectile;
-			if (source != null
-				&& source.active
-				&& NpcWeaponProjectile.IsDummyOwned(source)
-				&& !NpcWeaponProjectile.IsLegacyReplica(source)
-				&& !NpcWeaponProjectile.IsSpectatorVisual(source)) {
+			if (source != null && source.active && NpcWeaponProjectile.IsDummyOwned(source)) {
+				if (NpcWeaponProjectile.IsSpectatorVisual(source)) {
+					spectator = true;
+					return true;
+				}
+
 				followNpcWho = source.GetGlobalProjectile<NpcWeaponProjectile>().FollowNpcWhoAmI;
 				if (followNpcWho < 0) {
 					NpcDummyPool.TryGetNpcWho(source.owner, out followNpcWho);
@@ -242,19 +225,16 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			if (followNpcWho < 0 || followNpcWho >= Main.maxNPCs) {
-				return;
+				return false;
 			}
 
 			NPC sourceNpc = Main.npc[followNpcWho];
 			if (sourceNpc == null || !sourceNpc.active) {
-				return;
+				return false;
 			}
 
-			if (sourceNpc.GetGlobalNPC<NpcFiringState>().SpectatorClient) {
-				return;
-			}
-
-			NpcClientUseNet.QueueHit(followNpcWho, target, hit);
+			spectator = NpcFiringState.IsSpectatorClient(sourceNpc);
+			return true;
 		}
 
 		private static void BlockDummyVanillaPackets(

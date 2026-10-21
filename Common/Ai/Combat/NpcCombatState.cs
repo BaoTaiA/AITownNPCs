@@ -6,7 +6,7 @@ using Terraria.ModLoader.IO;
 namespace AITownNPCs.Common.Ai.Combat
 {
 	/// <summary>
-	/// Per-NPC combat runtime: mode, sticky target, aim mirror for DummyPose/ExtraAI.
+	/// Per-NPC combat runtime: mode, sticky target, aim mirror for ExtraAI.
 	/// </summary>
 	public class NpcCombatState : GlobalNPC
 	{

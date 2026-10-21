@@ -125,6 +125,9 @@ namespace AITownNPCs.Common.UI
 			}
 
 			orig(self, drawingPlayerChat);
+			if (!drawingPlayerChat) {
+				DrawFollowHistory(historyOpen: false);
+			}
 		}
 
 		private static void OnDrawPlayerChat(On_Main.orig_DrawPlayerChat orig, Main self) {

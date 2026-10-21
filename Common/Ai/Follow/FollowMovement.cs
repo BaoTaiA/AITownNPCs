@@ -22,6 +22,15 @@ namespace AITownNPCs.Common.Ai.Follow
 		public const int FlyGraceTicks = 12;
 		public const int JumpCooldownTicks = 45;
 		public const int WingLandTicks = 12;
+		public const float BehindOffset = 80f;
+		public const float ComfortGap = 48f;
+		public const float ChaseGap = 160f;
+		public const float FarGap = 400f;
+		public const float TravelSpeed = 1f;
+		public const float ComfortAccel = 0.08f;
+		public const float ComfortSpeedScale = 0.9f;
+		public const float SettleBrake = 0.88f;
+		public const float FaceSpeed = 0.35f;
 
 		public static void Tick(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer, ref int farTimer, float speedMult = 1f) {
 			// Clients predict locomotion only; server owns teleports.
@@ -161,40 +170,84 @@ namespace AITownNPCs.Common.Ai.Follow
 			npc.noGravity = false;
 			npc.rotation = 0f;
 
-			Vector2 toPlayer = player.Center - npc.Center;
-			float dist = toPlayer.Length();
-			float absX = Math.Abs(toPlayer.X);
-			float cap = MaxSpeedX * MathHelper.Clamp(speedMult, 0.2f, 1f);
-
-			// Enter close zone at 64/32; exit only past 96/64 to reduce brake/accel chatter.
-			bool wantClose = dist < MinFollowDist || absX < HorizontalDeadzone;
-			if (follow.InCloseFollow) {
-				wantClose = dist < MinFollowDist * 1.5f && absX < HorizontalDeadzone * 2f;
+			int travel = 0;
+			if (Math.Abs(player.velocity.X) > TravelSpeed) {
+				travel = player.velocity.X > 0f ? 1 : -1;
 			}
 
-			follow.InCloseFollow = wantClose;
-			if (wantClose) {
-				if (absX >= HorizontalDeadzone) {
-					float dir = toPlayer.X >= 0f ? 1f : -1f;
-					npc.direction = dir >= 0f ? 1 : -1;
-					npc.spriteDirection = npc.direction;
-				}
-
-				KeepPaceOrBrake(npc, player, dist, absX, cap);
-				TryJumpTowardPlayer(npc, player, follow);
-				if (absX < HorizontalDeadzone) {
-					stuckTimer = 0;
-				}
-
-				return;
+			if (travel != 0) {
+				follow.BehindSign = travel;
+			}
+			else if (follow.BehindSign == 0) {
+				follow.BehindSign = player.direction >= 0 ? 1 : -1;
 			}
 
-			StepHorizontallyToward(npc, player.Center.X, cap, ref stuckTimer);
+			float goalX = player.Center.X - follow.BehindSign * BehindOffset;
+			float gap = Math.Abs(goalX - npc.Center.X);
+			float speedScale = MathHelper.Clamp(speedMult, 0.2f, 1f);
+			follow.InCloseFollow = gap <= ComfortGap;
+
+			if (gap <= ComfortGap) {
+				stuckTimer = 0;
+				SettleBehind(npc, player, speedScale);
+			}
+			else {
+				float accel;
+				float cap;
+				if (gap < ChaseGap) {
+					float t = (gap - ComfortGap) / (ChaseGap - ComfortGap);
+					accel = MathHelper.Lerp(0.12f, 0.28f, t);
+					float nearCap = Math.Max(Math.Abs(player.velocity.X), 2.2f);
+					cap = MathHelper.Lerp(nearCap, 6f, t);
+				}
+				else {
+					float t = MathHelper.Clamp((gap - ChaseGap) / (FarGap - ChaseGap), 0f, 1f);
+					accel = MathHelper.Lerp(0.28f, 0.5f, t);
+					cap = MathHelper.Lerp(6f, MaxSpeedX, t);
+				}
+
+				StepHorizontallyToward(npc, goalX, cap * speedScale, ref stuckTimer, accel);
+			}
+
+			FaceAlongTravel(npc, follow);
 			TryJumpTowardPlayer(npc, player, follow);
 		}
 
+		private static void SettleBehind(NPC npc, Player player, float speedScale) {
+			if (Math.Abs(player.velocity.X) > TravelSpeed) {
+				float cap = MaxSpeedX * speedScale;
+				float target = MathHelper.Clamp(player.velocity.X * ComfortSpeedScale, -cap, cap);
+				float step = ComfortAccel;
+				if (npc.velocity.X < target) {
+					npc.velocity.X = Math.Min(npc.velocity.X + step, target);
+				}
+				else if (npc.velocity.X > target) {
+					npc.velocity.X = Math.Max(npc.velocity.X - step, target);
+				}
+				return;
+			}
+
+			npc.velocity.X *= SettleBrake;
+			if (Math.Abs(npc.velocity.X) < 0.1f) {
+				npc.velocity.X = 0f;
+			}
+		}
+
+		private static void FaceAlongTravel(NPC npc, FollowingTownNPC follow) {
+			int dir;
+			if (Math.Abs(npc.velocity.X) > FaceSpeed) {
+				dir = npc.velocity.X > 0f ? 1 : -1;
+			}
+			else {
+				dir = follow.BehindSign >= 0 ? 1 : -1;
+			}
+
+			npc.direction = dir;
+			npc.spriteDirection = dir;
+		}
+
 		/// <summary>Shared ground step used by follow and combat kite movement.</summary>
-		public static void StepHorizontallyToward(NPC npc, float goalX, float cap, ref int stuckTimer) {
+		public static void StepHorizontallyToward(NPC npc, float goalX, float cap, ref int stuckTimer, float accel = 0.55f) {
 			float dx = goalX - npc.Center.X;
 			float absX = Math.Abs(dx);
 			if (absX >= HorizontalDeadzone * 0.5f) {
@@ -203,7 +256,6 @@ namespace AITownNPCs.Common.Ai.Follow
 				npc.spriteDirection = npc.direction;
 			}
 
-			const float accel = 0.55f;
 			float dirX = npc.direction;
 			npc.velocity.X += dirX * accel;
 			if (Math.Abs(npc.velocity.X) > cap) {

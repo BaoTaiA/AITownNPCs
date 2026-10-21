@@ -128,9 +128,6 @@ namespace AITownNPCs.Common.Ai.Firing
 
 			UnbindSlot(slot);
 			NpcToDummy.Remove(npcWhoAmI);
-			if (Main.netMode == NetmodeID.Server) {
-				NpcDummyNetSystem.SendRelease(npcWhoAmI, slot);
-			}
 		}
 
 		public static void ReleaseAll() {
@@ -364,6 +361,7 @@ namespace AITownNPCs.Common.Ai.Firing
 	{
 		public override void OnWorldUnload() {
 			NpcDummyPool.ReleaseAll();
+			NpcClientUseNet.ClearClientFireTracking();
 		}
 	}
 }

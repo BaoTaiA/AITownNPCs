@@ -1,11 +1,13 @@
 using Microsoft.Xna.Framework;
+using Terraria;
 using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Ai.Firing
 {
 	/// <summary>
-	/// Per-NPC firing runtime: channel hold cycle, pose net throttle, equip stack sync.
+	/// Per-NPC firing runtime: channel hold cycle, intent throttle, equip stack sync.
 	/// Combat strategy fields live on NpcCombatState.
+	/// Authority vs spectator is frozen on <see cref="SpectatorClient"/> before any dummy myPlayer swap.
 	/// </summary>
 	public class NpcFiringState : GlobalNPC
 	{
@@ -16,14 +18,6 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		/// <summary>Hold-release: true after windup; keep released until projectiles finish.</summary>
 		public bool ChannelThrowing;
-
-		/// <summary>DummyPose send throttle.</summary>
-		public uint LastPoseSendTick;
-		public int LastPoseItemAnimation = int.MinValue;
-		public bool LastPoseChannel;
-		public int LastPoseWeaponType = -1;
-		public int LastPoseDirection = int.MinValue;
-		public int LastPoseHeldProj = int.MinValue;
 
 		/// <summary>Server: the follower client still has a swing, channel, or projectile in flight.</summary>
 		public bool RemoteBusy;
@@ -49,11 +43,31 @@ namespace AITownNPCs.Common.Ai.Firing
 		public short PendingAmmoStack;
 		public bool NeedsReport;
 
+		/// <summary>Server Intent throttle: last broadcast aim / stacks / tick.</summary>
+		public uint LastIntentSendTick;
+		public Vector2 LastIntentAim;
+		public int LastIntentWeaponType = -1;
+		public byte LastIntentWeaponPrefix;
+		public short LastIntentWeaponStack = -1;
+		public int LastIntentAmmoType = -1;
+		public byte LastIntentAmmoPrefix;
+		public short LastIntentAmmoStack = -1;
+
 		/// <summary>Equip slot stack sync throttle while firing.</summary>
 		public uint LastAmmoSyncTick;
 		public uint LastWeaponSyncTick;
 		public bool PendingAmmoSync;
 		public bool PendingWeaponSync;
+
+		/// <summary>Read only the frozen spectator flag — never re-derive from Main.myPlayer during a dummy swap.</summary>
+		public static bool IsSpectatorClient(NPC npc) {
+			return npc != null && npc.active && npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+		}
+
+		/// <summary>Inverse of <see cref="IsSpectatorClient"/> for the frozen flag.</summary>
+		public static bool IsAuthorityClient(NPC npc) {
+			return npc != null && npc.active && !npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+		}
 
 		public void ResetChannelCycle() {
 			ChannelHoldTicks = 0;
@@ -62,6 +76,17 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		public void ResetUseCycle() {
 			ResetChannelCycle();
+		}
+
+		public void ResetIntentThrottle() {
+			LastIntentSendTick = 0;
+			LastIntentAim = Vector2.Zero;
+			LastIntentWeaponType = -1;
+			LastIntentWeaponPrefix = 0;
+			LastIntentWeaponStack = -1;
+			LastIntentAmmoType = -1;
+			LastIntentAmmoPrefix = 0;
+			LastIntentAmmoStack = -1;
 		}
 	}
 }

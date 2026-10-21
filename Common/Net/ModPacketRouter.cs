@@ -37,14 +37,8 @@ namespace AITownNPCs.Common.Net
 				         || type == (byte)NpcChatMessageType.FollowChatLine) {
 					ChatLogWorldSystem.HandlePacket(type, reader, whoAmI);
 				}
-				else if (type == (byte)NpcFiringMessageType.DummyPose) {
-					NpcDummyNetSystem.HandlePose(reader);
-				}
 				else if (type == (byte)NpcFiringMessageType.ClientUse) {
 					NpcClientUseNet.Handle(reader, whoAmI);
-				}
-				else if (type == (byte)NpcFiringMessageType.DummyRelease) {
-					NpcDummyNetSystem.HandleRelease(reader);
 				}
 			}
 			else if (type >= PacketRanges.FollowMin) {

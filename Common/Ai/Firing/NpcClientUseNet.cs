@@ -14,20 +14,23 @@ namespace AITownNPCs.Common.Ai.Firing
 	/// <summary>
 	/// Server broadcasts fire intent to every client.
 	/// The followed client deals real damage; others simulate locally for visuals only.
-	/// Hit numbers for spectators come from the follower's reported strike (vanilla-like).
+	/// Authoritative HP sync uses <see cref="NetMessage.SendStrikeNPC"/> (not netUpdate).
 	/// </summary>
 	public static class NpcClientUseNet
 	{
 		private const byte Intent = 1;
 		private const byte Report = 2;
-		private const byte Visual = 3;
 		private const byte NpcHit = 4;
 		private const byte HitVisual = 5;
 		private const uint StackBroadcastInterval = 10;
+		private const uint IntentHoldInterval = 8;
+		private const float IntentAimDeltaPixels = 24f;
 
 		public static Projectile RoutingProjectile;
 
 		private static readonly List<QueuedHit> Hits = new();
+		private static readonly HashSet<int> ActiveClientFire = new();
+		private static readonly List<int> ActiveScratch = new();
 
 		private struct QueuedHit
 		{
@@ -37,6 +40,21 @@ namespace AITownNPCs.Common.Ai.Firing
 			public float Knockback;
 			public int Direction;
 			public bool Crit;
+		}
+
+		public static void TrackClientFire(int npcWho) {
+			if (npcWho >= 0 && npcWho < Main.maxNPCs) {
+				ActiveClientFire.Add(npcWho);
+			}
+		}
+
+		public static void UntrackClientFire(int npcWho) {
+			ActiveClientFire.Remove(npcWho);
+		}
+
+		public static void ClearClientFireTracking() {
+			ActiveClientFire.Clear();
+			Hits.Clear();
 		}
 
 		public static void QueueHit(int sourceNpcWho, NPC target, NPC.HitInfo hit) {
@@ -49,8 +67,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			NpcFiringState firing = source.GetGlobalNPC<NpcFiringState>();
-			if (firing.SpectatorClient) {
+			if (NpcFiringState.IsSpectatorClient(source)) {
 				return;
 			}
 
@@ -83,36 +100,41 @@ namespace AITownNPCs.Common.Ai.Firing
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 			if (!follow.IsFollowing) {
 				firing.IntentOpen = false;
+				firing.ResetIntentThrottle();
 				combat.ItemAnimation = 0;
 				combat.ItemAnimationMax = 0;
 				combat.IsChanneling = false;
 				return;
 			}
 
+			bool edgeClose = false;
+			bool edgeOpen = false;
 			if (!allowFire) {
 				if (!firing.IntentOpen) {
 					return;
 				}
 
 				firing.IntentOpen = false;
+				edgeClose = true;
 			}
-			else {
+			else if (!firing.IntentOpen) {
 				firing.IntentOpen = true;
+				edgeOpen = true;
 			}
 
 			Vector2 aim = target != null && target.active
 				? target.Center
 				: npc.Center + new Vector2(npc.direction * 320f, 0f);
 
-			ModPacket packet = ModContent.GetInstance<AITownNPCs>().GetPacket();
-			packet.Write((byte)NpcFiringMessageType.ClientUse);
-			packet.Write(Intent);
-			packet.Write(npc.whoAmI);
-			packet.Write(allowFire);
-			packet.WriteVector2(aim);
-			WriteItem(packet, equip.Weapon);
-			WriteItem(packet, equip.Ammo);
-			packet.Send(-1);
+			if (!edgeClose && !edgeOpen && !ShouldRefreshHoldIntent(firing, equip, aim)) {
+				return;
+			}
+
+			BroadcastIntent(npc.whoAmI, allowFire, aim, equip);
+			RememberIntent(firing, equip, aim);
+			if (edgeClose) {
+				firing.ResetIntentThrottle();
+			}
 		}
 
 		public static void Handle(BinaryReader reader, int fromWho) {
@@ -122,9 +144,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 			else if (sub == Report) {
 				HandleReport(reader, fromWho);
-			}
-			else if (sub == Visual) {
-				DrainVisual(reader);
 			}
 			else if (sub == NpcHit) {
 				HandleNpcHit(reader, fromWho);
@@ -139,13 +158,31 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			for (int i = 0; i < Main.maxNPCs; i++) {
+			if (ActiveClientFire.Count == 0) {
+				return;
+			}
+
+			ActiveScratch.Clear();
+			ActiveScratch.AddRange(ActiveClientFire);
+			for (int n = 0; n < ActiveScratch.Count; n++) {
+				int i = ActiveScratch[n];
+				if (i < 0 || i >= Main.maxNPCs) {
+					UntrackClientFire(i);
+					continue;
+				}
+
 				NPC npc = Main.npc[i];
 				if (npc == null || !npc.active) {
+					UntrackClientFire(i);
 					continue;
 				}
 
 				NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
+				if (!firing.ClientHoldingUse && !firing.NeedsReport) {
+					UntrackClientFire(i);
+					continue;
+				}
+
 				if (!firing.ClientHoldingUse) {
 					continue;
 				}
@@ -154,6 +191,10 @@ namespace AITownNPCs.Common.Ai.Firing
 				if (!follow.IsFollowing) {
 					firing.ClientHoldingUse = false;
 					firing.SpectatorClient = false;
+					if (!firing.NeedsReport) {
+						UntrackClientFire(i);
+					}
+
 					continue;
 				}
 
@@ -169,6 +210,10 @@ namespace AITownNPCs.Common.Ai.Firing
 
 				bool pressed = NpcWeaponChannel.Apply(npc, equip, firing.PendingWantUse);
 				NpcDummyActor.RunFromIntent(npc, equip, firing.PendingAim, pressed);
+
+				if (!firing.ClientHoldingUse && !firing.NeedsReport) {
+					UntrackClientFire(i);
+				}
 			}
 		}
 
@@ -177,28 +222,49 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			for (int i = 0; i < Main.maxNPCs; i++) {
-				NPC npc = Main.npc[i];
-				if (npc == null || !npc.active) {
-					continue;
-				}
+			if (ActiveClientFire.Count > 0) {
+				ActiveScratch.Clear();
+				ActiveScratch.AddRange(ActiveClientFire);
+				for (int n = 0; n < ActiveScratch.Count; n++) {
+					int i = ActiveScratch[n];
+					if (i < 0 || i >= Main.maxNPCs) {
+						UntrackClientFire(i);
+						continue;
+					}
 
-				NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
-				if (!firing.NeedsReport) {
-					continue;
-				}
+					NPC npc = Main.npc[i];
+					if (npc == null || !npc.active) {
+						UntrackClientFire(i);
+						continue;
+					}
 
-				firing.NeedsReport = false;
-				if (firing.SpectatorClient) {
-					continue;
-				}
+					NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
+					if (!firing.NeedsReport) {
+						if (!firing.ClientHoldingUse) {
+							UntrackClientFire(i);
+						}
 
-				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-				if (!follow.IsFollowing || follow.FollowPlayerWhoAmI != Main.myPlayer) {
-					continue;
-				}
+						continue;
+					}
 
-				SendReport(npc);
+					firing.NeedsReport = false;
+					if (NpcFiringState.IsSpectatorClient(npc)) {
+						if (!firing.ClientHoldingUse) {
+							UntrackClientFire(i);
+						}
+
+						continue;
+					}
+
+					FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+					if (follow.IsFollowing) {
+						SendReport(npc);
+					}
+
+					if (!firing.ClientHoldingUse) {
+						UntrackClientFire(i);
+					}
+				}
 			}
 
 			for (int i = 0; i < Hits.Count; i++) {
@@ -206,6 +272,62 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			Hits.Clear();
+		}
+
+		private static bool ShouldRefreshHoldIntent(NpcFiringState firing, EquippedTownNPC equip, Vector2 aim) {
+			uint now = Main.GameUpdateCount;
+			if (now - firing.LastIntentSendTick >= IntentHoldInterval) {
+				return true;
+			}
+
+			if (Vector2.DistanceSquared(aim, firing.LastIntentAim) >= IntentAimDeltaPixels * IntentAimDeltaPixels) {
+				return true;
+			}
+
+			Item weapon = equip.Weapon;
+			Item ammo = equip.Ammo;
+			int weaponType = weapon == null || weapon.IsAir ? 0 : weapon.type;
+			byte weaponPrefix = weapon == null || weapon.IsAir ? (byte)0 : (byte)weapon.prefix;
+			short weaponStack = weapon == null || weapon.IsAir ? (short)0 : (short)System.Math.Clamp(weapon.stack, 0, short.MaxValue);
+			int ammoType = ammo == null || ammo.IsAir ? 0 : ammo.type;
+			byte ammoPrefix = ammo == null || ammo.IsAir ? (byte)0 : (byte)ammo.prefix;
+			short ammoStack = ammo == null || ammo.IsAir ? (short)0 : (short)System.Math.Clamp(ammo.stack, 0, short.MaxValue);
+
+			return weaponType != firing.LastIntentWeaponType
+				|| weaponPrefix != firing.LastIntentWeaponPrefix
+				|| weaponStack != firing.LastIntentWeaponStack
+				|| ammoType != firing.LastIntentAmmoType
+				|| ammoPrefix != firing.LastIntentAmmoPrefix
+				|| ammoStack != firing.LastIntentAmmoStack;
+		}
+
+		private static void RememberIntent(NpcFiringState firing, EquippedTownNPC equip, Vector2 aim) {
+			firing.LastIntentSendTick = Main.GameUpdateCount;
+			firing.LastIntentAim = aim;
+			Item weapon = equip.Weapon;
+			Item ammo = equip.Ammo;
+			firing.LastIntentWeaponType = weapon == null || weapon.IsAir ? 0 : weapon.type;
+			firing.LastIntentWeaponPrefix = weapon == null || weapon.IsAir ? (byte)0 : (byte)weapon.prefix;
+			firing.LastIntentWeaponStack = weapon == null || weapon.IsAir
+				? (short)0
+				: (short)System.Math.Clamp(weapon.stack, 0, short.MaxValue);
+			firing.LastIntentAmmoType = ammo == null || ammo.IsAir ? 0 : ammo.type;
+			firing.LastIntentAmmoPrefix = ammo == null || ammo.IsAir ? (byte)0 : (byte)ammo.prefix;
+			firing.LastIntentAmmoStack = ammo == null || ammo.IsAir
+				? (short)0
+				: (short)System.Math.Clamp(ammo.stack, 0, short.MaxValue);
+		}
+
+		private static void BroadcastIntent(int npcWho, bool allowFire, Vector2 aim, EquippedTownNPC equip) {
+			ModPacket packet = ModContent.GetInstance<AITownNPCs>().GetPacket();
+			packet.Write((byte)NpcFiringMessageType.ClientUse);
+			packet.Write(Intent);
+			packet.Write(npcWho);
+			packet.Write(allowFire);
+			packet.WriteVector2(aim);
+			WriteItem(packet, equip.Weapon);
+			WriteItem(packet, equip.Ammo);
+			packet.Send(-1);
 		}
 
 		private static void HandleIntent(BinaryReader reader) {
@@ -238,6 +360,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			firing.PendingAmmoType = ammoType;
 			firing.PendingAmmoPrefix = ammoPrefix;
 			firing.PendingAmmoStack = ammoStack;
+			TrackClientFire(npcWho);
 		}
 
 		private static void SendReport(NPC npc) {
@@ -313,18 +436,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			SkipProjectiles(reader, projCount);
 		}
 
-		private static void DrainVisual(BinaryReader reader) {
-			reader.ReadInt32();
-			reader.ReadInt16();
-			reader.ReadInt16();
-			reader.ReadBoolean();
-			reader.ReadSingle();
-			reader.ReadInt32();
-			reader.ReadSByte();
-			int projCount = reader.ReadByte();
-			SkipProjectiles(reader, projCount);
-		}
-
 		private static void HandleNpcHit(BinaryReader reader, int fromWho) {
 			int sourceNpcWho = reader.ReadInt32();
 			int targetNpcWho = reader.ReadInt32();
@@ -364,18 +475,11 @@ namespace AITownNPCs.Common.Ai.Firing
 				Crit = crit
 			};
 			target.StrikeNPC(hit, fromNet: true);
-			target.netUpdate = true;
-
-			ModPacket visual = ModContent.GetInstance<AITownNPCs>().GetPacket();
-			visual.Write((byte)NpcFiringMessageType.ClientUse);
-			visual.Write(HitVisual);
-			visual.Write(targetNpcWho);
-			visual.Write(damage);
-			visual.Write(direction);
-			visual.Write(crit);
-			visual.Send(-1, fromWho);
+			// netUpdate alone is dropped under netSpam; SendStrikeNPC is the hit sync channel.
+			NetMessage.SendStrikeNPC(target, hit, ignoreClient: fromWho);
 		}
 
+		/// <summary>Legacy HitVisual drain for older clients; life sync now uses SendStrikeNPC.</summary>
 		private static void HandleHitVisual(BinaryReader reader) {
 			int targetNpcWho = reader.ReadInt32();
 			int damage = reader.ReadInt32();
