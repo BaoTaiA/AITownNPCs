@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AITownNPCs.Common.Roles;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -9,11 +10,11 @@ using Terraria.ModLoader.IO;
 namespace AITownNPCs.Common.Equip
 {
 	/// <summary>
-	/// Equipment storage (up to 11 slots). Combat runtime lives on NpcCombatState.
+	/// Equipment storage (up to 12 slots). Combat runtime lives on NpcCombatState.
 	/// </summary>
 	public class EquippedTownNPC : GlobalNPC
 	{
-		public const int MaxSlots = 11;
+		public const int MaxSlots = 12;
 
 		/// <summary>Raised when weapon slot type/prefix changes or is cleared. Arg = npcWhoAmI.</summary>
 		public static event Action<int> WeaponChanged;
@@ -24,12 +25,12 @@ namespace AITownNPCs.Common.Equip
 
 		public Item Weapon {
 			get => Slots[0];
-			set => Slots[0] = value ?? new Item();
+			set => Slots[0] = value == null || value.IsAir ? new Item() : value.Clone();
 		}
 
 		public Item Ammo {
 			get => Slots[1];
-			set => Slots[1] = value ?? new Item();
+			set => Slots[1] = value == null || value.IsAir ? new Item() : value.Clone();
 		}
 
 		private bool _droppedOnDeath;
@@ -89,7 +90,18 @@ namespace AITownNPCs.Common.Equip
 				}
 			}
 
+			ShiftDryadHeartAndWings(npc);
 			SanitizeForRole(npc);
+		}
+
+		private void ShiftDryadHeartAndWings(NPC npc) {
+			if (npc.type != NPCID.Dryad || !RoleItemRules.IsReinforcementHeart(Slots[9])) {
+				return;
+			}
+
+			Slots[11] = Slots[10];
+			Slots[10] = Slots[9];
+			Slots[9] = new Item();
 		}
 
 		// Equipment runtime sync is ModPacket-only (SyncSlot / SyncAll).

@@ -116,7 +116,7 @@ Config: {
 
 	AiProactiveEnabled: {
 		Label: Enable proactive speech
-		Tooltip: Walk-by (50px, 10s stay, 10min CD; typing also starts CD); follower chatter about every 7–15s. Typing itself has no cooldown
+		Tooltip: Walk-by (50px, 10s stay, 10min CD; typing also starts CD); follower chatter about every 2 minutes with 50% chance. Typing itself has no cooldown
 	}
 
 	SuperpowerEnabled: {
@@ -198,7 +198,7 @@ Configs: {
 
 		AiProactiveEnabled: {
 			Label: Enable proactive speech
-			Tooltip: Walk-by (10s stay) + follower chatter ~7–15s; typing starts walk-by CD
+			Tooltip: Walk-by (10s stay) + follower chatter every ~2 min at 50% chance; typing starts walk-by CD
 		}
 
 		SuperpowerEnabled: {

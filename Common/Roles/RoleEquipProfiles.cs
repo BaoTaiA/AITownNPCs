@@ -29,9 +29,9 @@ namespace AITownNPCs.Common.Roles
 		}
 
 		public static NpcEquipProfile CreateDryadBuffs() {
-			// 9 buff slots + Reinforcement Heart (slot index 9) + wings (slot index 10).
-			var slots = new NpcEquipSlotDef[11];
-			for (int i = 0; i < 9; i++) {
+			// 10 buff slots + Reinforcement Heart (slot index 10) + wings (slot index 11).
+			var slots = new NpcEquipSlotDef[12];
+			for (int i = 0; i < 10; i++) {
 				int n = i + 1;
 				slots[i] = new NpcEquipSlotDef {
 					SlotId = (NpcEquipSlotId)i,
@@ -41,8 +41,8 @@ namespace AITownNPCs.Common.Roles
 				};
 			}
 
-			slots[9] = NpcEquipProfile.CreateHeartSlot(NpcEquipSlotId.Slot9);
-			slots[10] = NpcEquipProfile.CreateWingSlot(NpcEquipSlotId.Slot10);
+			slots[10] = NpcEquipProfile.CreateHeartSlot(NpcEquipSlotId.Slot10);
+			slots[11] = NpcEquipProfile.CreateWingSlot(NpcEquipSlotId.Slot11);
 
 			return new NpcEquipProfile {
 				CombatEnabled = false,

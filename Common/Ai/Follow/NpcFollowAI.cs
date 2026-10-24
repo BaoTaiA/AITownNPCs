@@ -4,7 +4,7 @@ using Terraria.ID;
 namespace AITownNPCs.Common.Ai.Follow
 {
 	/// <summary>
-	/// Follow entry. Host skips full Update when Boss / Normal-with-target;
+	/// Follow entry. Host skips full Update only while a boss owns locomotion;
 	/// <see cref="UpdateCombatPaused"/> keeps lifecycle (dead player, wings, jump CD).
 	/// </summary>
 	public static class NpcFollowAI
@@ -40,7 +40,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			// Clients predict locomotion; server still owns teleports inside Tick.
 			int stuck = follow.StuckTimer;
 			int far = follow.FarTimer;
-			FollowMovement.Tick(npc, player, follow, ref stuck, ref far, speedMult: 1f);
+			FollowMovement.Tick(npc, player, follow, ref stuck, ref far);
 			follow.StuckTimer = stuck;
 			follow.FarTimer = far;
 

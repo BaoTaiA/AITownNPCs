@@ -30,6 +30,16 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static bool _savedInventory;
 		private static bool _savedHasFocus;
 		private static Vector2 _savedScreen;
+		private static Item _savedMouseItem;
+		private static bool _savedSmartCursorWantedMouse;
+		private static bool _savedSmartCursorWantedGamePad;
+		private static bool _savedSmartCursorShowing;
+		private static int _savedSmartCursorX;
+		private static int _savedSmartCursorY;
+		private static bool _savedMouseLeftRelease;
+		private static bool _savedMouseRightRelease;
+		/// <summary>This frame already consumed a smart-cursor press before the dummy ran.</summary>
+		private static bool _latchSmartCursorOld;
 
 		public static bool IsRunning => _active;
 
@@ -68,6 +78,15 @@ namespace AITownNPCs.Common.Ai.Firing
 			_savedInventory = Main.playerInventory;
 			_savedHasFocus = Main.hasFocus;
 			_savedScreen = Main.screenPosition;
+			_savedMouseItem = Main.mouseItem;
+			_savedSmartCursorWantedMouse = Main.SmartCursorWanted_Mouse;
+			_savedSmartCursorWantedGamePad = Main.SmartCursorWanted_GamePad;
+			_savedSmartCursorShowing = Main.SmartCursorShowing;
+			_savedSmartCursorX = Main.SmartCursorX;
+			_savedSmartCursorY = Main.SmartCursorY;
+			_savedMouseLeftRelease = Main.mouseLeftRelease;
+			_savedMouseRightRelease = Main.mouseRightRelease;
+			_latchSmartCursorOld = PlayerInput.Triggers.JustPressed != null && PlayerInput.Triggers.JustPressed.SmartCursor;
 
 			CopyTriggers(SavedCurrent, PlayerInput.Triggers.Current);
 			CopyTriggers(SavedOld, PlayerInput.Triggers.Old);
@@ -75,6 +94,9 @@ namespace AITownNPCs.Common.Ai.Firing
 			CopyTriggers(SavedJustReleased, PlayerInput.Triggers.JustReleased);
 
 			ApplyUseTriggers(wantUse, wasDown);
+
+			// Isolate cursor item so dummy ItemCheck cannot alias/contaminate equip slots.
+			Main.mouseItem = new Item();
 
 			Main.myPlayer = dummy.whoAmI;
 			// Dedicated server has no window. Player.Update clears controlUseItem,
@@ -115,14 +137,29 @@ namespace AITownNPCs.Common.Ai.Firing
 			CopyTriggers(PlayerInput.Triggers.Old, SavedOld);
 			CopyTriggers(PlayerInput.Triggers.JustPressed, SavedJustPressed);
 			CopyTriggers(PlayerInput.Triggers.JustReleased, SavedJustReleased);
+			// Edges were already consumed by the real player this frame. Do not publish them again.
+			ClearConsumedEdges(PlayerInput.Triggers.JustPressed);
+			ClearConsumedEdges(PlayerInput.Triggers.JustReleased);
+			if (_latchSmartCursorOld && PlayerInput.Triggers.Old != null) {
+				PlayerInput.Triggers.Old.SmartCursor = true;
+			}
 
 			Main.mouseX = _savedMouseX;
 			Main.mouseY = _savedMouseY;
 			Main.mouseLeft = _savedMouseLeft;
 			Main.mouseRight = _savedMouseRight;
+			Main.mouseLeftRelease = _savedMouseLeftRelease;
+			Main.mouseRightRelease = _savedMouseRightRelease;
 			Main.playerInventory = _savedInventory;
 			Main.hasFocus = _savedHasFocus;
 			Main.screenPosition = _savedScreen;
+			Main.mouseItem = _savedMouseItem ?? new Item();
+			_savedMouseItem = null;
+			Main.SmartCursorWanted_Mouse = _savedSmartCursorWantedMouse;
+			Main.SmartCursorWanted_GamePad = _savedSmartCursorWantedGamePad;
+			Main.SmartCursorShowing = _savedSmartCursorShowing;
+			Main.SmartCursorX = _savedSmartCursorX;
+			Main.SmartCursorY = _savedSmartCursorY;
 
 			Main.myPlayer = _savedMyPlayer;
 			_active = false;
@@ -139,7 +176,9 @@ namespace AITownNPCs.Common.Ai.Firing
 				MouseX = Main.mouseX,
 				MouseY = Main.mouseY,
 				MouseLeft = Main.mouseLeft,
-				MouseRight = Main.mouseRight
+				MouseRight = Main.mouseRight,
+				MouseLeftRelease = Main.mouseLeftRelease,
+				MouseRightRelease = Main.mouseRightRelease
 			});
 
 			Main.myPlayer = dummyWho;
@@ -167,12 +206,25 @@ namespace AITownNPCs.Common.Ai.Firing
 			Main.mouseY = frame.MouseY;
 			Main.mouseLeft = frame.MouseLeft;
 			Main.mouseRight = frame.MouseRight;
+			Main.mouseLeftRelease = frame.MouseLeftRelease;
+			Main.mouseRightRelease = frame.MouseRightRelease;
 		}
 
 		public static void DrainProjFrames() {
 			while (ProjFrames.Count > 0) {
 				PopForProjectile();
 			}
+		}
+
+		private static void ClearConsumedEdges(TriggersSet set) {
+			if (set == null) {
+				return;
+			}
+
+			set.SmartCursor = false;
+			set.SmartSelect = false;
+			set.MouseLeft = false;
+			set.MouseRight = false;
 		}
 
 		private static void ApplyUseTriggers(bool wantUse, bool wasDown) {
@@ -247,6 +299,8 @@ namespace AITownNPCs.Common.Ai.Firing
 			public int MouseY;
 			public bool MouseLeft;
 			public bool MouseRight;
+			public bool MouseLeftRelease;
+			public bool MouseRightRelease;
 		}
 	}
 }

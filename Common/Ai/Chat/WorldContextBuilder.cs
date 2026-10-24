@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.GameContent.Events;
@@ -63,6 +65,8 @@ namespace AITownNPCs.Common.Ai.Chat
 
 			sb.Append("附近其他城镇NPC=").Append(
 				string.IsNullOrEmpty(snap.NearbyTownNpcs) ? "无" : snap.NearbyTownNpcs);
+			sb.AppendLine();
+			AppendSpeakerLoadout(sb, speaker);
 			return sb.ToString();
 		}
 
@@ -85,7 +89,50 @@ namespace AITownNPCs.Common.Ai.Chat
 				sb.Append("；Boss=").Append(snap.BossName).Append("约").Append(snap.BossLifePct).Append('%');
 			}
 
+			AppendSpeakerLoadoutInline(sb, speaker);
 			return sb.ToString();
+		}
+
+		private static void AppendSpeakerLoadout(StringBuilder sb, NPC speaker) {
+			if (speaker == null || !speaker.active) {
+				sb.Append("装备武器=无");
+				return;
+			}
+
+			EquippedTownNPC equip = speaker.GetGlobalNPC<EquippedTownNPC>();
+			Item weapon = equip?.Weapon;
+			if (weapon == null || weapon.IsAir) {
+				sb.Append("装备武器=无");
+			}
+			else {
+				sb.Append("装备武器=有：").Append(Lang.GetItemNameValue(weapon.type));
+			}
+
+			NpcCombatState combat = speaker.GetGlobalNPC<NpcCombatState>();
+			if (combat != null && combat.CombatControlsLocomotion) {
+				sb.Append("；战斗中=是");
+			}
+		}
+
+		private static void AppendSpeakerLoadoutInline(StringBuilder sb, NPC speaker) {
+			if (speaker == null || !speaker.active) {
+				sb.Append("；装备武器=无");
+				return;
+			}
+
+			EquippedTownNPC equip = speaker.GetGlobalNPC<EquippedTownNPC>();
+			Item weapon = equip?.Weapon;
+			if (weapon == null || weapon.IsAir) {
+				sb.Append("；装备武器=无");
+			}
+			else {
+				sb.Append("；装备武器=有：").Append(Lang.GetItemNameValue(weapon.type));
+			}
+
+			NpcCombatState combat = speaker.GetGlobalNPC<NpcCombatState>();
+			if (combat != null && combat.CombatControlsLocomotion) {
+				sb.Append("；战斗中=是");
+			}
 		}
 
 		/// <summary>Structured snapshot used by follower ambient sensing and Build.</summary>

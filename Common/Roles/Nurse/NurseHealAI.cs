@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Net;
@@ -15,6 +16,7 @@ namespace AITownNPCs.Common.Roles.Nurse
 		public const float HealRange = 480f;
 		public const int ThrowCooldown = 90;
 		public const int ThrowAnim = 24;
+		public const int MaxHealTargets = 5;
 
 		public static void Update(NPC npc, NurseRoleState state) {
 			if (Main.netMode == NetmodeID.MultiplayerClient) {
@@ -47,15 +49,11 @@ namespace AITownNPCs.Common.Roles.Nurse
 				return;
 			}
 
-			if (!TryFindTarget(npc, equip, out Entity target, out Item potion, out NpcEquipSlotId slot)) {
+			if (!TryCollectTargets(npc, equip, state)) {
 				return;
 			}
 
-			state.TargetIsPlayer = target is Player;
-			state.TargetIndex = target is Player p ? p.whoAmI : ((NPC)target).whoAmI;
 			state.ThrowTimer = ThrowAnim;
-			state.PendingSlot = slot;
-			state.PendingPotionType = potion.type;
 			FaceTarget(npc, state);
 			npc.netUpdate = true;
 		}
@@ -100,110 +98,196 @@ namespace AITownNPCs.Common.Roles.Nurse
 			return other.active ? other.Center : null;
 		}
 
-		private static bool TryFindTarget(NPC npc, EquippedTownNPC equip, out Entity target, out Item potion, out NpcEquipSlotId slot) {
-			target = null;
-			potion = null;
-			slot = NpcEquipSlotId.HealLife;
-			float bestDist = HealRange;
+		private static bool TryCollectTargets(NPC npc, EquippedTownNPC equip, NurseRoleState state) {
+			state.TossCount = 0;
+			Item lifeItem = equip.GetSlot(NpcEquipSlotId.HealLife);
+			Item manaItem = equip.GetSlot(NpcEquipSlotId.HealMana);
+			int lifeLeft = !lifeItem.IsAir && lifeItem.healLife > 0 ? lifeItem.stack : 0;
+			int manaLeft = !manaItem.IsAir && manaItem.healMana > 0 ? manaItem.stack : 0;
+			if (lifeLeft <= 0 && manaLeft <= 0) {
+				return false;
+			}
 
+			var candidates = new List<HealCandidate>();
 			for (int i = 0; i < Main.maxPlayers; i++) {
 				Player player = Main.player[i];
 				if (!player.active || player.dead) {
 					continue;
 				}
 
-				float dist = npc.Distance(player.Center);
-				if (dist >= bestDist
-				    || !Collision.CanHit(npc.position, npc.width, npc.height, player.position, player.width, player.height)) {
+				bool needsLife = player.statLife < player.statLifeMax2;
+				bool needsMana = player.statMana < player.statManaMax2;
+				if ((!needsLife || lifeLeft <= 0) && (!needsMana || manaLeft <= 0)) {
 					continue;
 				}
 
-				if (TryPickPotionForPlayer(equip, player, out Item pick, out NpcEquipSlotId pickSlot)) {
-					bestDist = dist;
-					target = player;
-					potion = pick;
-					slot = pickSlot;
-				}
-			}
-
-			if (target != null) {
-				return true;
-			}
-
-			bestDist = HealRange;
-			for (int i = 0; i < Main.maxNPCs; i++) {
-				NPC other = Main.npc[i];
-				if (!other.active || other.whoAmI == npc.whoAmI || !other.townNPC || other.life >= other.lifeMax) {
+				float d = npc.Distance(player.Center);
+				if (d >= HealRange || !CanHit(npc, player.position, player.width, player.height)) {
 					continue;
 				}
 
-				float dist = npc.Distance(other.Center);
-				if (dist >= bestDist
-				    || !Collision.CanHit(npc.position, npc.width, npc.height, other.position, other.width, other.height)) {
-					continue;
-				}
+				candidates.Add(new HealCandidate(d, isPlayer: true, i));
+			}
 
-				if (TryPick(equip, item => item.healLife > 0, out Item pick, out NpcEquipSlotId pickSlot)) {
-					bestDist = dist;
-					target = other;
-					potion = pick;
-					slot = pickSlot;
+			if (lifeLeft > 0) {
+				for (int i = 0; i < Main.maxNPCs; i++) {
+					NPC other = Main.npc[i];
+					if (!other.active || other.whoAmI == npc.whoAmI || !other.townNPC || other.life >= other.lifeMax) {
+						continue;
+					}
+
+					float d = npc.Distance(other.Center);
+					if (d >= HealRange || !CanHit(npc, other.position, other.width, other.height)) {
+						continue;
+					}
+
+					candidates.Add(new HealCandidate(d, isPlayer: false, i));
 				}
 			}
 
-			return target != null;
+			candidates.Sort((a, b) => a.Dist.CompareTo(b.Dist));
+			for (int n = 0; n < candidates.Count && state.TossCount < MaxHealTargets; n++) {
+				HealCandidate candidate = candidates[n];
+				bool life;
+				if (candidate.IsPlayer) {
+					Player player = Main.player[candidate.Index];
+					if (player.statLife < player.statLifeMax2 && lifeLeft > 0) {
+						life = true;
+					}
+					else if (player.statMana < player.statManaMax2 && manaLeft > 0) {
+						life = false;
+					}
+					else {
+						continue;
+					}
+				}
+				else if (lifeLeft > 0) {
+					life = true;
+				}
+				else {
+					continue;
+				}
+
+				int slot = state.TossCount;
+				state.TossIsPlayer[slot] = candidate.IsPlayer;
+				state.TossIndex[slot] = candidate.Index;
+				state.TossUseLife[slot] = life;
+				state.TossCount++;
+				if (life) {
+					lifeLeft--;
+				}
+				else {
+					manaLeft--;
+				}
+			}
+
+			if (state.TossCount <= 0) {
+				return false;
+			}
+
+			state.TargetIsPlayer = state.TossIsPlayer[0];
+			state.TargetIndex = state.TossIndex[0];
+			state.PendingSlot = state.TossUseLife[0] ? NpcEquipSlotId.HealLife : NpcEquipSlotId.HealMana;
+			Item shown = equip.GetSlot(state.PendingSlot);
+			state.PendingPotionType = shown.IsAir ? 0 : shown.type;
+			return state.PendingPotionType > 0;
 		}
 
-		private static bool TryPickPotionForPlayer(EquippedTownNPC equip, Player player, out Item potion, out NpcEquipSlotId slot) {
-			potion = null;
-			slot = NpcEquipSlotId.HealLife;
-			// Coarse server gate: better occasional miss under !SSC than infinite throws when full.
-			if (player.statLife < player.statLifeMax2 && TryPick(equip, item => item.healLife > 0, out potion, out slot)) {
-				return true;
-			}
+		private readonly struct HealCandidate
+		{
+			public readonly float Dist;
+			public readonly bool IsPlayer;
+			public readonly int Index;
 
-			if (player.statMana < player.statManaMax2 && TryPick(equip, item => item.healMana > 0, out potion, out slot)) {
-				return true;
+			public HealCandidate(float dist, bool isPlayer, int index) {
+				Dist = dist;
+				IsPlayer = isPlayer;
+				Index = index;
 			}
-
-			return false;
 		}
 
-		private static bool TryPick(EquippedTownNPC equip, System.Func<Item, bool> pred, out Item potion, out NpcEquipSlotId slot) {
-			potion = null;
-			slot = NpcEquipSlotId.HealLife;
-			Item lifeSlot = equip.GetSlot(NpcEquipSlotId.HealLife);
-			if (!lifeSlot.IsAir && pred(lifeSlot)) {
-				potion = lifeSlot;
-				slot = NpcEquipSlotId.HealLife;
-				return true;
-			}
-
-			Item manaSlot = equip.GetSlot(NpcEquipSlotId.HealMana);
-			if (!manaSlot.IsAir && pred(manaSlot)) {
-				potion = manaSlot;
-				slot = NpcEquipSlotId.HealMana;
-				return true;
-			}
-
-			return false;
+		private static bool CanHit(NPC npc, Vector2 position, int width, int height) {
+			return Collision.CanHit(npc.position, npc.width, npc.height, position, width, height);
 		}
 
 		private static void TryThrow(NPC npc, EquippedTownNPC equip, NurseRoleState state) {
-			Item potion = equip.GetSlot(state.PendingSlot);
-			if (potion.IsAir || potion.type != state.PendingPotionType) {
-				state.Cooldown = 20;
-				return;
+			bool threw = false;
+			bool usedLife = false;
+			bool usedMana = false;
+			for (int i = 0; i < state.TossCount; i++) {
+				NpcEquipSlotId slot = state.TossUseLife[i] ? NpcEquipSlotId.HealLife : NpcEquipSlotId.HealMana;
+				Item potion = equip.GetSlot(slot);
+				if (potion.IsAir) {
+					continue;
+				}
+
+				if (state.TossUseLife[i] && potion.healLife <= 0) {
+					continue;
+				}
+
+				if (!state.TossUseLife[i] && potion.healMana <= 0) {
+					continue;
+				}
+
+				Vector2? aim = TargetCenter(state.TossIsPlayer[i], state.TossIndex[i]);
+				if (!aim.HasValue) {
+					continue;
+				}
+
+			if (SpawnToss(npc, aim.Value, potion, state.TossIsPlayer[i], state.TossIndex[i])) {
+				if (!threw) {
+					SoundEngine.PlaySound(SoundID.Item1, npc.Center);
+				}
+
+				threw = true;
+					ConsumePotion(equip, slot);
+					if (slot == NpcEquipSlotId.HealLife) {
+						usedLife = true;
+					}
+					else {
+						usedMana = true;
+					}
+				}
 			}
 
-			Vector2? aim = GetTargetCenter(state);
-			if (!aim.HasValue) {
-				state.Cooldown = 20;
-				return;
+			state.TossCount = 0;
+			if (usedLife) {
+				NpcEquipNetSystem.BroadcastSlot(npc.whoAmI, NpcEquipSlotId.HealLife, equip.GetSlot(NpcEquipSlotId.HealLife));
 			}
 
+			if (usedMana) {
+				NpcEquipNetSystem.BroadcastSlot(npc.whoAmI, NpcEquipSlotId.HealMana, equip.GetSlot(NpcEquipSlotId.HealMana));
+			}
+
+			state.Cooldown = threw ? ThrowCooldown : 20;
+			npc.netUpdate = true;
+		}
+
+		private static Vector2? TargetCenter(bool isPlayer, int index) {
+			if (index < 0) {
+				return null;
+			}
+
+			if (isPlayer) {
+				if (index >= Main.maxPlayers) {
+					return null;
+				}
+
+				Player player = Main.player[index];
+				return player.active && !player.dead ? player.Center : null;
+			}
+
+			if (index >= Main.maxNPCs) {
+				return null;
+			}
+
+			NPC other = Main.npc[index];
+			return other.active ? other.Center : null;
+		}
+
+		private static bool SpawnToss(NPC npc, Vector2 aim, Item potion, bool targetIsPlayer, int targetIndex) {
 			Vector2 start = npc.Center + new Vector2(npc.direction * 12f, -8f);
-			Vector2 velocity = aim.Value - start;
+			Vector2 velocity = aim - start;
 			float dist = velocity.Length();
 			if (dist < 1f) {
 				velocity = new Vector2(npc.direction, -0.5f);
@@ -211,16 +295,11 @@ namespace AITownNPCs.Common.Roles.Nurse
 			}
 
 			velocity = velocity / dist * 14f;
-
-			IEntitySource source = npc.GetSource_FromAI();
-			int pendingPotionType = potion.type;
-			bool targetIsPlayer = state.TargetIsPlayer;
-			int targetIndex = state.TargetIndex;
 			int healLife = potion.healLife;
 			int healMana = potion.healMana;
-
+			int potionType = potion.type;
 			int proj = NpcProjectileSpawn.SpawnServerOwned(
-				source,
+				npc.GetSource_FromAI(),
 				start,
 				velocity,
 				ModContent.ProjectileType<NurseHealProjectile>(),
@@ -229,19 +308,12 @@ namespace AITownNPCs.Common.Roles.Nurse
 				p => {
 					p.ai[0] = healLife;
 					p.ai[1] = healMana;
-					p.localAI[0] = pendingPotionType;
+					p.localAI[0] = potionType;
 					p.localAI[1] = targetIsPlayer ? 1f : 0f;
 					p.ai[2] = targetIndex;
 				});
 
-			if (proj >= 0) {
-				SoundEngine.PlaySound(SoundID.Item1, npc.Center);
-			}
-
-			ConsumePotion(equip, state.PendingSlot);
-			NpcEquipNetSystem.BroadcastSlot(npc.whoAmI, state.PendingSlot, equip.GetSlot(state.PendingSlot));
-			state.Cooldown = ThrowCooldown;
-			npc.netUpdate = true;
+			return proj >= 0;
 		}
 
 		private static void ConsumePotion(EquippedTownNPC equip, NpcEquipSlotId slot) {
@@ -267,5 +339,9 @@ namespace AITownNPCs.Common.Roles.Nurse
 		public int TargetIndex = -1;
 		public NpcEquipSlotId PendingSlot;
 		public int PendingPotionType;
+		public int TossCount;
+		public readonly bool[] TossIsPlayer = new bool[NurseHealAI.MaxHealTargets];
+		public readonly int[] TossIndex = new int[NurseHealAI.MaxHealTargets];
+		public readonly bool[] TossUseLife = new bool[NurseHealAI.MaxHealTargets];
 	}
 }

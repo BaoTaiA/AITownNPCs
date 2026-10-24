@@ -19,17 +19,14 @@ namespace AITownNPCs.Common.Ai.Combat
 
 		public NpcCombatMode Mode = NpcCombatMode.FollowOnly;
 		public int LockedBossWhoAmI = -1;
-		public int NormalClearTicks;
 		public int BossClearTicks;
 		public int CachedTargetWhoAmI = -1;
 		public bool HasEngagedTarget;
 		public bool UseCombatFlight;
-		public bool CombatWantDrop;
-		public int MoveNetCooldown;
 		/// <summary>Frames until next full acquire scan (boss + normal).</summary>
 		public int TargetRefreshTicks;
 
-		/// <summary>True when combat owns locomotion (Boss, or Normal with a target).</summary>
+		/// <summary>True while a boss or a normal target is engaged. Follow still moves during normal fights.</summary>
 		public bool CombatControlsLocomotion =>
 			Mode == NpcCombatMode.Boss
 			|| (Mode == NpcCombatMode.Normal && HasEngagedTarget);
@@ -37,14 +34,14 @@ namespace AITownNPCs.Common.Ai.Combat
 		public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
 			bool busy = ItemAnimation > 0 || IsChanneling;
 			bitWriter.WriteBit(busy);
-			if (!busy) {
-				return;
+			if (busy) {
+				binaryWriter.Write((short)ItemAnimation);
+				binaryWriter.Write((short)ItemAnimationMax);
+				binaryWriter.Write(ItemRotation);
+				bitWriter.WriteBit(IsChanneling);
 			}
 
-			binaryWriter.Write((short)ItemAnimation);
-			binaryWriter.Write((short)ItemAnimationMax);
-			binaryWriter.Write(ItemRotation);
-			bitWriter.WriteBit(IsChanneling);
+			WriteChaseTarget(bitWriter, binaryWriter);
 		}
 
 		public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
@@ -53,13 +50,46 @@ namespace AITownNPCs.Common.Ai.Combat
 				ItemAnimationMax = 0;
 				ItemRotation = 0f;
 				IsChanneling = false;
+			}
+			else {
+				ItemAnimation = binaryReader.ReadInt16();
+				ItemAnimationMax = binaryReader.ReadInt16();
+				ItemRotation = binaryReader.ReadSingle();
+				IsChanneling = bitReader.ReadBit();
+			}
+
+			ReadChaseTarget(bitReader, binaryReader);
+		}
+
+		private void WriteChaseTarget(BitWriter bitWriter, BinaryWriter binaryWriter) {
+			bool chase = Mode == NpcCombatMode.Normal
+				&& HasEngagedTarget
+				&& CachedTargetWhoAmI >= 0
+				&& CachedTargetWhoAmI < Main.maxNPCs;
+			bitWriter.WriteBit(chase);
+			if (chase) {
+				binaryWriter.Write((short)CachedTargetWhoAmI);
+			}
+		}
+
+		private void ReadChaseTarget(BitReader bitReader, BinaryReader binaryReader) {
+			if (!bitReader.ReadBit()) {
+				if (Mode == NpcCombatMode.Normal) {
+					ClearNormalTarget();
+					Mode = NpcCombatMode.FollowOnly;
+				}
+
 				return;
 			}
 
-			ItemAnimation = binaryReader.ReadInt16();
-			ItemAnimationMax = binaryReader.ReadInt16();
-			ItemRotation = binaryReader.ReadSingle();
-			IsChanneling = bitReader.ReadBit();
+			int who = binaryReader.ReadInt16();
+			if (Mode == NpcCombatMode.Boss) {
+				return;
+			}
+
+			Mode = NpcCombatMode.Normal;
+			HasEngagedTarget = true;
+			CachedTargetWhoAmI = who;
 		}
 
 		public void ResetUse() {
@@ -70,7 +100,6 @@ namespace AITownNPCs.Common.Ai.Combat
 			CachedTargetWhoAmI = -1;
 			HasEngagedTarget = false;
 			UseCombatFlight = false;
-			CombatWantDrop = false;
 		}
 
 		public void ClearBossLock() {
@@ -80,7 +109,6 @@ namespace AITownNPCs.Common.Ai.Combat
 
 		public void EnterFollowOnly() {
 			Mode = NpcCombatMode.FollowOnly;
-			NormalClearTicks = 0;
 			TargetRefreshTicks = 0;
 			ClearNormalTarget();
 			ClearBossLock();

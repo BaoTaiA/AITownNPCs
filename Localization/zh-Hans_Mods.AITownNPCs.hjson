@@ -116,7 +116,7 @@ Config: {
 
 	AiProactiveEnabled: {
 		Label: 启用主动发言
-		Tooltip: 路过招呼（50px、停满10秒、10分钟冷却，打字也计入）；跟随碎碎念约7～15秒。玩家主动打字本身无冷却
+		Tooltip: 路过招呼（50px、停满10秒、10分钟冷却，打字也计入）；跟随碎碎念约每2分钟有50%概率开口。玩家主动打字本身无冷却
 	}
 
 	SuperpowerEnabled: {

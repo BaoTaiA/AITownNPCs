@@ -554,6 +554,23 @@ namespace AITownNPCs.Common.Ai.Firing
 			byte prefix,
 			short stack,
 			ref uint lastTick) {
+			if (npcWho < 0 || npcWho >= Main.maxNPCs || !Main.npc[npcWho].active) {
+				return;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
+			Item probeItem = new Item();
+			if (type > ItemID.None && stack > 0) {
+				probeItem.SetDefaults(type);
+				probeItem.Prefix(prefix);
+				probeItem.stack = stack;
+				if (!profile.IsItemAllowed(slot, probeItem, equip.Slots)) {
+					return;
+				}
+			}
+
 			bool typeChanged = item.type != type || item.prefix != prefix;
 			int currentStack = item.IsAir ? 0 : item.stack;
 			if (!typeChanged && currentStack == stack) {

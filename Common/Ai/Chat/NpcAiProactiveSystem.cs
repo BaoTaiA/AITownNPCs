@@ -55,21 +55,31 @@ namespace AITownNPCs.Common.Ai.Chat
 				bool consumePending = false;
 				var memPlayer = player.GetModPlayer<NpcAiMemoryPlayer>();
 
-				// 1) Follower speech: event triggers first; ambient if nothing pending.
+				// 1) Follower speech: every 2 min, 50% chance; event first, else ambient.
 				if (follower != null && now >= NextFollowerProactiveTick[p]) {
-					string pending = memPlayer.PeekProactiveTrigger();
-					if (pending != null) {
-						speaker = follower;
-						trigger = pending;
-						followerProactive = true;
-						consumePending = true;
+					if (Main.rand.NextFloat() >= NpcDialoguePolicy.FollowerSpeakChance) {
+						NextFollowerProactiveTick[p] =
+							now + (uint)NpcDialoguePolicy.RollFollowerProactiveDelayTicks();
 					}
-					else if (WorldContextBuilder.TryBuildFollowerAmbientTrigger(
-						         player, follower, LastAmbientTopic[p], out string ambient, out string topic)) {
-						LastAmbientTopic[p] = topic;
-						speaker = follower;
-						trigger = ambient;
-						followerProactive = true;
+					else {
+						string pending = memPlayer.PeekProactiveTrigger();
+						if (pending != null) {
+							speaker = follower;
+							trigger = pending;
+							followerProactive = true;
+							consumePending = true;
+						}
+						else if (WorldContextBuilder.TryBuildFollowerAmbientTrigger(
+							         player, follower, LastAmbientTopic[p], out string ambient, out string topic)) {
+							LastAmbientTopic[p] = topic;
+							speaker = follower;
+							trigger = ambient;
+							followerProactive = true;
+						}
+						else {
+							NextFollowerProactiveTick[p] =
+								now + (uint)NpcDialoguePolicy.RollFollowerProactiveDelayTicks();
+						}
 					}
 				}
 

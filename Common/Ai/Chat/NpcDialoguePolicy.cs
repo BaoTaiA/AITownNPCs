@@ -14,8 +14,10 @@ namespace AITownNPCs.Common.Ai.Chat
 		public const float WalkByRange = 50f;
 		public const int WalkByStayTicks = 60 * 10;
 		public const int WalkByCooldownTicks = 60 * 600;
-		public const int FollowerProactiveMinTicks = 60 * 40;
-		public const int FollowerProactiveMaxTicks = 60 * 90;
+		/// <summary>Follower ambient window: every 2 minutes, then 50% chance to speak.</summary>
+		public const int FollowerProactiveMinTicks = 60 * 120;
+		public const int FollowerProactiveMaxTicks = 60 * 120;
+		public const float FollowerSpeakChance = 0.5f;
 
 		public static float ChatRange() =>
 			AinpcServerConfig.Instance?.FollowTriggerDistancePixels ?? 200f;

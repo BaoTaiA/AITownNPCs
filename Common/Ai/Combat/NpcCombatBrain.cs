@@ -9,20 +9,15 @@ namespace AITownNPCs.Common.Ai.Combat
 {
 	public static class NpcCombatBrain
 	{
-		public const int NormalClearFrames = 120;
 		public const int BossClearFrames = 300;
 		public const int TargetAcquireInterval = 8;
 
-		public static bool ShouldRunFollow(NpcCombatState state) {
-			if (state == null) {
+		public static bool ShouldRunFollow(NPC npc, NpcCombatState state) {
+			if (npc == null || state == null) {
 				return true;
 			}
 
-			return state.Mode switch {
-				NpcCombatMode.Boss => false,
-				NpcCombatMode.Normal => !state.HasEngagedTarget,
-				_ => true
-			};
+			return state.Mode != NpcCombatMode.Boss;
 		}
 
 		public static void EvaluateMode(NPC npc) {
@@ -79,7 +74,6 @@ namespace AITownNPCs.Common.Ai.Combat
 					state.Mode = NpcCombatMode.Boss;
 					state.LockedBossWhoAmI = fresh.whoAmI;
 					state.BossClearTicks = 0;
-					state.NormalClearTicks = 0;
 					state.HasEngagedTarget = true;
 					state.ClearNormalTarget();
 					return;
@@ -99,7 +93,6 @@ namespace AITownNPCs.Common.Ai.Combat
 				state.Mode = NpcCombatMode.Boss;
 				state.LockedBossWhoAmI = nearestBoss.whoAmI;
 				state.BossClearTicks = 0;
-				state.NormalClearTicks = 0;
 				state.HasEngagedTarget = true;
 				state.ClearNormalTarget();
 				return;
@@ -115,17 +108,6 @@ namespace AITownNPCs.Common.Ai.Combat
 				state.Mode = NpcCombatMode.Normal;
 				state.CachedTargetWhoAmI = target.whoAmI;
 				state.HasEngagedTarget = true;
-				state.NormalClearTicks = 0;
-				return;
-			}
-
-			if (state.Mode == NpcCombatMode.Normal) {
-				state.ClearNormalTarget();
-				state.NormalClearTicks++;
-				if (state.NormalClearTicks >= NormalClearFrames) {
-					state.EnterFollowOnly();
-				}
-
 				return;
 			}
 
@@ -150,10 +132,9 @@ namespace AITownNPCs.Common.Ai.Combat
 					return false;
 				}
 
-				NPC sticky = NpcNormalCombat.GetCachedIfValid(state);
+				NPC sticky = NpcNormalCombat.GetCachedIfValid(npc, state);
 				if (sticky != null && player.Distance(sticky.Center) <= NpcNormalCombat.StickyRadius) {
 					state.HasEngagedTarget = true;
-					state.NormalClearTicks = 0;
 					return true;
 				}
 
@@ -175,7 +156,6 @@ namespace AITownNPCs.Common.Ai.Combat
 
 			NpcCombatState state = npc.GetGlobalNPC<NpcCombatState>();
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 
 			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
 			if (!profile.CombatEnabled) {
@@ -190,14 +170,11 @@ namespace AITownNPCs.Common.Ai.Combat
 
 			switch (state.Mode) {
 				case NpcCombatMode.Normal: {
-					Player player = Main.player[follow.FollowPlayerWhoAmI];
 					if (state.HasEngagedTarget) {
-						NpcNormalMove.Tick(npc, player, state);
 						NpcNormalCombat.TickFire(npc, equip, state);
 					}
 					else {
 						state.UseCombatFlight = false;
-						state.CombatWantDrop = false;
 						NpcCombatFire.Tick(npc, equip, target: null, allowFire: false);
 					}
 
@@ -218,7 +195,6 @@ namespace AITownNPCs.Common.Ai.Combat
 				default:
 					NpcCombatFire.Stop(npc);
 					state.UseCombatFlight = false;
-					state.CombatWantDrop = false;
 					state.HasEngagedTarget = false;
 					break;
 			}

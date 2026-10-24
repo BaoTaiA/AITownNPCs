@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Ai.Firing;
 using AITownNPCs.Common.Host;
 using Terraria;
 using Terraria.ID;
@@ -113,7 +114,9 @@ namespace AITownNPCs.Common.Equip
 		}
 
 		public override void PostUpdate() {
-			if (Player.whoAmI == Main.myPlayer) {
+			if (Player.whoAmI == Main.myPlayer
+				&& !NpcDummyPool.IsDummy(Player.whoAmI)
+				&& !NpcDummyLocal.IsRunning) {
 				int talk = Player.talkNPC;
 				string blocked = null;
 				bool blockedTalk = talk >= 0 && talk < Main.maxNPCs

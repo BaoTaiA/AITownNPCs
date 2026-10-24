@@ -259,36 +259,40 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		private static void ReadbackLoadout(Player dummy, EquippedTownNPC equip) {
 			Item held = dummy.inventory[dummy.selectedItem];
+			bool weaponMismatch = false;
 			if (held == null || held.IsAir) {
-				if (equip.Weapon.consumable) {
+				if (!equip.Weapon.IsAir && equip.Weapon.consumable) {
 					equip.Weapon.TurnToAir();
+				}
+				else if (!equip.Weapon.IsAir) {
+					weaponMismatch = true;
 				}
 			}
 			else if (equip.Weapon.type == held.type && equip.Weapon.prefix == held.prefix) {
 				equip.Weapon.stack = held.stack;
 			}
 			else {
-				equip.Weapon = held.Clone();
+				// Never adopt an unexpected held item (e.g. platforms from mouse contamination).
+				weaponMismatch = true;
 			}
 
-			if (equip.Weapon.useAmmo == AmmoID.None) {
-				return;
-			}
-
-			Item ammo = dummy.inventory[TempAmmoSlot];
-			if (ammo == null || ammo.IsAir) {
-				if (!IsEndlessAmmo(equip.Ammo)) {
-					equip.Ammo.TurnToAir();
+			if (equip.Weapon.useAmmo != AmmoID.None) {
+				Item ammo = dummy.inventory[TempAmmoSlot];
+				if (ammo == null || ammo.IsAir) {
+					if (!IsEndlessAmmo(equip.Ammo)) {
+						equip.Ammo.TurnToAir();
+					}
 				}
-
-				return;
+				else if (equip.Ammo.type == ammo.type && equip.Ammo.prefix == ammo.prefix) {
+					equip.Ammo.stack = ammo.stack;
+				}
+				else {
+					weaponMismatch = true;
+				}
 			}
 
-			if (equip.Ammo.type == ammo.type && equip.Ammo.prefix == ammo.prefix) {
-				equip.Ammo.stack = ammo.stack;
-			}
-			else {
-				equip.Ammo = ammo.Clone();
+			if (weaponMismatch) {
+				InstallLoadout(dummy, equip);
 			}
 		}
 

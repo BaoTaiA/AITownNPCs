@@ -25,9 +25,8 @@ namespace AITownNPCs.Common.Ai.Follow
 		public int FlyGraceTimer;
 		public int JumpCooldown;
 		public int WingLandTimer;
+		public int TeleportSettle;
 		public bool UseFlyingFollow;
-		/// <summary>True while the NPC is inside the ground-follow comfort gap.</summary>
-		public bool InCloseFollow;
 		/// <summary>Last travel direction used for the behind slot. +1 right, -1 left. 0 until set.</summary>
 		public int BehindSign;
 
@@ -39,7 +38,7 @@ namespace AITownNPCs.Common.Ai.Follow
 		public void ResetTimers() {
 			StuckTimer = 0;
 			FarTimer = 0;
-			InCloseFollow = false;
+			TeleportSettle = 0;
 			BehindSign = 0;
 		}
 
@@ -47,6 +46,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			FlyGraceTimer = 0;
 			JumpCooldown = 0;
 			WingLandTimer = 0;
+			TeleportSettle = 0;
 			UseFlyingFollow = false;
 			ResetWings();
 			if (npc != null) {
@@ -63,6 +63,10 @@ namespace AITownNPCs.Common.Ai.Follow
 		public void UpdateFlightState(NPC npc, Player player, bool playerFlying) {
 			if (JumpCooldown > 0) {
 				JumpCooldown--;
+			}
+
+			if (TeleportSettle > 0) {
+				TeleportSettle--;
 			}
 
 			if (!NpcWingFlight.HasWings(npc)) {
@@ -181,21 +185,14 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
-			if (combat.Mode == NpcCombatMode.Normal) {
-				if (!combat.CombatWantDrop || !combat.HasEngagedTarget) {
+			if (combat.Mode == NpcCombatMode.Normal && combat.HasEngagedTarget) {
+				int who = combat.CachedTargetWhoAmI;
+				if (who < 0 || who >= Main.maxNPCs) {
 					return false;
 				}
 
-				if (combat.CachedTargetWhoAmI < 0 || combat.CachedTargetWhoAmI >= Main.maxNPCs) {
-					return false;
-				}
-
-				NPC target = Main.npc[combat.CachedTargetWhoAmI];
-				if (!target.active) {
-					return false;
-				}
-
-				return target.Bottom.Y > npc.Bottom.Y + 24f;
+				NPC target = Main.npc[who];
+				return target.active && target.Bottom.Y > npc.Bottom.Y + 24f;
 			}
 
 			if (combat.Mode == NpcCombatMode.Boss) {

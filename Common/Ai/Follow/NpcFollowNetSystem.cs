@@ -331,7 +331,8 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 
 				NPC npc = Main.npc[npcWhoAmI];
-				npc.GetGlobalNPC<FollowingTownNPC>().FollowPlayerWhoAmI = followPlayer;
+				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+				follow.FollowPlayerWhoAmI = followPlayer;
 				FollowingTownNPC.ApplyFollowNetFlags(npc, following: followPlayer >= 0);
 				if (followPlayer >= 0 && followPlayer < Main.maxPlayers) {
 					Main.player[followPlayer].GetModPlayer<NpcFollowPlayer>().FollowingNpcWhoAmI = npcWhoAmI;

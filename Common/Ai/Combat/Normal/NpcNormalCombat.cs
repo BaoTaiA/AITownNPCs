@@ -20,7 +20,7 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 		}
 
 		public static void TickFire(NPC npc, EquippedTownNPC equip, NpcCombatState combat) {
-			NPC target = GetCachedIfValid(combat);
+			NPC target = GetCachedIfValid(npc, combat);
 			bool allowFire = target != null && NpcCombatFire.HasLineOfSight(npc, target);
 			NpcCombatFire.Tick(npc, equip, target, allowFire);
 		}
@@ -98,14 +98,14 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 			return other.CanBeChasedBy(npc);
 		}
 
-		public static NPC GetCachedIfValid(NpcCombatState combat) {
+		public static NPC GetCachedIfValid(NPC npc, NpcCombatState combat) {
 			int who = combat.CachedTargetWhoAmI;
 			if (who < 0 || who >= Main.maxNPCs) {
 				return null;
 			}
 
 			NPC other = Main.npc[who];
-			return other.active ? other : null;
+			return IsChaseable(npc, other) ? other : null;
 		}
 	}
 }

@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Ai.Firing;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -15,6 +16,12 @@ namespace AITownNPCs.Common.Host
 		}
 
 		private static void OnSetTalkNPC(On_Player.orig_SetTalkNPC orig, Player player, int npcIndex, bool fromNet) {
+			// Dummy briefly is Main.myPlayer. Swallow the call so vanilla does not
+			// open chat or clear Main.npcChatText for the real player.
+			if (player != null && NpcDummyPool.IsDummy(player.whoAmI)) {
+				return;
+			}
+
 			if (!fromNet
 				&& player != null
 				&& player.whoAmI == Main.myPlayer

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.ChatLog;
 using AITownNPCs.Common.Configs;
 using AITownNPCs.Common.Net;
