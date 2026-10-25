@@ -48,7 +48,7 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 			}
 
 			if (melee && weapon.shoot > ProjectileID.None) {
-				return new WeaponStance(StanceBand.MeleeReach, 230f, 0f, false);
+				return new WeaponStance(StanceBand.MeleeReach, 300f, 0f, false);
 			}
 
 			if (weapon.CountsAsClass(DamageClass.Magic) && weapon.shootSpeed > 0f && weapon.shootSpeed <= 12f) {

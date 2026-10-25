@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Ai.Combat.Boss;
 using AITownNPCs.Common.Equip;
 using Terraria;
 using Terraria.ID;
@@ -62,7 +63,7 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC other = Main.npc[i];
-				if (!IsChaseable(npc, other) || other.boss) {
+				if (!IsChaseable(npc, other) || NpcBossCombat.IsBossEncounterNpc(other)) {
 					continue;
 				}
 
@@ -88,6 +89,10 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 
 		public static bool IsChaseable(NPC npc, NPC other) {
 			if (other == null || !other.active || other.friendly || other.dontTakeDamage) {
+				return false;
+			}
+
+			if (NpcBossCombat.IsBossEncounterNpc(other)) {
 				return false;
 			}
 
