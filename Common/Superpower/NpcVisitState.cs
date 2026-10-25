@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.IO;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 
 namespace AITownNPCs.Common.Superpower
 {
@@ -71,6 +73,7 @@ namespace AITownNPCs.Common.Superpower
 			session.StayPos = npc.Center;
 			npc.homeless = true;
 			npc.velocity = Vector2.Zero;
+			npc.noGravity = true;
 			NpcFollowNetSystem.BroadcastTeleportFx(npc.whoAmI, from, npc.position, npc.width, npc.height);
 			ByNpc[npc.whoAmI] = session;
 			return true;
@@ -82,6 +85,8 @@ namespace AITownNPCs.Common.Superpower
 				return;
 			}
 
+			// Clear before SyncNPC so ExtraAI does not still advertise stay.
+			s.Active = false;
 			if (npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
 				NPC npc = Main.npc[npcWhoAmI];
 				if (npc.active && npc.type == s.NpcType) {
@@ -89,7 +94,6 @@ namespace AITownNPCs.Common.Superpower
 				}
 			}
 
-			s.Active = false;
 			ByNpc.Remove(npcWhoAmI);
 		}
 
@@ -126,6 +130,19 @@ namespace AITownNPCs.Common.Superpower
 			}
 		}
 
+		private static bool IsStandableFloor(int x, int y) {
+			if (!WorldGen.InWorld(x, y)) {
+				return false;
+			}
+
+			if (WorldGen.SolidTile(x, y)) {
+				return true;
+			}
+
+			Tile tile = Framing.GetTileSafely(x, y);
+			return tile.HasUnactuatedTile && Main.tileSolidTop[tile.TileType];
+		}
+
 		private static bool TryStandNear(NPC npc, Vector2 approx) {
 			int tileX = (int)(approx.X / 16f);
 			int startY = (int)(approx.Y / 16f) - 2;
@@ -141,7 +158,7 @@ namespace AITownNPCs.Common.Superpower
 					break;
 				}
 
-				if (!WorldGen.SolidTile(tileX, groundY)) {
+				if (!IsStandableFloor(tileX, groundY)) {
 					continue;
 				}
 
@@ -150,6 +167,7 @@ namespace AITownNPCs.Common.Superpower
 					continue;
 				}
 
+				// Headroom: full solids only — platform tops must not block standing on a platform.
 				bool blocked = false;
 				for (int y = topTile; y < groundY; y++) {
 					if (WorldGen.SolidTile(tileX, y) || WorldGen.SolidTile(tileX - 1, y) || WorldGen.SolidTile(tileX + 1, y)) {
@@ -182,6 +200,7 @@ namespace AITownNPCs.Common.Superpower
 			npc.homeTileY = s.SavedHomeY;
 			npc.Center = s.HomePos;
 			npc.velocity = Vector2.Zero;
+			npc.noGravity = false;
 			npc.netUpdate = true;
 			NpcFollowNetSystem.BroadcastTeleportFx(npc.whoAmI, from, npc.position, npc.width, npc.height);
 			if (Main.netMode == NetmodeID.Server) {
@@ -239,8 +258,8 @@ namespace AITownNPCs.Common.Superpower
 					continue;
 				}
 
-				RestoreHomeAndReturn(npc, s);
 				s.Active = false;
+				RestoreHomeAndReturn(npc, s);
 				done.Add(kv.Key);
 			}
 
@@ -253,12 +272,37 @@ namespace AITownNPCs.Common.Superpower
 	/// <summary>Skip vanilla town AI while a visit stay is holding this NPC.</summary>
 	public class NpcVisitGlobal : GlobalNPC
 	{
+		public override bool InstancePerEntity => true;
+
+		/// <summary>Client copy of visit-stay; server uses <see cref="NpcVisitState.IsStaying"/>.</summary>
+		public bool ClientStay;
+
+		public bool IsVisitHolding(NPC npc) =>
+			NpcVisitState.IsStaying(npc.whoAmI) || ClientStay;
+
+		public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
+			bitWriter.WriteBit(NpcVisitState.IsStaying(npc.whoAmI));
+		}
+
+		public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
+			ClientStay = bitReader.ReadBit();
+		}
+
 		public override bool PreAI(NPC npc) {
-			if (!NpcVisitState.IsStaying(npc.whoAmI)) {
+			if (!IsVisitHolding(npc)) {
 				return true;
 			}
 
+			npc.noGravity = true;
 			npc.velocity = Vector2.Zero;
+			return false;
+		}
+
+		public override bool? CanFallThroughPlatforms(NPC npc) {
+			if (!IsVisitHolding(npc)) {
+				return null;
+			}
+
 			return false;
 		}
 	}

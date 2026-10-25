@@ -26,7 +26,7 @@ namespace AITownNPCs.Common.Host
 				return true;
 			}
 
-			if (NpcVisitState.IsStaying(npc.whoAmI)) {
+			if (npc.GetGlobalNPC<NpcVisitGlobal>().IsVisitHolding(npc)) {
 				return true; // NpcVisitGlobal already returns false; do not fight it.
 			}
 
@@ -43,8 +43,8 @@ namespace AITownNPCs.Common.Host
 				return;
 			}
 
-			// Visit stay: do not let follow/role/combat yank the NPC away.
-			if (NpcVisitState.IsStaying(npc.whoAmI)) {
+			// Visit stay: do not let follow/role/combat yank the NPC away (ClientStay on MP clients).
+			if (npc.GetGlobalNPC<NpcVisitGlobal>().IsVisitHolding(npc)) {
 				return;
 			}
 
