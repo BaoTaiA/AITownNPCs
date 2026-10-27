@@ -4,6 +4,7 @@ using Terraria.Chat;
 using Terraria.GameContent.Events;
 using Terraria.ID;
 using Terraria.Localization;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Guide
 {
@@ -18,76 +19,76 @@ namespace AITownNPCs.Common.Superpower.Guide
 		public string Id => SuperpowerIds.GuideWeather;
 		public int NpcType => NPCID.Guide;
 		public int CooldownFrames => 60 * 60;
-		public string DisplayNameZh => "调整天气";
-		public string DescriptionZh => "可下雨/暴雪、沙尘暴、雷雨、大风天，或单独调整风速";
-		public string RefuseStyleZh => "温和";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			string action = intent.GetParam("action", "").ToLowerInvariant();
 			if (string.IsNullOrEmpty(action)) {
-				return SuperpowerResult.Failed(Id, "bad_params", "未识别天气动作");
+				return SuperpowerResult.Failed(Id, "bad_params", ModText.Get("Runtime.Superpower.Fixed.weather_bad"));
 			}
 
 			switch (action) {
 				case "rain_start":
 					Main.StartRain();
 					SyncWorld();
-					return OkAnnounce("雨已开启");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.rain_on"));
 				case "rain_stop":
 					Main.StopRain();
 					SyncWorld();
-					return OkAnnounce("雨已停止");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.rain_off"));
 				case "sandstorm_start":
 					Sandstorm.StartSandstorm();
 					SyncWorld();
-					return OkAnnounce("沙尘暴已开启");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.sandstorm_on"));
 				case "sandstorm_stop":
 					Sandstorm.StopSandstorm();
 					SyncWorld();
-					return OkAnnounce("沙尘暴已停止");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.sandstorm_off"));
 				case "windy_day_start": {
 					EnsureDaytime();
 					int mph = RollStormMph();
 					SetWindFromMph(mph);
 					SyncWorld();
-					return OkAnnounce("大风天已开启（约 " + mph + " mph）");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.windy_on", mph));
 				}
 				case "windy_day_stop":
 					ClearWind();
 					SyncWorld();
-					return OkAnnounce("大风天已停止");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.windy_off"));
 				case "thunderstorm_start": {
 					EnsureDaytime();
 					Main.StartRain();
 					int mph = RollStormMph();
 					SetWindFromMph(mph);
 					SyncWorld();
-					return OkAnnounce("雷雨已开启（约 " + mph + " mph）");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.thunder_on", mph));
 				}
 				case "thunderstorm_stop":
 					Main.StopRain();
 					ClearWind();
 					SyncWorld();
-					return OkAnnounce("雷雨已停止");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.thunder_off"));
 				case "wind_start":
 				case "wind_set": {
 					int mph = ResolveStormMph(intent);
 					SetWindFromMph(mph);
 					SyncWorld();
-					return OkAnnounce("风速已调整（约 " + mph + " mph）");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.wind_set", mph));
 				}
 				case "wind_stop":
 					ClearWind();
 					SyncWorld();
-					return OkAnnounce("风已停止");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.wind_off"));
 				case "clear":
 					Main.StopRain();
 					Sandstorm.StopSandstorm();
 					ClearWind();
 					SyncWorld();
-					return OkAnnounce("天气已恢复晴朗");
+					return OkAnnounce(ModText.Get("Runtime.Superpower.Fixed.weather_clear"));
 				default:
-					return SuperpowerResult.Failed(Id, "bad_params", "未知天气动作");
+					return SuperpowerResult.Failed(Id, "bad_params", ModText.Get("Runtime.Superpower.Fixed.weather_unknown"));
 			}
 		}
 

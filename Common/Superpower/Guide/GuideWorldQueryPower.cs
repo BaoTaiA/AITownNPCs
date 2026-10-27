@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Guide
 {
@@ -11,13 +12,13 @@ namespace AITownNPCs.Common.Superpower.Guide
 		public string Id => SuperpowerIds.GuideWorldQuery;
 		public int NpcType => NPCID.Guide;
 		public int CooldownFrames => 60 * 60;
-		public string DisplayNameZh => "世界指引";
-		public string DescriptionZh => "根据地图记忆指路：群系、结构、矿物、宝箱、生命水晶等";
-		public string RefuseStyleZh => "温和";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			if (!WorldCache.Ready) {
-				return SuperpowerResult.Failed(Id, "not_ready", "地图记忆还没理清");
+				return SuperpowerResult.Failed(Id, "not_ready", ModText.Get("Runtime.Superpower.Fixed.map_not_ready"));
 			}
 
 			string query = intent.GetParam("query", intent.GetParam("kind", "biome"));
@@ -29,12 +30,12 @@ namespace AITownNPCs.Common.Superpower.Guide
 			Vector2 playerTile = player.Center / 16f;
 			if (!WorldQuery.TryResolve(query, target, playerTile, out WorldQueryHit hit)) {
 				string label = string.IsNullOrWhiteSpace(target) ? query : target;
-				return SuperpowerResult.Failed(Id, "not_found", "没找到可靠的" + label);
+				return SuperpowerResult.Failed(Id, "not_found", ModText.Get("Runtime.Superpower.NotFound", label));
 			}
 
 			player.GetModPlayer<GuideGuidancePlayer>().StartGuidance(hit.TargetTile);
-			string line = hit.LineTemplate + "给你指引了。";
-			return SuperpowerResult.Ok(Id, true, line, "查询=" + hit.Label);
+			string line = hit.LineTemplate + ModText.Get("Runtime.Superpower.GuidedSuffix");
+			return SuperpowerResult.Ok(Id, true, line, ModText.Get("Runtime.Superpower.QueryEq", hit.Label));
 		}
 	}
 }

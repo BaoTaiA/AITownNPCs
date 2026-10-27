@@ -124,9 +124,9 @@ namespace AITownNPCs.Common.Superpower.Guide
 		private static float DirectionToRotation(Vector2 delta) {
 			string dir = WorldQuery.PrimaryDir(delta.X, delta.Y);
 			return dir switch {
-				"右" => MathHelper.PiOver2,
-				"左" => -MathHelper.PiOver2,
-				"下" => MathHelper.Pi,
+				"right" => MathHelper.PiOver2,
+				"left" => -MathHelper.PiOver2,
+				"down" => MathHelper.Pi,
 				_ => 0f
 			};
 		}

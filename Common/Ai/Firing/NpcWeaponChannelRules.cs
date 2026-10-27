@@ -14,6 +14,8 @@ namespace AITownNPCs.Common.Ai.Firing
 	/// 4. 未命中 → 默认一直按。
 	///
 	/// 白名单分簇识别，每簇一个 HoldFrames；黑名单只挡误伤。改完重新编译即可。
+	/// 已知限制：模组武器默认走「一直按」；异常蓄力/特殊 channel 需补进对应簇或黑名单。
+	/// See also docs/firing-checklist.md for manual regression after edits.
 	/// </summary>
 	public static class NpcWeaponChannelRules
 	{

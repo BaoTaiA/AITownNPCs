@@ -1,17 +1,19 @@
 using System;
 using System.Collections.Generic;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Merchant
 {
 	public static class MerchantConfirmRules
 	{
-		private static readonly HashSet<string> Confirm = new(StringComparer.Ordinal) {
-			"可以", "确定", "确认", "行", "好", "要", "成交", "卖"
-		};
+		private static HashSet<string> _confirm;
+		private static HashSet<string> _cancel;
 
-		private static readonly HashSet<string> Cancel = new(StringComparer.Ordinal) {
-			"不要", "算了", "取消", "不卖", "否"
-		};
+		private static HashSet<string> Confirm =>
+			_confirm ??= new HashSet<string>(AliasLists.Get("MerchantConfirm"), StringComparer.OrdinalIgnoreCase);
+
+		private static HashSet<string> Cancel =>
+			_cancel ??= new HashSet<string>(AliasLists.Get("MerchantCancel"), StringComparer.OrdinalIgnoreCase);
 
 		public static bool IsConfirm(string trimmed) =>
 			!string.IsNullOrEmpty(trimmed) && Confirm.Contains(trimmed);

@@ -3,6 +3,7 @@ using System.Text;
 using AITownNPCs.Common.Superpower;
 using AITownNPCs.Common.Superpower.Merchant;
 using Terraria;
+using Terraria.Localization;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
@@ -91,8 +92,9 @@ namespace AITownNPCs.Common.Ai.Chat
 			if (npc.type == Terraria.ID.NPCID.Merchant
 			    && MerchantPendingQuoteStore.TryGet(player.whoAmI, out MerchantPendingQuote quote)
 			    && !quote.IsExpired()) {
-				parts.Add("有待确认的收购垃圾报价，总价"
-					+ SuperpowerCoinUtil.FormatCopper(quote.TotalPrice));
+				parts.Add(Language.GetTextValue(
+					"Mods.AITownNPCs.Superpower.Prompt.PendingBuyTrash",
+					SuperpowerCoinUtil.FormatCopper(quote.TotalPrice)));
 			}
 
 			if (parts.Count == 0) {
@@ -100,14 +102,14 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 
 			var sb = new StringBuilder();
-			sb.Append("能力状态：");
+			sb.Append(Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.AbilityStateHeader"));
 			if (powers.Count > 1) {
-				sb.Append("冷却彼此独立。");
+				sb.Append(Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.CooldownsIndependent"));
 			}
 
 			for (int i = 0; i < parts.Count; i++) {
 				if (i > 0) {
-					sb.Append('；');
+					sb.Append(Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.PartSep"));
 				}
 
 				sb.Append(parts[i]);
@@ -117,23 +119,22 @@ namespace AITownNPCs.Common.Ai.Chat
 		}
 
 		private static string FormatCooldownPart(ISuperpower power, int sec) {
-			return power.Id switch {
-				SuperpowerIds.MerchantBuyTrash =>
-					"收购垃圾冷却约" + sec + "秒（非送货）",
-				SuperpowerIds.MerchantDelivery =>
-					"紧急送货冷却约" + sec + "秒（非收购）",
-				SuperpowerIds.DemoBlast =>
-					"远程爆破冷却约" + sec + "秒（非火力支援）",
-				SuperpowerIds.DemoFireSupport =>
-					"火力支援冷却约" + sec + "秒（非放雷管）",
-				SuperpowerIds.GuideWeather =>
-					"调整天气冷却约" + sec + "秒",
-				SuperpowerIds.GuideClearItems =>
-					"清除掉落物冷却约" + sec + "秒",
-				SuperpowerIds.GuideWorldQuery =>
-					"世界指引冷却约" + sec + "秒",
-				_ => "「" + power.DisplayNameZh + "」冷却约" + sec + "秒"
+			string key = power.Id switch {
+				SuperpowerIds.MerchantBuyTrash => "Mods.AITownNPCs.Superpower.Prompt.CooldownMerchantBuyTrash",
+				SuperpowerIds.MerchantDelivery => "Mods.AITownNPCs.Superpower.Prompt.CooldownMerchantDelivery",
+				SuperpowerIds.DemoBlast => "Mods.AITownNPCs.Superpower.Prompt.CooldownDemoBlast",
+				SuperpowerIds.DemoFireSupport => "Mods.AITownNPCs.Superpower.Prompt.CooldownDemoFireSupport",
+				SuperpowerIds.GuideWeather => "Mods.AITownNPCs.Superpower.Prompt.CooldownGuideWeather",
+				SuperpowerIds.GuideClearItems => "Mods.AITownNPCs.Superpower.Prompt.CooldownGuideClearItems",
+				SuperpowerIds.GuideWorldQuery => "Mods.AITownNPCs.Superpower.Prompt.CooldownGuideWorldQuery",
+				_ => null
 			};
+
+			if (key != null) {
+				return Language.GetTextValue(key, sec);
+			}
+
+			return Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.CooldownNamed", power.DisplayName, sec);
 		}
 
 		/// <summary>Null when no events — omit the system block entirely.</summary>
@@ -151,11 +152,11 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 
 			var sb = new StringBuilder();
-			sb.Append("短期记忆：");
+			sb.Append(Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.ShortMemoryHeader"));
 			int start = System.Math.Max(0, events.Count - 12);
 			for (int i = start; i < events.Count; i++) {
 				if (i > start) {
-					sb.Append('；');
+					sb.Append(Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.PartSep"));
 				}
 
 				sb.Append(events[i]);

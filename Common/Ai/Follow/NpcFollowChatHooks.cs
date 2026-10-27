@@ -306,8 +306,8 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			string start = (config.FollowStartKeyword ?? string.Empty).Trim();
-			string stop = (config.FollowStopKeyword ?? string.Empty).Trim();
+			string start = config.EffectiveFollowStartKeyword;
+			string stop = config.EffectiveFollowStopKeyword;
 
 			if (!string.IsNullOrEmpty(start) && trimmed.Equals(start, StringComparison.OrdinalIgnoreCase)) {
 				NpcFollowNetSystem.RequestStart();
@@ -399,8 +399,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			string trimmed = text.Trim();
-			string start = (config.FollowStartKeyword ?? string.Empty).Trim();
-			string stop = (config.FollowStopKeyword ?? string.Empty).Trim();
+			string start = config.EffectiveFollowStartKeyword;
+			string stop = config.EffectiveFollowStopKeyword;
 
 			HandledFrameByPlayer[playerWhoAmI] = frame;
 
@@ -431,8 +431,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			string trimmed = text.Trim();
-			string start = (config.FollowStartKeyword ?? string.Empty).Trim();
-			string stop = (config.FollowStopKeyword ?? string.Empty).Trim();
+			string start = config.EffectiveFollowStartKeyword;
+			string stop = config.EffectiveFollowStopKeyword;
 			if (!string.IsNullOrEmpty(start) && trimmed.Equals(start, StringComparison.OrdinalIgnoreCase)) {
 				return true;
 			}

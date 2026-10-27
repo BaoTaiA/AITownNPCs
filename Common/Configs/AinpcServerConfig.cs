@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.Serialization;
 using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.Configs.UI;
+using AITownNPCs.Common.Loc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Terraria.ModLoader;
@@ -30,7 +31,7 @@ namespace AITownNPCs.Common.Configs
 	public class AinpcServerConfig : ModConfig
 	{
 		public const string ProviderLabelMiniMax = "MiniMax";
-		public const string ProviderLabelVolcArk = "火山方舟";
+		public const string ProviderLabelVolcArk = "Volcengine Ark";
 
 		public override ConfigScope Mode => ConfigScope.ServerSide;
 
@@ -44,11 +45,37 @@ namespace AITownNPCs.Common.Configs
 		[JsonIgnore]
 		public float FollowTriggerDistancePixels => (float)(int)FollowTriggerDistance;
 
-		[DefaultValue("跟着我")]
-		public string FollowStartKeyword = "跟着我";
+		/// <summary>Empty = use game-language default from localization.</summary>
+		[DefaultValue("")]
+		public string FollowStartKeyword = "";
 
-		[DefaultValue("你走吧")]
-		public string FollowStopKeyword = "你走吧";
+		/// <summary>Empty = use game-language default from localization.</summary>
+		[DefaultValue("")]
+		public string FollowStopKeyword = "";
+
+		[JsonIgnore]
+		public string EffectiveFollowStartKeyword {
+			get {
+				string custom = (FollowStartKeyword ?? "").Trim();
+				return string.IsNullOrEmpty(custom)
+					? ModText.Get("Config.Defaults.FollowStartKeyword").Trim()
+					: custom;
+			}
+		}
+
+		[JsonIgnore]
+		public string EffectiveFollowStopKeyword {
+			get {
+				string custom = (FollowStopKeyword ?? "").Trim();
+				return string.IsNullOrEmpty(custom)
+					? ModText.Get("Config.Defaults.FollowStopKeyword").Trim()
+					: custom;
+			}
+		}
+
+		/// <summary>Dev/test: join red team ~5s after entering a world. Default off.</summary>
+		[DefaultValue(false)]
+		public bool AutoJoinRedTeam = false;
 
 		[Header("$Mods.AITownNPCs.Config.Headers.Ai")]
 		[DefaultValue(true)]
@@ -61,10 +88,19 @@ namespace AITownNPCs.Common.Configs
 
 		/// <summary>Resolved provider for chat client code.</summary>
 		[JsonIgnore]
-		public AiProvider Provider =>
-			string.Equals(ProviderId, ProviderLabelVolcArk, StringComparison.Ordinal)
-				? AiProvider.VolcArk
-				: AiProvider.MiniMax;
+		public AiProvider Provider {
+			get {
+				string id = ProviderId ?? "";
+				if (string.Equals(id, ProviderLabelVolcArk, StringComparison.Ordinal)
+				    || id.IndexOf("Volc", StringComparison.OrdinalIgnoreCase) >= 0
+				    || id.IndexOf("ark", StringComparison.OrdinalIgnoreCase) >= 0
+				    || id.IndexOf("\u65b9\u821f", StringComparison.Ordinal) >= 0) {
+					return AiProvider.VolcArk;
+				}
+
+				return AiProvider.MiniMax;
+			}
+		}
 
 		[DefaultValue(AiProviderEndpoints.MiniMaxModelId)]
 		[JsonIgnore]
@@ -258,8 +294,10 @@ namespace AITownNPCs.Common.Configs
 			}
 
 			string text = token.ToString() ?? "";
+			// Legacy saved configs may still use the old Chinese provider label.
 			if (text.IndexOf("Volc", StringComparison.OrdinalIgnoreCase) >= 0
-			    || text.IndexOf("方舟", StringComparison.Ordinal) >= 0
+			    || text.IndexOf("ark", StringComparison.OrdinalIgnoreCase) >= 0
+			    || text.IndexOf("\u65b9\u821f", StringComparison.Ordinal) >= 0
 			    || text == "1") {
 				return ProviderLabelVolcArk;
 			}

@@ -195,7 +195,7 @@ namespace AITownNPCs.Common.World
 
 				Rectangle ud = GenVars.UndergroundDesertLocation;
 				if (ud.Width > 10 && ud.Height > 10) {
-					AddBiomeCenter(Buffer, "地下沙漠", new Vector2(ud.Center.X, ud.Center.Y));
+					AddBiomeCenter(Buffer, "underground_desert", new Vector2(ud.Center.X, ud.Center.Y));
 				}
 
 				ScanChests(Buffer);
@@ -234,35 +234,35 @@ namespace AITownNPCs.Common.World
 
 		private static string BiomeKeyFromTile(ushort type) {
 			if (type == TileID.JungleGrass) {
-				return "丛林";
+				return "jungle";
 			}
 
 			if (type == TileID.MushroomGrass) {
-				return "蘑菇地";
+				return "mushroom";
 			}
 
 			if (type == TileID.CorruptGrass || type == TileID.Ebonstone) {
-				return "腐化";
+				return "corruption";
 			}
 
 			if (type == TileID.CrimsonGrass || type == TileID.Crimstone) {
-				return "猩红";
+				return "crimson";
 			}
 
 			if (type == TileID.HallowedGrass || type == TileID.Pearlstone) {
-				return "神圣";
+				return "hallow";
 			}
 
 			if (type == TileID.SnowBlock || type == TileID.IceBlock) {
-				return "雪原";
+				return "snow";
 			}
 
 			if (type == TileID.Granite) {
-				return "花岗岩";
+				return "granite";
 			}
 
 			if (type == TileID.Marble) {
-				return "大理石";
+				return "marble";
 			}
 
 			return null;
@@ -377,13 +377,13 @@ namespace AITownNPCs.Common.World
 
 			int mid = desertCols[bestStart + bestLen / 2];
 			int y = (bandTop + bandBot) / 2;
-			AddBiomeCenter(dest, "沙漠", new Vector2(mid, y));
+			AddBiomeCenter(dest, "desert", new Vector2(mid, y));
 		}
 
 		private static void FinalizeOcean(ScanBuffer dest, int oceanLeft, int oceanRight) {
 			float y = (float)Main.worldSurface;
-			AddBiomeCenter(dest, "海洋", new Vector2(oceanLeft / 2f, y));
-			AddBiomeCenter(dest, "海洋", new Vector2((Main.maxTilesX + oceanRight) / 2f, y));
+			AddBiomeCenter(dest, "ocean", new Vector2(oceanLeft / 2f, y));
+			AddBiomeCenter(dest, "ocean", new Vector2((Main.maxTilesX + oceanRight) / 2f, y));
 		}
 
 		private static void FinalizeStructures(

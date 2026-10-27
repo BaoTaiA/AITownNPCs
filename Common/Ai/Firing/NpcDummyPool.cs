@@ -83,6 +83,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			int slot = FindFreeSlot();
 			if (slot < 0) {
 				ModContent.GetInstance<AITownNPCs>()?.Logger.Warn($"No free player slot for NPC weapon dummy (npc {npc.whoAmI}).");
+				NpcDummySlotTips.NotifyExhausted();
 				return null;
 			}
 

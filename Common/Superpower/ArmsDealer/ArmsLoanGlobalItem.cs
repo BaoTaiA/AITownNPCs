@@ -6,12 +6,13 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.UI;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.ArmsDealer
 {
 	public class ArmsLoanGlobalItem : GlobalItem
 	{
-		public const string RestrictMessage = "军火商借用的武器只能自己用";
+		public static string RestrictMessage => ModText.Get("Runtime.Superpower.Fixed.arms_restrict");
 
 		public override bool InstancePerEntity => true;
 		public bool IsArmsLoan;

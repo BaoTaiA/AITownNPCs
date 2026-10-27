@@ -154,6 +154,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				HandleNpcHit(reader, fromWho);
 			}
 			else if (sub == HitVisual) {
+				// Legacy sub-packet: older clients may still send; drain only — HP uses SendStrikeNPC.
 				HandleHitVisual(reader);
 			}
 		}

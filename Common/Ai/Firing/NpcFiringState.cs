@@ -7,7 +7,9 @@ namespace AITownNPCs.Common.Ai.Firing
 	/// <summary>
 	/// Per-NPC firing runtime: channel hold cycle, intent throttle, equip stack sync.
 	/// Combat strategy fields live on NpcCombatState.
-	/// Authority vs spectator is frozen on <see cref="SpectatorClient"/> before any dummy myPlayer swap.
+	/// HARD RULE: set <see cref="SpectatorClient"/> before any dummy Main.myPlayer swap;
+	/// during the swap never re-derive authority from Main.myPlayer — only read this flag
+	/// (or SpectatorVisual stamped on the projectile at spawn).
 	/// </summary>
 	public class NpcFiringState : GlobalNPC
 	{

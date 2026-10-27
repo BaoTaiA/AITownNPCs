@@ -5,6 +5,7 @@ using AITownNPCs.Common.Configs;
 using AITownNPCs.Common.Superpower.Merchant;
 using Terraria;
 using Terraria.ID;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower
 {
@@ -53,7 +54,7 @@ namespace AITownNPCs.Common.Superpower
 				}
 				else if (SuperpowerRegistry.TryGet(intent.Intent, out ISuperpower power)
 				         && power.NpcType == npc.type) {
-					refuseStyle = power.RefuseStyleZh;
+					refuseStyle = power.RefuseStyle;
 					result = await RunPowerAsync(player, npc, power, intent).ConfigureAwait(false);
 				}
 				else {
@@ -62,8 +63,8 @@ namespace AITownNPCs.Common.Superpower
 
 				if (!string.IsNullOrEmpty(refuseStyle) && result != null
 				    && result.Outcome == SuperpowerOutcome.Refused
-				    && !result.Facts.Exists(f => f.StartsWith("拒绝风格"))) {
-					result.Facts.Add("拒绝风格：" + refuseStyle);
+				    && !result.Facts.Exists(SuperpowerLoc.IsRefuseStyleFact)) {
+					result.Facts.Add(SuperpowerLoc.FormatRefuseStyleFact(refuseStyle));
 				}
 
 				if (result != null && result.Outcome == SuperpowerOutcome.Quoted
@@ -96,7 +97,7 @@ namespace AITownNPCs.Common.Superpower
 			Main.QueueMainThreadAction(() => {
 				try {
 					if (!player.active || !npc.active) {
-						tcs.SetResult(SuperpowerResult.Failed(power.Id, "inactive", "能力执行失败"));
+						tcs.SetResult(SuperpowerResult.Failed(power.Id, "inactive", ModText.Get("Runtime.Superpower.AbilityFailed")));
 						return;
 					}
 
@@ -105,10 +106,10 @@ namespace AITownNPCs.Common.Superpower
 						SuperpowerCooldownStore.Start(player.whoAmI, npc.type, power.Id, power.CooldownFrames);
 					}
 
-					tcs.SetResult(exec ?? SuperpowerResult.Failed(power.Id, "null", "能力执行失败"));
+					tcs.SetResult(exec ?? SuperpowerResult.Failed(power.Id, "null", ModText.Get("Runtime.Superpower.AbilityFailed")));
 				}
 				catch {
-					tcs.SetResult(SuperpowerResult.Failed(power.Id, "exception", "能力执行失败"));
+					tcs.SetResult(SuperpowerResult.Failed(power.Id, "exception", ModText.Get("Runtime.Superpower.AbilityFailed")));
 				}
 			});
 			return await tcs.Task.ConfigureAwait(false);
@@ -126,11 +127,11 @@ namespace AITownNPCs.Common.Superpower
 
 			if (MerchantConfirmRules.IsCancel(trimmed)) {
 				MerchantPendingQuoteStore.Clear(player.whoAmI);
-				RecordEvent(player, npc, "能力取消：收购垃圾 — 玩家不要了");
-				return "那不要了。";
+				RecordEvent(player, npc, ModText.Get("Runtime.Superpower.CancelBuyTrash"));
+				return ModText.Get("Runtime.Superpower.ScriptCancel");
 			}
 
-			return "没听清，回复「可以」成交、「不要」取消。";
+			return ModText.Get("Runtime.Superpower.ScriptClarify");
 		}
 
 		private static async Task<string> CommitQuoteScriptedAsync(
@@ -144,17 +145,17 @@ namespace AITownNPCs.Common.Superpower
 					SuperpowerResult result = MerchantBuyTrashPower.CommitQuote(player, quote);
 					RecordOutcome(player, npc, result);
 					if (result.Outcome == SuperpowerOutcome.Ok) {
-						tcs.SetResult("成交，货款" + SuperpowerCoinUtil.FormatCopper(total) + "收好。");
+						tcs.SetResult(ModText.Get("Runtime.Superpower.ScriptDeal", SuperpowerCoinUtil.FormatCopper(total)));
 					}
 					else if (result.ReasonCode == "stale" || result.ReasonCode == "expired") {
-						tcs.SetResult("背包变了或报价过期，重新说收垃圾吧。");
+						tcs.SetResult(ModText.Get("Runtime.Superpower.ScriptStale"));
 					}
 					else {
-						tcs.SetResult("这单没成交。");
+						tcs.SetResult(ModText.Get("Runtime.Superpower.ScriptNoDeal"));
 					}
 				}
 				catch {
-					tcs.SetResult("这单没成交。");
+					tcs.SetResult(ModText.Get("Runtime.Superpower.ScriptNoDeal"));
 				}
 			});
 			return await tcs.Task.ConfigureAwait(false);
@@ -163,14 +164,14 @@ namespace AITownNPCs.Common.Superpower
 		private static SuperpowerResult BuildListPowersResult(NPC npc) {
 			var facts = new List<string>();
 			foreach (ISuperpower power in SuperpowerRegistry.GetPowers(npc.type)) {
-				facts.Add(power.DisplayNameZh + "：" + power.DescriptionZh);
+				facts.Add(power.DisplayName + ModText.Get("Runtime.Superpower.PowerSep") + power.Description);
 			}
 
 			if (facts.Count == 0) {
-				return SuperpowerResult.Info("暂无超能力");
+				return SuperpowerResult.Info(ModText.Get("Runtime.Superpower.NoPowers"));
 			}
 
-			return SuperpowerResult.Info("已说明超能力列表", facts.ToArray());
+			return SuperpowerResult.Info(ModText.Get("Runtime.Superpower.ListedPowers"), facts.ToArray());
 		}
 
 		private static void RecordOutcome(Player player, NPC npc, SuperpowerResult result) {
@@ -196,15 +197,15 @@ namespace AITownNPCs.Common.Superpower
 			string name = result.AbilityId ?? "";
 			if (!string.IsNullOrEmpty(result.AbilityId)
 			    && SuperpowerRegistry.TryGet(result.AbilityId, out ISuperpower power)) {
-				name = power.DisplayNameZh;
+				name = power.DisplayName;
 			}
 
 			string detail = result.ResolveFixedResultZh();
 			return result.Outcome switch {
-				SuperpowerOutcome.Ok => "能力成功：" + name + " — " + detail,
-				SuperpowerOutcome.Quoted => "能力报价：" + name + " — " + detail,
-				SuperpowerOutcome.Refused => "能力拒绝：" + name + " — " + detail,
-				SuperpowerOutcome.Failed => "能力失败：" + name + " — " + detail,
+				SuperpowerOutcome.Ok => ModText.Get("Runtime.Superpower.EventOk", name, detail),
+				SuperpowerOutcome.Quoted => ModText.Get("Runtime.Superpower.EventQuoted", name, detail),
+				SuperpowerOutcome.Refused => ModText.Get("Runtime.Superpower.EventRefused", name, detail),
+				SuperpowerOutcome.Failed => ModText.Get("Runtime.Superpower.EventFailed", name, detail),
 				SuperpowerOutcome.Info => detail,
 				_ => null
 			};

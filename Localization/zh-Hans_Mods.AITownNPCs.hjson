@@ -69,14 +69,19 @@ Config: {
 		Tooltip: 固定选项（像素）：50 / 100 / 200 / 300 / 400；用于「跟着我」和玩家主动打字。路过招呼固定 50px、停留 10 秒、同 NPC 10 分钟冷却（打字也计入）；聊天框 @NPC 名可全图呼叫；打字无冷却
 	}
 
+	Defaults: {
+		FollowStartKeyword: 跟着我
+		FollowStopKeyword: 你走吧
+	}
+
 	FollowStartKeyword: {
 		Label: 启动关键词
-		Tooltip: 聊天框发送该文本让附近 NPC 开始跟随（默认：跟着我）
+		Tooltip: 留空则按游戏语言使用默认（中文：跟着我）；填写后只用你设的词
 	}
 
 	FollowStopKeyword: {
 		Label: 停止关键词
-		Tooltip: 聊天框发送该文本让正在跟随的 NPC 离开（默认：你走吧）
+		Tooltip: 留空则按游戏语言使用默认（中文：你走吧）；填写后只用你设的词
 	}
 
 	AiEnabled: {
@@ -119,6 +124,11 @@ Config: {
 		Tooltip: 路过招呼（50px、停满10秒、10分钟冷却，打字也计入）；跟随碎碎念约每2分钟有50%概率开口。玩家主动打字本身无冷却
 	}
 
+	AutoJoinRedTeam: {
+		Label: 进世界自动红队
+		Tooltip: 进入世界约 5 秒后加入红队（联机测试用）；默认关闭
+	}
+
 	SuperpowerEnabled: {
 		Label: 启用超能力
 		Tooltip: 对话经 AI 识别意图后触发城镇 NPC 超能力
@@ -153,12 +163,12 @@ Configs: {
 
 		FollowStartKeyword: {
 			Label: 启动关键词
-			Tooltip: 默认「跟着我」
+			Tooltip: 留空=按游戏语言默认（跟着我）
 		}
 
 		FollowStopKeyword: {
 			Label: 停止关键词
-			Tooltip: 默认「你走吧」
+			Tooltip: 留空=按游戏语言默认（你走吧）
 		}
 
 		AiEnabled: {
@@ -199,6 +209,11 @@ Configs: {
 		AiProactiveEnabled: {
 			Label: 启用主动发言
 			Tooltip: NPC主动发言
+		}
+
+		AutoJoinRedTeam: {
+			Label: 进世界自动红队
+			Tooltip: 进入世界约 5 秒后加入红队；默认关闭
 		}
 
 		SuperpowerEnabled: {
@@ -296,3 +311,520 @@ Configs: {
 }
 
 // Projectiles.NurseHealProjectile.DisplayName: Nurse Heal Projectile
+Firing.DummySlotsExhausted: 城镇 NPC 开火假人槽已满，部分 NPC 暂时无法开枪。
+
+Persona: {
+	Default: 友好健谈，了解这个世界的日常。
+	Guide: 耐心讲解泰拉瑞亚生存与探索，语气友善、略带书生气。
+	Merchant: 关心买卖与金币，说话精明但不过分势利。
+	Nurse: 关心他人伤势与健康，语气干脆、略带唠叨。
+	Demolitionist: 热爱炸药与爆炸，说话豪爽带点危险趣味。
+	Dryad: 亲近自然与净化，语气温柔神秘。
+	ArmsDealer: 热衷枪械弹药，说话直爽、略带江湖气。
+	Clothier: 曾被诅咒，关心衣着风格，语气略阴郁但幽默。
+	Mechanic: 热爱电线与机关，说话利落、带点吐槽。
+	GoblinTinkerer: 痴迷重铸与发明，语气兴奋古怪。
+	Wizard: 沉迷魔法与奥秘，说话神秘而夸张。
+	WitchDoctor: 神秘草药与巫毒风格，语气古老怪异。
+	Truffle: 蘑菇人，语气天真、略奇怪。
+	Steampunker: 热爱机械与蒸汽科技，语气活泼科技感。
+	DyeTrader: 痴迷色彩，说话花哨。
+	PartyGirl: 热爱庆祝与热闹，语气开朗元气。
+	Cyborg: 语气偏机械但努力学人类说话。
+	Painter: 热爱绘画与颜料，语气艺术感。
+	Pirate: 说话带航海黑话，豪爽。
+	Stylist: 关心外表与发型，语气时尚毒舌。
+	TravellingMerchant: 见多识广，语气风趣。
+	Angler: 孩子气、催人钓鱼，语气任性。
+	TaxCollector: 吝啬爱钱，语气刻薄。
+	SkeletonMerchant: 阴间商人气质，语气干巴幽默。
+	DD2Bartender: 关心酒馆与永恒水晶，语气沉稳。
+	Golfer: 休闲运动风，语气轻松。
+	BestiaryGirl: 热爱动物，语气热情。
+	Princess: 优雅友善，语气礼貌温暖。
+
+	Prompt: {
+		Identity: 你是泰拉瑞亚中的NPC。类型：{0}，名字：{1}。{2} {3}
+		LengthRule: 内容约15字
+		NoInvent: " 无本轮执行结果词时勿编造"
+	}
+}
+
+Superpower: {
+	RefuseStyleFact: 拒绝风格：{0}
+	CooldownNotReady: 「{0}」超能力没准备好
+	RandomRefuse: 概率触发拒绝
+
+	Prompt: {
+		AbilityStateHeader: 能力状态：
+		CooldownsIndependent: 冷却彼此独立。
+		PartSep: ；
+		ShortMemoryHeader: 短期记忆：
+		PendingBuyTrash: 有待确认的收购垃圾报价，总价{0}
+		CooldownNamed: 「{0}」冷却约{1}秒
+		CooldownMerchantBuyTrash: 收购垃圾冷却约{0}秒（非送货）
+		CooldownMerchantDelivery: 紧急送货冷却约{0}秒（非收购）
+		CooldownDemoBlast: 远程爆破冷却约{0}秒（非火力支援）
+		CooldownDemoFireSupport: 火力支援冷却约{0}秒（非放雷管）
+		CooldownGuideWeather: 调整天气冷却约{0}秒
+		CooldownGuideClearItems: 清除掉落物冷却约{0}秒
+		CooldownGuideWorldQuery: 世界指引冷却约{0}秒
+	}
+
+	IntentClassify: {
+		System: 你是意图分类器。只输出一个 JSON 对象，不要其它文字。格式：{{"intent":"...","params":{{}},"confidence":0.0}}。intent 只能是：[{0}]。闲聊或不确定用 chat；问超能力用 list_powers。结合上下文：刚拒过某能力后的恳求/坚持（求你了、真的、拜托）倾向同一 intent；纠正条件后宜重试能力；换题/取消/无关闲聊 → chat。{1}{2}玩家名：{3}。NPC类型id：{4}。
+		RecentEvents: 近期事件：
+		RecentChat: 近期闲聊：
+		PlayerLabel: 玩家
+		NpcLabel: NPC
+		RoleSep: ：
+
+		ParamHelp: {
+			Default: params 可为空对象。
+			Guide: params：guide_weather.action=rain_start|rain_stop|sandstorm_start|sandstorm_stop|windy_day_start|windy_day_stop|thunderstorm_start|thunderstorm_stop|wind_start|wind_stop|wind_set|clear，可选 windSpeed=40~60；guide_world_query.query=biome|structure|ore|chest|life_crystal|life_fruit，target=中文目标。其它 params 可空。
+			Merchant: params：merchant_delivery.itemHint=物品中文简述。其它可空。
+		}
+
+		Examples: {
+			GoblinTinkerer: 示例：重铸/加词缀/附魔 → goblin_temp_prefix。
+			Merchant: 示例：收垃圾/卖垃圾 → merchant_buy_trash；送点火把/送货 → merchant_delivery。收购与送货冷却独立；卖垃圾≠玩家买货≠送货。
+			Nurse: 示例：我要死了/救我/快来救我 → nurse_emergency_heal；刚被拒后说求你了/真的 → 仍 nurse_emergency_heal。
+			Dryad: 示例：来个增益/来个群体 → dryad_group_buff；刚被拒后说求你了/真的 → 仍 dryad_group_buff。
+			ArmsDealer: 示例：给我一把枪 → arms_temp_weapon。
+			Demolitionist: 示例：炸开这里/放雷管 → demo_blast；火力支援/扔雷掩护 → demo_fire_support；冷却独立。
+			Cyborg: 示例：火力支援 → cyborg_fire_support。
+			TaxCollector: 示例：给我点钱 → tax_grant_gold。
+			Guide: 示例：下雨/暴雪/沙尘暴/雷雨/大风天/调风/晴天 → guide_weather；清理掉落物 → guide_clear_items；丛林/沙漠/花岗岩/大理石/地牢/空岛/微光/暗影珠/猩红之心/附魔剑/祭坛/地狱熔炉/金矿/钻石/生命水晶在哪、箱子里有没有xx → guide_world_query。天气/清物/指路冷却独立。
+		}
+	}
+
+	guide_weather: {
+		DisplayName: 调整天气
+		Description: 可下雨/暴雪、沙尘暴、雷雨、大风天，或单独调整风速
+		RefuseStyle: 温和
+	}
+
+	guide_clear_items: {
+		DisplayName: 清除掉落物
+		Description: 清除全世界地面掉落物品
+		RefuseStyle: 温和
+	}
+
+	guide_world_query: {
+		DisplayName: 世界指引
+		Description: 根据地图记忆指路：群系、结构、矿物、宝箱、生命水晶等
+		RefuseStyle: 温和
+	}
+
+	nurse_emergency_heal: {
+		DisplayName: 紧急治疗
+		Description: 传送到玩家身边回满血并清除 debuff，稍后回家
+		RefuseStyle: 傲娇、毒舌、嘴硬心软
+	}
+
+	dryad_group_buff: {
+		DisplayName: 群体增益
+		Description: 传送到玩家身边放原版结界，结界结束后再等 8 秒回去
+		RefuseStyle: 温柔、甜美
+	}
+
+	arms_temp_weapon: {
+		DisplayName: 临时配枪
+		Description: 借一把临时远程武器，10 分钟后收回
+		RefuseStyle: 粗鲁、暴躁、讲义气
+	}
+
+	merchant_buy_trash: {
+		DisplayName: 收购垃圾
+		Description: 扫描背包报价收购垃圾，确认后成交（约半价到八折）
+		RefuseStyle: 市侩、精明、客气但算计
+	}
+
+	merchant_delivery: {
+		DisplayName: 紧急送货
+		Description: 高价远程送基础物资（火把、绳子、药水、弹药、炸弹、雷管等）
+		RefuseStyle: 市侩、精明、客气但算计
+	}
+
+	demo_blast: {
+		DisplayName: 远程爆破
+		Description: 在玩家面前 3 格放置 3 个粘性雷管
+		RefuseStyle: 疯狂、兴奋、不可控
+	}
+
+	demo_fire_support: {
+		DisplayName: 火力支援
+		Description: 在玩家周围 400 像素用手榴弹密集覆盖约 1 分钟
+		RefuseStyle: 疯狂、兴奋、不可控
+	}
+
+	goblin_temp_prefix: {
+		DisplayName: 附魔词缀
+		Description: 永久改写手持武器词缀
+		RefuseStyle: 贪婪、狡猾、胆小
+	}
+
+	cyborg_fire_support: {
+		DisplayName: 火力支援
+		Description: 在玩家周围 400 像素用火箭密集覆盖约 1 分钟
+		RefuseStyle: 机械、直接、冷酷
+	}
+
+	tax_grant_gold: {
+		DisplayName: 施舍金币
+		Description: 有概率给 5 个铂金币
+		RefuseStyle: 贪婪、阴险、算计
+	}
+}
+
+Runtime: {
+	Coin.Format: "{0}铂 {1}金 {2}银 {3}铜"
+
+	Chat: {
+		PlayerCalling: （玩家在呼叫你）
+		NoPlayerContext: 无玩家上下文。
+		EnvHeader: 当前环境（结构化感知）：
+		Biome: 生物群系=
+		Layer: 地形层=
+		Coords: 坐标=
+		Depth: 深度=
+		Time: 时间=
+		Day: 白天
+		Night: 夜晚
+		BloodMoon: 血月；
+		Eclipse: 日食；
+		Weather: 天气=
+		Player: 玩家=
+		Life: " 生命="
+		Mana: " 魔力="
+		LowLifeParen: （低血量）
+		EnemyCount: 附近敌怪数量=
+		EnemyMain: " 主要="
+		EnemiesTargeting: " 正在攻击玩家="
+		BossPresent: Boss在场=是：
+		BossAbout: " 约"
+		BossAbsent: Boss在场=否
+		NearbyTown: 附近其他城镇NPC=
+		None: 无
+		Unknown: 未知
+		CompactEnv: 环境精简：生物群系=
+		CompactLowLife: ；玩家低血量
+		CompactBoss: ；Boss=
+		WeaponNone: 装备武器=无
+		WeaponNoneInline: ；装备武器=无
+		WeaponHas: 装备武器=有：
+		WeaponHasInline: ；装备武器=有：
+		InCombat: ；战斗中=是
+		FollowerAmbient: （跟随闲聊）你正跟着玩家{0}。眼下最值得随口一提的是：{1}。结合你们近期相处记忆，用约15字自然说一句，像同行伙伴随口搭话；不要罗列环境、不要播报状态
+		FollowerEvent: （跟随事件）你正跟着玩家{0}。刚发生：{1}。结合短期记忆用约15字自然反应一句，像伙伴随口说，不要播报
+		FocusBoss: Boss「{0}」还在附近（约{1}%）
+		FocusLowLife: 玩家血量很低
+		FocusBloodMoon: 今晚是血月
+		FocusEclipse: 外面在日食
+		FocusEnemies: 附近敌怪不少（{0}）
+		FocusEnemiesPlain: 附近敌怪不少
+		FocusAggro: 有敌怪正在盯着玩家
+		FocusSoft: "{0}里，{1}，天气{2}"
+		WalkByTrigger: （路过停留）玩家{0}在你旁边连续停留了一会儿。请结合你对该玩家的短期记忆，用约15字打招呼，必须称呼其名字「{0}」
+		MemEnterBiome: 玩家进入生物群系：{0}
+		MemArriveBiome: 刚从别处来到{0}
+		MemDay: 到白天了
+		MemNight: 到夜晚了
+		FocusDawn: 天刚亮
+		FocusDusk: 天刚黑
+		MemBoss: 遭遇Boss：{0}
+		FocusBossAppear: 附近出现了Boss「{0}」
+		MemLowLife: 玩家血量很低
+		FocusHurt: 玩家伤得很重
+		FocusQuiet: 一路上挺安静的
+		MemBossKill: 击败Boss：{0}
+		FocusBossWin: 刚一起打赢了Boss「{0}」
+		MemGreeted: 向玩家打过招呼
+		MemFollowStart: 开始跟随该玩家
+		MemFollowStop: 停止跟随该玩家
+		MemReclaimGun: 已收回借出的枪和弹药
+	}
+
+	Context: {
+		Biome: {
+			dungeon: 地牢
+			corruption: 腐化
+			crimson: 猩红
+			hallow: 神圣
+			jungle: 丛林
+			snow: 雪原
+			desert: 沙漠
+			beach: 海滩
+			mushroom: 蘑菇地
+			meteor: 陨石
+			underworld: 地狱
+			sky: 空岛
+			forest: 森林
+			unknown: 未知
+		}
+
+		Layer: {
+			hell: 地狱
+			cave: 洞穴
+			underground: 地下
+			sky: 天空
+			surface: 地表
+			unknown: 未知
+		}
+
+		Weather: {
+			sandstorm: 沙暴
+			blizzard: 暴雪
+			thunderstorm: 雷雨
+			rain: 下雨
+			windy: 大风天
+			cloudy: 多云
+			clear: 晴
+			unknown: 未知
+		}
+	}
+
+	World: {
+		Biome: {
+			jungle: 丛林
+			mushroom: 蘑菇地
+			corruption: 腐化
+			crimson: 猩红
+			hallow: 神圣
+			snow: 雪原
+			desert: 沙漠
+			underground_desert: 地下沙漠
+			ocean: 海洋
+			granite: 花岗岩
+			marble: 大理石
+		}
+
+		Structure: {
+			sky: 空岛
+			dungeon: 地牢
+			temple: 丛林神庙
+			tree: 生命树
+			pyramid: 金字塔
+			hive: 蜂巢
+			shimmer: 微光
+			shadow_orb: 暗影珠
+			crimson_heart: 猩红之心
+			sword: 附魔剑祠
+			hellforge: 地狱熔炉
+			altar: 祭坛
+		}
+
+		Dir: {
+			right: 右
+			left: 左
+			up: 上
+			down: 下
+		}
+
+		Layer: {
+			hell: 地狱
+			cave: 洞穴
+			underground: 地下
+			sky: 天空
+			surface: 地表
+		}
+
+		Label: {
+			LifeCrystal: 生命水晶
+			LifeFruit: 生命果
+		}
+
+		ClimbDown: 往下挖
+		ClimbUp: 往上走
+		LineNear: 在你{0}大约{1}格，深度{2}。
+		LineVertical: 在你{0}大约{1}格，深度{2}。
+		LineCorner: 在你{0}大约{1}格，然后{2}大约{3}格，深度{4}。
+	}
+
+	Superpower: {
+		OutcomeOk: 已完成
+		OutcomeQuoted: 已出报价待确认
+		OutcomeRefused: 未答应
+		OutcomeFailed: 未能完成
+		OutcomeInfo: 已说明
+		OutcomeHandled: 已处理
+		FactsResultWord: 本轮执行结果词：
+		FactsExtra: ；补充：
+		FactsReplyReq: 。回复要求：回复中必须有结果内容
+		AbilityFailed: 能力执行失败
+		CancelBuyTrash: 能力取消：收购垃圾 — 玩家不要了
+		ScriptCancel: 那不要了。
+		ScriptClarify: 没听清，回复「可以」成交、「不要」取消。
+		ScriptDeal: 成交，货款{0}收好。
+		ScriptStale: 背包变了或报价过期，重新说收垃圾吧。
+		ScriptNoDeal: 这单没成交。
+		NoPowers: 暂无超能力
+		ListedPowers: 已说明超能力列表
+		PowerSep: ：
+		EventOk: 能力成功：{0} — {1}
+		EventQuoted: 能力报价：{0} — {1}
+		EventRefused: 能力拒绝：{0} — {1}
+		EventFailed: 能力失败：{0} — {1}
+		PrefixRandom: 随机
+		Qty: 数量={0}
+		QueryEq: 查询={0}
+		TotalPrice: 总价={0}
+		Charge: 收费={0}
+		GuidedSuffix: 给你指引了。
+		NotFound: 没找到可靠的{0}
+		AmmoWith: 附带弹药：{0}x{1}
+		AmmoSkipped: 背包没空位，只给了枪没给弹药
+		LoanedGun: 已借出临时配枪：{0}
+		LoanDuration: 10分钟后收回
+		GunReclaimed: 枪我收回了。
+		DeliveryCatalog: 可送：火把、绳子、治疗药水、箭、子弹、木头、土、回忆药水、炸弹、雷管、手榴弹
+		Delivered: 已送货：{0} x{1}
+		NeedGold: 你的金币不足，需要{0}
+		QuoteAnnounce: 这些我收：{0} 总共{1}，确定吗？回复「可以」或「不要」。
+		EnchantedPrefix: 已附魔词缀：{0}
+		BlastCount: 数量={0}
+
+		Fixed: {
+			inventory_full_gun: 背包已满无法给枪
+			player_dead: 玩家已死亡
+			spawn_fail: 未能放置雷管
+			demo_blast_ok: 已放置粘性雷管
+			cyborg_support_ok: 已启动火箭火力支援
+			demo_support_ok: 已启动手榴弹火力支援
+			support_duration: 约持续1分钟
+			no_potion: 身上没有增益药水
+			aura_fail: 结界施放失败
+			group_buff_ok: 已施放群体增益
+			no_weapon: 没有手持可附魔武器
+			prefix_fail: 未能附魔词缀
+			clear_items_ok: 已清除掉落物
+			weather_bad: 未识别天气动作
+			weather_unknown: 未知天气动作
+			rain_on: 雨已开启
+			rain_off: 雨已停止
+			sandstorm_on: 沙尘暴已开启
+			sandstorm_off: 沙尘暴已停止
+			windy_on: 大风天已开启（约 {0} mph）
+			windy_off: 大风天已停止
+			thunder_on: 雷雨已开启（约 {0} mph）
+			thunder_off: 雷雨已停止
+			wind_set: 风速已调整（约 {0} mph）
+			wind_off: 风已停止
+			weather_clear: 天气已恢复晴朗
+			map_not_ready: 地图记忆还没理清
+			no_client_state: 请再说一次（客户端状态未同步）
+			trash_empty: 背包没有可收购的垃圾
+			trash_quoted: 已生成收购垃圾报价
+			quote_expired: 报价已过期
+			bag_stale: 背包已变化
+			trash_bought: 已收购垃圾并付款
+			unknown_item: 无法识别要送的货物
+			inventory_full_refund: 背包已满，无法送货，已退款
+			full_hp: 玩家满血无需治疗
+			nurse_busy: 护士正忙
+			heal_start_fail: 紧急治疗启动失败
+			heal_ok: 已紧急治疗至满血
+			tax_ok: 已经给5个铂金币
+			arms_restrict: 军火商借用的武器只能自己用
+		}
+	}
+}
+
+Aliases: {
+	MerchantConfirm: 可以,确定,确认,行,好,要,成交,卖,yes,ok,confirm,deal
+	MerchantCancel: 不要,算了,取消,不卖,否,no,cancel
+
+	Address: {
+		GoblinTinkerer: 哥布林,工匠,goblin,goblin tinkerer,tinkerer
+		ArmsDealer: 军火商,arms dealer,armsdealer
+		Demolitionist: 爆破,爆破专家,demolitionist,demo
+		Cyborg: 机器侠,cyborg
+		TaxCollector: 税收官,tax collector,taxcollector
+		Guide: 向导,guide
+		Nurse: 护士,nurse
+		Merchant: 商人,merchant
+		Dryad: 树妖,dryad
+	}
+
+	MerchantHints: {
+		Torch: 火把,torch,火
+		Rope: 绳子,rope
+		LesserHealingPotion: 治疗药水,回血,药水,healing potion,potion
+		WoodenArrow: 箭,木箭,arrow,wooden arrow
+		MusketBall: 子弹,子弹,musket ball,bullet
+		Wood: 木头,木板,木材,wood
+		DirtBlock: 土,土块,dirt
+		RecallPotion: 回忆药水,回城,recall
+		Bomb: 炸弹,bomb
+		Dynamite: 雷管,dynamite
+		Grenade: 手榴弹,grenade
+	}
+
+	Biome: {
+		jungle: 丛林,jungle
+		mushroom: 蘑菇,蘑菇地,发光蘑菇,mushroom
+		corruption: 腐化,corruption
+		crimson: 猩红,crimson
+		hallow: 神圣,神圣之地,hallow
+		snow: 雪,雪原,雪地,冰雪,snow
+		desert: 沙漠,desert
+		underground_desert: 地下沙漠,underground desert
+		ocean: 海洋,海,beach,海滩,ocean
+		granite: 花岗岩,花岗岩洞,granite
+		marble: 大理石,大理石洞,marble
+	}
+
+	Structure: {
+		sky: 空岛,天空岛,浮岛,sky,island
+		dungeon: 地牢,地城,dungeon
+		temple: 神庙,丛林神庙,temple
+		tree: 生命树,活木,活树,living tree
+		pyramid: 金字塔,pyramid
+		hive: 蜂巢,蜂房,hive
+		shimmer: 微光之湖,微光,以太,shimmer,aether
+		shadow_orb: 暗影珠,暗影珠子,shadow orb
+		crimson_heart: 猩红之心,crimson heart
+		sword: 附魔剑祠,附魔剑,剑祠,enchanted sword
+		hellforge: 地狱熔炉,hellforge,hell forge
+		altar: 恶魔祭坛,猩红祭坛,祭坛,altar
+	}
+
+	Ore: {
+		copper: 铜,copper
+		tin: 锡,tin
+		iron: 铁,iron
+		lead: 铅,lead
+		silver: 银,silver
+		tungsten: 钨,tungsten
+		gold: 金,gold
+		platinum: 铂,白金,platinum
+		meteorite: 陨石,meteorite
+		demonite: 魔矿,demonite
+		crimtane: 猩红矿,血肉,crimtane
+		hellstone: 狱石,地狱石,hellstone
+		cobalt: 钴,cobalt
+		palladium: 钯,palladium
+		mythril: 秘银,mythril
+		orichalcum: 山铜,orichalcum
+		adamantite: 精金,adamantite
+		titanium: 钛,titanium
+		chlorophyte: 叶绿,chlorophyte
+		lunar: 夜明,月矿,lunar,luminite
+		amethyst: 紫晶,amethyst
+		topaz: 黄玉,topaz
+		sapphire: 蓝玉,蓝宝石,sapphire
+		emerald: 翡翠,绿宝石,emerald
+		ruby: 红玉,红宝石,ruby
+		diamond: 钻石,diamond
+		amber: 琥珀,amber
+	}
+
+	QueryKind: {
+		chest: chest,宝箱,箱子
+		life_crystal: life_crystal,生命水晶,心水晶
+		life_fruit: life_fruit,生命果
+		ore: ore,矿物,矿
+		structure: structure,结构
+		biome: biome,群系,生物群系
+	}
+}

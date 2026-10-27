@@ -1,10 +1,11 @@
+using AITownNPCs.Common.Configs;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Host
 {
-	/// <summary>Join the red team automatically a few seconds after entering a world.</summary>
+	/// <summary>Optional: join the red team a few seconds after entering a world (config, default off).</summary>
 	public sealed class AutoRedTeamPlayer : ModPlayer
 	{
 		private const int DelayTicks = 60 * 5;
@@ -13,6 +14,12 @@ namespace AITownNPCs.Common.Host
 		private int _joinCountdown = -1;
 
 		public override void OnEnterWorld() {
+			AinpcServerConfig config = AinpcServerConfig.Instance;
+			if (config == null || !config.AutoJoinRedTeam) {
+				_joinCountdown = -1;
+				return;
+			}
+
 			_joinCountdown = DelayTicks;
 		}
 
@@ -23,6 +30,12 @@ namespace AITownNPCs.Common.Host
 
 			// Dedicated has no local player. Listen-server host is Server + myPlayer — still join.
 			if (Main.dedServ || Player.whoAmI != Main.myPlayer) {
+				_joinCountdown = -1;
+				return;
+			}
+
+			AinpcServerConfig config = AinpcServerConfig.Instance;
+			if (config == null || !config.AutoJoinRedTeam) {
 				_joinCountdown = -1;
 				return;
 			}

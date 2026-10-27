@@ -1,26 +1,46 @@
 using System;
 using System.Collections.Generic;
 using AITownNPCs.Common.Host;
+using AITownNPCs.Common.Loc;
 using Terraria;
 using Terraria.ID;
-using Terraria.Localization;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
 	public static class NpcAddressResolver
 	{
-		private static readonly Dictionary<string, int> Aliases = new(StringComparer.OrdinalIgnoreCase) {
-			["哥布林"] = NPCID.GoblinTinkerer,
-			["工匠"] = NPCID.GoblinTinkerer,
-			["军火商"] = NPCID.ArmsDealer,
-			["爆破"] = NPCID.Demolitionist,
-			["爆破专家"] = NPCID.Demolitionist,
-			["机器侠"] = NPCID.Cyborg,
-			["税收官"] = NPCID.TaxCollector,
-			["向导"] = NPCID.Guide,
-			["护士"] = NPCID.Nurse,
-			["商人"] = NPCID.Merchant
+		private static readonly (string key, int npcType)[] AddressKeys = {
+			("GoblinTinkerer", NPCID.GoblinTinkerer),
+			("ArmsDealer", NPCID.ArmsDealer),
+			("Demolitionist", NPCID.Demolitionist),
+			("Cyborg", NPCID.Cyborg),
+			("TaxCollector", NPCID.TaxCollector),
+			("Guide", NPCID.Guide),
+			("Nurse", NPCID.Nurse),
+			("Merchant", NPCID.Merchant),
+			("Dryad", NPCID.Dryad)
 		};
+
+		private static Dictionary<string, int> _aliases;
+
+		private static Dictionary<string, int> Aliases {
+			get {
+				if (_aliases != null) {
+					return _aliases;
+				}
+
+				_aliases = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+				foreach ((string key, int npcType) in AddressKeys) {
+					foreach (string alias in AliasLists.Get("Address." + key)) {
+						if (!_aliases.ContainsKey(alias)) {
+							_aliases[alias] = npcType;
+						}
+					}
+				}
+
+				return _aliases;
+			}
+		}
 
 		public readonly struct AddressMatch
 		{

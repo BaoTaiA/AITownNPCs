@@ -7,9 +7,9 @@ namespace AITownNPCs.Common.Superpower
 		string Id { get; }
 		int NpcType { get; }
 		int CooldownFrames { get; }
-		string DisplayNameZh { get; }
-		string DescriptionZh { get; }
-		string RefuseStyleZh { get; }
+		string DisplayName { get; }
+		string Description { get; }
+		string RefuseStyle { get; }
 		SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent);
 	}
 }

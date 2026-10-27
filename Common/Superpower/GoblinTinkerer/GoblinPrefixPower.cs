@@ -1,6 +1,7 @@
 using AITownNPCs.Common.Net;
 using Terraria;
 using Terraria.ID;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.GoblinTinkerer
 {
@@ -10,21 +11,21 @@ namespace AITownNPCs.Common.Superpower.GoblinTinkerer
 		public string Id => SuperpowerIds.GoblinTempPrefix;
 		public int NpcType => NPCID.GoblinTinkerer;
 		public int CooldownFrames => 60 * 60 * 5;
-		public string DisplayNameZh => "附魔词缀";
-		public string DescriptionZh => "永久改写手持武器词缀";
-		public string RefuseStyleZh => "贪婪、狡猾、胆小";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			int slot = ResolveHeldSlot(player);
 			if (slot < 0 || slot >= player.inventory.Length) {
-				return SuperpowerResult.Failed(Id, "no_weapon", "没有手持可附魔武器",
-					"拒绝风格：" + RefuseStyleZh);
+				return SuperpowerResult.Failed(Id, "no_weapon", ModText.Get("Runtime.Superpower.Fixed.no_weapon"),
+					SuperpowerLoc.FormatRefuseStyleFact(RefuseStyle));
 			}
 
 			Item held = player.inventory[slot];
 			if (held == null || held.IsAir || held.damage <= 0 || held.maxStack != 1 || held.accessory) {
-				return SuperpowerResult.Failed(Id, "no_weapon", "没有手持可附魔武器",
-					"拒绝风格：" + RefuseStyleZh);
+				return SuperpowerResult.Failed(Id, "no_weapon", ModText.Get("Runtime.Superpower.Fixed.no_weapon"),
+					SuperpowerLoc.FormatRefuseStyleFact(RefuseStyle));
 			}
 
 			int original = held.prefix;
@@ -43,7 +44,7 @@ namespace AITownNPCs.Common.Superpower.GoblinTinkerer
 			}
 
 			if (!applied && !held.Prefix(-1)) {
-				return SuperpowerResult.Failed(Id, "prefix_fail", "未能附魔词缀");
+				return SuperpowerResult.Failed(Id, "prefix_fail", ModText.Get("Runtime.Superpower.Fixed.prefix_fail"));
 			}
 
 			int newPrefix = held.prefix;
@@ -51,8 +52,8 @@ namespace AITownNPCs.Common.Superpower.GoblinTinkerer
 
 			string prefixName = newPrefix > 0 && newPrefix < Lang.prefix.Length
 				? Lang.prefix[newPrefix].Value
-				: "随机";
-			return SuperpowerResult.Ok(Id, true, "已附魔词缀：" + prefixName);
+				: ModText.Get("Runtime.Superpower.PrefixRandom");
+			return SuperpowerResult.Ok(Id, true, ModText.Get("Runtime.Superpower.EnchantedPrefix", prefixName));
 		}
 
 		private static int ResolveHeldSlot(Player player) {

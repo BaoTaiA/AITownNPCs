@@ -69,14 +69,19 @@ Config: {
 		Tooltip: Fixed pixels 50/100/200/300/400 for follow keywords and typed AI chat. Walk-by is fixed 50px, 10s stay, 10min per NPC (typing also starts CD); @NPC name works map-wide; typing itself has no cooldown
 	}
 
+	Defaults: {
+		FollowStartKeyword: follow me
+		FollowStopKeyword: go away
+	}
+
 	FollowStartKeyword: {
 		Label: Start keyword
-		Tooltip: Chat this text near an NPC to start following (default: 跟着我)
+		Tooltip: Leave blank to use the game-language default (English: follow me); a filled value overrides it
 	}
 
 	FollowStopKeyword: {
 		Label: Stop keyword
-		Tooltip: Chat this text to dismiss your follower (default: 你走吧)
+		Tooltip: Leave blank to use the game-language default (English: go away); a filled value overrides it
 	}
 
 	AiEnabled: {
@@ -119,6 +124,11 @@ Config: {
 		Tooltip: Walk-by (50px, 10s stay, 10min CD; typing also starts CD); follower chatter about every 2 minutes with 50% chance. Typing itself has no cooldown
 	}
 
+	AutoJoinRedTeam: {
+		Label: Auto-join red team
+		Tooltip: Join the red team ~5 seconds after entering a world (MP testing); off by default
+	}
+
 	SuperpowerEnabled: {
 		Label: Enable superpowers
 		Tooltip: Chat AI detects intent and runs town NPC superpowers
@@ -153,12 +163,12 @@ Configs: {
 
 		FollowStartKeyword: {
 			Label: Start keyword
-			Tooltip: Default "跟着我"
+			Tooltip: Blank = game-language default (follow me)
 		}
 
 		FollowStopKeyword: {
 			Label: Stop keyword
-			Tooltip: Default "你走吧"
+			Tooltip: Blank = game-language default (go away)
 		}
 
 		AiEnabled: {
@@ -199,6 +209,11 @@ Configs: {
 		AiProactiveEnabled: {
 			Label: Enable proactive speech
 			Tooltip: Walk-by (10s stay) + follower chatter every ~2 min at 50% chance; typing starts walk-by CD
+		}
+
+		AutoJoinRedTeam: {
+			Label: Auto-join red team
+			Tooltip: Join red team ~5s after world entry; off by default
 		}
 
 		SuperpowerEnabled: {
@@ -296,3 +311,520 @@ Configs: {
 }
 
 Projectiles.NurseHealProjectile.DisplayName: Nurse Heal Projectile
+Firing.DummySlotsExhausted: Town NPC firing dummy slots are full; some NPCs cannot shoot for now.
+
+Persona: {
+	Default: Friendly and chatty, familiar with everyday life in this world.
+	Guide: Patiently explains Terraria survival and exploration; friendly, a bit bookish.
+	Merchant: Cares about trades and coins; shrewd but not overly snobby.
+	Nurse: Cares about injuries and health; blunt, a little nagging.
+	Demolitionist: Loves explosives; boisterous with a dangerous sense of humor.
+	Dryad: Close to nature and purification; gentle and mysterious.
+	ArmsDealer: Obsessed with guns and ammo; blunt with a bit of street swagger.
+	Clothier: Once cursed; cares about fashion; slightly gloomy but humorous.
+	Mechanic: Loves wires and gadgets; sharp, with a touch of sarcasm.
+	GoblinTinkerer: Obsessed with reforging and inventions; excited and eccentric.
+	Wizard: Lost in magic and mysteries; mystical and exaggerated.
+	WitchDoctor: Mystical herbs and voodoo vibe; ancient and eerie.
+	Truffle: A mushroom person; naive and a little odd.
+	Steampunker: Loves machines and steam tech; lively and techy.
+	DyeTrader: Obsessed with color; flamboyant speech.
+	PartyGirl: Loves celebrations; cheerful and energetic.
+	Cyborg: Somewhat mechanical, but trying to speak like a human.
+	Painter: Loves painting and pigments; artistic tone.
+	Pirate: Speaks with seafaring slang; bold and hearty.
+	Stylist: Cares about looks and hair; fashionable and sharp-tongued.
+	TravellingMerchant: Well-traveled; witty.
+	Angler: Childish, pushes fishing; spoiled tone.
+	TaxCollector: Stingy about money; harsh.
+	SkeletonMerchant: Underworld merchant vibe; dry humor.
+	DD2Bartender: Cares about the tavern and the Eternia Crystal; steady.
+	Golfer: Casual sports vibe; relaxed.
+	BestiaryGirl: Loves animals; enthusiastic.
+	Princess: Elegant and kind; polite and warm.
+
+	Prompt: {
+		Identity: You are an NPC in Terraria. Type: {0}, Name: {1}. {2} {3}
+		LengthRule: Keep replies around 15 words
+		NoInvent: " Do not invent outcomes when no execution result is provided"
+	}
+}
+
+Superpower: {
+	RefuseStyleFact: Refuse style: {0}
+	CooldownNotReady: '''"{0}" superpower is not ready'''
+	RandomRefuse: Randomly refused
+
+	Prompt: {
+		AbilityStateHeader: "Ability state: "
+		CooldownsIndependent: "Cooldowns are independent. "
+		PartSep: "; "
+		ShortMemoryHeader: "Short-term memory: "
+		PendingBuyTrash: Pending trash-buy quote totaling {0}
+		CooldownNamed: '''"{0}" cooling down ~{1}s'''
+		CooldownMerchantBuyTrash: Trash buy cooling ~{0}s (not delivery)
+		CooldownMerchantDelivery: Emergency delivery cooling ~{0}s (not trash buy)
+		CooldownDemoBlast: Remote blast cooling ~{0}s (not fire support)
+		CooldownDemoFireSupport: Fire support cooling ~{0}s (not placing dynamite)
+		CooldownGuideWeather: Weather change cooling ~{0}s
+		CooldownGuideClearItems: Clear drops cooling ~{0}s
+		CooldownGuideWorldQuery: World guidance cooling ~{0}s
+	}
+
+	IntentClassify: {
+		System: You are an intent classifier. Output only one JSON object, no other text. Format: {{"intent":"...","params":{{}},"confidence":0.0}}. intent must be one of: [{0}]. Use chat for small talk or uncertainty; use list_powers when asking about superpowers. Use context: after a refusal, pleas/insistence (please / really / come on) tend to keep the same intent; after fixing conditions, retry the ability; topic change / cancel / unrelated chat → chat. {1}{2}Player name: {3}. NPC type id: {4}.
+		RecentEvents: "Recent events: "
+		RecentChat: "Recent chat: "
+		PlayerLabel: Player
+		NpcLabel: NPC
+		RoleSep: ": "
+
+		ParamHelp: {
+			Default: params may be an empty object.
+			Guide: params: guide_weather.action=rain_start|rain_stop|sandstorm_start|sandstorm_stop|windy_day_start|windy_day_stop|thunderstorm_start|thunderstorm_stop|wind_start|wind_stop|wind_set|clear, optional windSpeed=40~60; guide_world_query.query=biome|structure|ore|chest|life_crystal|life_fruit, target=localized place/item name. Other params may be empty.
+			Merchant: params: merchant_delivery.itemHint=short item description. Others may be empty.
+		}
+
+		Examples: {
+			GoblinTinkerer: Examples: reforge / add prefix / enchant → goblin_temp_prefix.
+			Merchant: Examples: buy my trash / sell junk → merchant_buy_trash; send torches / delivery → merchant_delivery. Buy-trash and delivery cooldowns are independent; selling trash ≠ player shopping ≠ delivery.
+			Nurse: Examples: I'm dying / heal me / save me → nurse_emergency_heal; after a refusal, please / really → still nurse_emergency_heal.
+			Dryad: Examples: buff us / group buff → dryad_group_buff; after a refusal, please / really → still dryad_group_buff.
+			ArmsDealer: Examples: give me a gun → arms_temp_weapon.
+			Demolitionist: Examples: blow this open / place dynamite → demo_blast; fire support / cover with grenades → demo_fire_support; cooldowns independent.
+			Cyborg: Examples: fire support → cyborg_fire_support.
+			TaxCollector: Examples: give me some money → tax_grant_gold.
+			Guide: Examples: rain / blizzard / sandstorm / thunderstorm / windy day / set wind / clear skies → guide_weather; clear dropped items → guide_clear_items; where is jungle / desert / granite / marble / dungeon / floating island / shimmer / shadow orb / crimson heart / enchanted sword / altar / hellforge / gold ore / diamond / life crystal, or is xx in a chest → guide_world_query. Weather / clear-drops / guidance cooldowns are independent.
+		}
+	}
+
+	guide_weather: {
+		DisplayName: Change Weather
+		Description: Rain/blizzard, sandstorm, thunderstorm, windy day, or wind speed alone
+		RefuseStyle: Mild
+	}
+
+	guide_clear_items: {
+		DisplayName: Clear Dropped Items
+		Description: Clears all ground items worldwide
+		RefuseStyle: Mild
+	}
+
+	guide_world_query: {
+		DisplayName: World Guidance
+		Description: Directions from map memory — biomes, structures, ores, chests, Life Crystals, etc.
+		RefuseStyle: Mild
+	}
+
+	nurse_emergency_heal: {
+		DisplayName: Emergency Heal
+		Description: Teleports to the player, fully heals and clears debuffs, then returns home
+		RefuseStyle: Tsundere, sharp-tongued, soft-hearted
+	}
+
+	dryad_group_buff: {
+		DisplayName: Group Buff
+		Description: Teleports to the player, casts the vanilla Dryad ward, waits 8s after it ends, then returns
+		RefuseStyle: Gentle, sweet
+	}
+
+	arms_temp_weapon: {
+		DisplayName: Temp Gun Loan
+		Description: Loans a temporary ranged weapon, reclaimed after 10 minutes
+		RefuseStyle: Rough, hot-tempered, loyal
+	}
+
+	merchant_buy_trash: {
+		DisplayName: Buy Trash
+		Description: Scans inventory, quotes trash buyout, confirms sale (~50–80% value)
+		RefuseStyle: Mercantile, shrewd, polite but calculating
+	}
+
+	merchant_delivery: {
+		DisplayName: Emergency Delivery
+		Description: Expensive remote delivery of basics (torches, rope, potions, ammo, bombs, dynamite, etc.)
+		RefuseStyle: Mercantile, shrewd, polite but calculating
+	}
+
+	demo_blast: {
+		DisplayName: Remote Blast
+		Description: Places 3 Sticky Dynamite 3 tiles in front of the player
+		RefuseStyle: Manic, excited, unpredictable
+	}
+
+	demo_fire_support: {
+		DisplayName: Fire Support
+		Description: Dense grenade coverage within 400 pixels for about 1 minute
+		RefuseStyle: Manic, excited, unpredictable
+	}
+
+	goblin_temp_prefix: {
+		DisplayName: Enchant Prefix
+		Description: Permanently rewrites the held weapon's prefix
+		RefuseStyle: Greedy, cunning, timid
+	}
+
+	cyborg_fire_support: {
+		DisplayName: Fire Support
+		Description: Dense rocket coverage within 400 pixels for about 1 minute
+		RefuseStyle: Mechanical, direct, cold
+	}
+
+	tax_grant_gold: {
+		DisplayName: Grant Gold
+		Description: Chance to give 5 Platinum Coins
+		RefuseStyle: Greedy, sinister, calculating
+	}
+}
+
+Runtime: {
+	Coin.Format: "{0}Plat {1}Gold {2}Silver {3}Copper"
+
+	Chat: {
+		PlayerCalling: (player is calling you)
+		NoPlayerContext: No player context.
+		EnvHeader: Current environment (structured perception):
+		Biome: biome=
+		Layer: layer=
+		Coords: coords=
+		Depth: depth=
+		Time: time=
+		Day: day
+		Night: night
+		BloodMoon: blood moon;
+		Eclipse: eclipse;
+		Weather: weather=
+		Player: player=
+		Life: " life="
+		Mana: " mana="
+		LowLifeParen: (low life)
+		EnemyCount: nearby enemies=
+		EnemyMain: " main="
+		EnemiesTargeting: " targeting player="
+		BossPresent: "boss present=yes: "
+		BossAbout: " ~"
+		BossAbsent: boss present=no
+		NearbyTown: nearby town NPCs=
+		None: none
+		Unknown: unknown
+		CompactEnv: compact env: biome=
+		CompactLowLife: ; player low life
+		CompactBoss: ; boss=
+		WeaponNone: equipped weapon=none
+		WeaponNoneInline: ; equipped weapon=none
+		WeaponHas: equipped weapon=yes:
+		WeaponHasInline: ; equipped weapon=yes:
+		InCombat: ; in combat=yes
+		FollowerAmbient: (follower chat) You are following player {0}. Most worth mentioning casually: {1}. Using recent shared memory, say ~15 characters naturally like a traveling companion; do not list the environment or broadcast status
+		FollowerEvent: (follower event) You are following player {0}. Just happened: {1}. React in ~15 characters naturally like a companion; do not broadcast
+		FocusBoss: Boss "{0}" is still nearby (~{1}%)
+		FocusLowLife: Player life is very low
+		FocusBloodMoon: It is a blood moon tonight
+		FocusEclipse: There is a solar eclipse
+		FocusEnemies: Quite a few enemies nearby ({0})
+		FocusEnemiesPlain: Quite a few enemies nearby
+		FocusAggro: Enemies are targeting the player
+		FocusSoft: in {0}, {1}, weather {2}
+		WalkByTrigger: (walk-by) Player {0} has been standing near you for a while. Using short-term memory of this player, greet in ~15 characters and must address them by name "{0}"
+		MemEnterBiome: Player entered biome: {0}
+		MemArriveBiome: Just arrived in {0}
+		MemDay: Daytime began
+		MemNight: Nighttime began
+		FocusDawn: Just got light
+		FocusDusk: Just got dark
+		MemBoss: Encountered boss: {0}
+		FocusBossAppear: Boss "{0}" appeared nearby
+		MemLowLife: Player life is very low
+		FocusHurt: Player is badly hurt
+		FocusQuiet: The road has been quiet
+		MemBossKill: Defeated boss: {0}
+		FocusBossWin: Just beat boss "{0}" together
+		MemGreeted: Greeted the player
+		MemFollowStart: Started following this player
+		MemFollowStop: Stopped following this player
+		MemReclaimGun: Reclaimed the loaned gun and ammo
+	}
+
+	Context: {
+		Biome: {
+			dungeon: Dungeon
+			corruption: Corruption
+			crimson: Crimson
+			hallow: Hallow
+			jungle: Jungle
+			snow: Snow
+			desert: Desert
+			beach: Beach
+			mushroom: Mushroom
+			meteor: Meteor
+			underworld: Underworld
+			sky: Sky Island
+			forest: Forest
+			unknown: Unknown
+		}
+
+		Layer: {
+			hell: Underworld
+			cave: Caverns
+			underground: Underground
+			sky: Sky
+			surface: Surface
+			unknown: Unknown
+		}
+
+		Weather: {
+			sandstorm: Sandstorm
+			blizzard: Blizzard
+			thunderstorm: Thunderstorm
+			rain: Rain
+			windy: Windy day
+			cloudy: Cloudy
+			clear: Clear
+			unknown: Unknown
+		}
+	}
+
+	World: {
+		Biome: {
+			jungle: Jungle
+			mushroom: Mushroom biome
+			corruption: Corruption
+			crimson: Crimson
+			hallow: Hallow
+			snow: Snow
+			desert: Desert
+			underground_desert: Underground Desert
+			ocean: Ocean
+			granite: Granite
+			marble: Marble
+		}
+
+		Structure: {
+			sky: Sky Island
+			dungeon: Dungeon
+			temple: Jungle Temple
+			tree: Living Tree
+			pyramid: Pyramid
+			hive: Bee Hive
+			shimmer: Aether
+			shadow_orb: Shadow Orb
+			crimson_heart: Crimson Heart
+			sword: Enchanted Sword Shrine
+			hellforge: Hellforge
+			altar: Altar
+		}
+
+		Dir: {
+			right: right
+			left: left
+			up: up
+			down: down
+		}
+
+		Layer: {
+			hell: Underworld
+			cave: Caverns
+			underground: Underground
+			sky: Sky
+			surface: Surface
+		}
+
+		Label: {
+			LifeCrystal: Life Crystal
+			LifeFruit: Life Fruit
+		}
+
+		ClimbDown: dig down
+		ClimbUp: go up
+		LineNear: About {1} tiles to your {0}, depth {2}.
+		LineVertical: About {1} tiles {0}, depth {2}.
+		LineCorner: About {1} tiles to your {0}, then {2} about {3} tiles, depth {4}.
+	}
+
+	Superpower: {
+		OutcomeOk: Done
+		OutcomeQuoted: Quote pending confirmation
+		OutcomeRefused: Declined
+		OutcomeFailed: Failed
+		OutcomeInfo: Explained
+		OutcomeHandled: Handled
+		FactsResultWord: "This round result phrase: "
+		FactsExtra: "; extras: "
+		FactsReplyReq: . Reply requirement: the reply must include the result
+		AbilityFailed: Ability execution failed
+		CancelBuyTrash: Ability cancelled: buy trash — player declined
+		ScriptCancel: Alright, never mind.
+		ScriptClarify: Didn't catch that — reply "yes" to deal or "no" to cancel.
+		ScriptDeal: Deal — took {0}.
+		ScriptStale: Bag changed or quote expired; ask to sell trash again.
+		ScriptNoDeal: This deal didn't go through.
+		NoPowers: No superpowers
+		ListedPowers: Listed superpowers
+		PowerSep: ": "
+		EventOk: Ability success: {0} — {1}
+		EventQuoted: Ability quote: {0} — {1}
+		EventRefused: Ability refused: {0} — {1}
+		EventFailed: Ability failed: {0} — {1}
+		PrefixRandom: Random
+		Qty: count={0}
+		QueryEq: query={0}
+		TotalPrice: total={0}
+		Charge: charge={0}
+		GuidedSuffix: " pointed the way."
+		NotFound: Could not find a reliable {0}
+		AmmoWith: With ammo: {0}x{1}
+		AmmoSkipped: No bag space — gun only, no ammo
+		LoanedGun: Loaned temp gun: {0}
+		LoanDuration: Reclaimed in 10 minutes
+		GunReclaimed: Taking the gun back.
+		DeliveryCatalog: Can deliver: torches, rope, healing potions, arrows, bullets, wood, dirt, recall potions, bombs, dynamite, grenades
+		Delivered: Delivered: {0} x{1}
+		NeedGold: Not enough coins; need {0}
+		QuoteAnnounce: I'll take these: {0} total {1}. Confirm? Reply yes or no.
+		EnchantedPrefix: Enchanted prefix: {0}
+		BlastCount: count={0}
+
+		Fixed: {
+			inventory_full_gun: Inventory full — cannot give gun
+			player_dead: Player is dead
+			spawn_fail: Failed to place dynamite
+			demo_blast_ok: Placed sticky dynamite
+			cyborg_support_ok: Rocket fire support started
+			demo_support_ok: Grenade fire support started
+			support_duration: Lasts about 1 minute
+			no_potion: No buff potions equipped
+			aura_fail: Failed to cast aura
+			group_buff_ok: Group buff cast
+			no_weapon: No enchantable weapon held
+			prefix_fail: Failed to apply prefix
+			clear_items_ok: Cleared ground items
+			weather_bad: Unrecognized weather action
+			weather_unknown: Unknown weather action
+			rain_on: Rain started
+			rain_off: Rain stopped
+			sandstorm_on: Sandstorm started
+			sandstorm_off: Sandstorm stopped
+			windy_on: Windy day started (~{0} mph)
+			windy_off: Windy day stopped
+			thunder_on: Thunderstorm started (~{0} mph)
+			thunder_off: Thunderstorm stopped
+			wind_set: Wind adjusted (~{0} mph)
+			wind_off: Wind stopped
+			weather_clear: Weather cleared
+			map_not_ready: Map memory is not ready yet
+			no_client_state: Please say that again (client state not synced)
+			trash_empty: No sellable trash in inventory
+			trash_quoted: Generated trash buy quote
+			quote_expired: Quote expired
+			bag_stale: Inventory changed
+			trash_bought: Bought trash and paid
+			unknown_item: Could not recognize the delivery item
+			inventory_full_refund: Inventory full — cannot deliver; refunded
+			full_hp: Player is at full life
+			nurse_busy: Nurse is busy
+			heal_start_fail: Failed to start emergency heal
+			heal_ok: Emergency healed to full
+			tax_ok: Gave 5 platinum coins
+			arms_restrict: Arms Dealer loaned weapons are for personal use only
+		}
+	}
+}
+
+Aliases: {
+	MerchantConfirm: 可以,确定,确认,行,好,要,成交,卖,yes,ok,confirm,deal
+	MerchantCancel: 不要,算了,取消,不卖,否,no,cancel
+
+	Address: {
+		GoblinTinkerer: 哥布林,工匠,goblin,goblin tinkerer,tinkerer
+		ArmsDealer: 军火商,arms dealer,armsdealer
+		Demolitionist: 爆破,爆破专家,demolitionist,demo
+		Cyborg: 机器侠,cyborg
+		TaxCollector: 税收官,tax collector,taxcollector
+		Guide: 向导,guide
+		Nurse: 护士,nurse
+		Merchant: 商人,merchant
+		Dryad: 树妖,dryad
+	}
+
+	MerchantHints: {
+		Torch: 火把,torch,火
+		Rope: 绳子,rope
+		LesserHealingPotion: 治疗药水,回血,药水,healing potion,potion
+		WoodenArrow: 箭,木箭,arrow,wooden arrow
+		MusketBall: 子弹,子弹,musket ball,bullet
+		Wood: 木头,木板,木材,wood
+		DirtBlock: 土,土块,dirt
+		RecallPotion: 回忆药水,回城,recall
+		Bomb: 炸弹,bomb
+		Dynamite: 雷管,dynamite
+		Grenade: 手榴弹,grenade
+	}
+
+	Biome: {
+		jungle: 丛林,jungle
+		mushroom: 蘑菇,蘑菇地,发光蘑菇,mushroom
+		corruption: 腐化,corruption
+		crimson: 猩红,crimson
+		hallow: 神圣,神圣之地,hallow
+		snow: 雪,雪原,雪地,冰雪,snow
+		desert: 沙漠,desert
+		underground_desert: 地下沙漠,underground desert
+		ocean: 海洋,海,beach,海滩,ocean
+		granite: 花岗岩,花岗岩洞,granite
+		marble: 大理石,大理石洞,marble
+	}
+
+	Structure: {
+		sky: 空岛,天空岛,浮岛,sky,island
+		dungeon: 地牢,地城,dungeon
+		temple: 神庙,丛林神庙,temple
+		tree: 生命树,活木,活树,living tree
+		pyramid: 金字塔,pyramid
+		hive: 蜂巢,蜂房,hive
+		shimmer: 微光之湖,微光,以太,shimmer,aether
+		shadow_orb: 暗影珠,暗影珠子,shadow orb
+		crimson_heart: 猩红之心,crimson heart
+		sword: 附魔剑祠,附魔剑,剑祠,enchanted sword
+		hellforge: 地狱熔炉,hellforge,hell forge
+		altar: 恶魔祭坛,猩红祭坛,祭坛,altar
+	}
+
+	Ore: {
+		copper: 铜,copper
+		tin: 锡,tin
+		iron: 铁,iron
+		lead: 铅,lead
+		silver: 银,silver
+		tungsten: 钨,tungsten
+		gold: 金,gold
+		platinum: 铂,白金,platinum
+		meteorite: 陨石,meteorite
+		demonite: 魔矿,demonite
+		crimtane: 猩红矿,血肉,crimtane
+		hellstone: 狱石,地狱石,hellstone
+		cobalt: 钴,cobalt
+		palladium: 钯,palladium
+		mythril: 秘银,mythril
+		orichalcum: 山铜,orichalcum
+		adamantite: 精金,adamantite
+		titanium: 钛,titanium
+		chlorophyte: 叶绿,chlorophyte
+		lunar: 夜明,月矿,lunar,luminite
+		amethyst: 紫晶,amethyst
+		topaz: 黄玉,topaz
+		sapphire: 蓝玉,蓝宝石,sapphire
+		emerald: 翡翠,绿宝石,emerald
+		ruby: 红玉,红宝石,ruby
+		diamond: 钻石,diamond
+		amber: 琥珀,amber
+	}
+
+	QueryKind: {
+		chest: chest,宝箱,箱子
+		life_crystal: life_crystal,生命水晶,心水晶
+		life_fruit: life_fruit,生命果
+		ore: ore,矿物,矿
+		structure: structure,结构
+		biome: biome,群系,生物群系
+	}
+}

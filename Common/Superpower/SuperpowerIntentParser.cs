@@ -7,11 +7,14 @@ using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.Configs;
 using Terraria;
 using Terraria.ID;
+using Terraria.Localization;
 
 namespace AITownNPCs.Common.Superpower
 {
 	public static class SuperpowerIntentParser
 	{
+		private const string LocRoot = "Mods.AITownNPCs.Superpower.IntentClassify.";
+
 		public static async Task<SuperpowerIntent> ClassifyAsync(
 			AinpcServerConfig config,
 			NPC npc,
@@ -25,14 +28,13 @@ namespace AITownNPCs.Common.Superpower
 
 			string paramHelp = BuildParamHelp(npc.type);
 			string examples = BuildExamples(npc.type);
-			string system =
-				"你是意图分类器。只输出一个 JSON 对象，不要其它文字。格式："
-				+ "{\"intent\":\"...\",\"params\":{},\"confidence\":0.0}。"
-				+ "intent 只能是：[" + allowed + "]。"
-				+ "闲聊或不确定用 chat；问超能力用 list_powers。"
-				+ "结合上下文：刚拒过某能力后的恳求/坚持（求你了、真的、拜托）倾向同一 intent；纠正条件后宜重试能力；换题/取消/无关闲聊 → chat。"
-				+ examples + paramHelp
-				+ "玩家名：" + (player?.name ?? "") + "。NPC类型id：" + npc.type + "。";
+			string system = Language.GetTextValue(
+				LocRoot + "System",
+				allowed.ToString(),
+				examples,
+				paramHelp,
+				player?.name ?? "",
+				npc.type).Trim();
 
 			var messages = new List<ChatMessageDto> {
 				new("system", system)
@@ -77,13 +79,18 @@ namespace AITownNPCs.Common.Superpower
 				}
 			}
 
+			string partSep = Language.GetTextValue("Mods.AITownNPCs.Superpower.Prompt.PartSep");
+			string roleSep = Language.GetTextValue(LocRoot + "RoleSep");
+			string playerLabel = Language.GetTextValue(LocRoot + "PlayerLabel");
+			string npcLabel = Language.GetTextValue(LocRoot + "NpcLabel");
+
 			var sb = new StringBuilder();
 			if (events.Count > 0) {
-				sb.Append("近期事件：");
+				sb.Append(Language.GetTextValue(LocRoot + "RecentEvents"));
 				int start = Math.Max(0, events.Count - 6);
 				for (int i = start; i < events.Count; i++) {
 					if (i > start) {
-						sb.Append('；');
+						sb.Append(partSep);
 					}
 
 					sb.Append(events[i]);
@@ -100,14 +107,14 @@ namespace AITownNPCs.Common.Superpower
 			if (dialogue.Count > 0) {
 				int take = Math.Min(dialogue.Count, 4);
 				int start = dialogue.Count - take;
-				sb.Append("近期闲聊：");
+				sb.Append(Language.GetTextValue(LocRoot + "RecentChat"));
 				for (int i = start; i < dialogue.Count; i++) {
 					if (i > start) {
-						sb.Append('；');
+						sb.Append(partSep);
 					}
 
 					ChatTurn t = dialogue[i];
-					sb.Append(t.Role == "user" ? "玩家" : "NPC").Append('：').Append(t.Content);
+					sb.Append(t.Role == "user" ? playerLabel : npcLabel).Append(roleSep).Append(t.Content);
 				}
 			}
 
@@ -115,27 +122,35 @@ namespace AITownNPCs.Common.Superpower
 			return string.IsNullOrEmpty(text) ? null : text;
 		}
 
-		private static string BuildParamHelp(int npcType) => npcType switch {
-			NPCID.Guide =>
-				"params：guide_weather.action=rain_start|rain_stop|sandstorm_start|sandstorm_stop|windy_day_start|windy_day_stop|thunderstorm_start|thunderstorm_stop|wind_start|wind_stop|wind_set|clear，可选 windSpeed=40~60；"
-				+ "guide_world_query.query=biome|structure|ore|chest|life_crystal|life_fruit，target=中文目标。其它 params 可空。",
-			NPCID.Merchant => "params：merchant_delivery.itemHint=物品中文简述。其它可空。",
-			_ => "params 可为空对象。"
-		};
+		private static string BuildParamHelp(int npcType) {
+			string key = npcType switch {
+				NPCID.Guide => LocRoot + "ParamHelp.Guide",
+				NPCID.Merchant => LocRoot + "ParamHelp.Merchant",
+				_ => LocRoot + "ParamHelp.Default"
+			};
+			return Language.GetTextValue(key).Trim();
+		}
 
-		private static string BuildExamples(int npcType) => npcType switch {
-			NPCID.GoblinTinkerer => "示例：重铸/加词缀/附魔 → goblin_temp_prefix。",
-			NPCID.Merchant => "示例：收垃圾/卖垃圾 → merchant_buy_trash；送点火把/送货 → merchant_delivery。"
-			                 + "收购与送货冷却独立；卖垃圾≠玩家买货≠送货。",
-			NPCID.Nurse => "示例：我要死了/救我/快来救我 → nurse_emergency_heal；刚被拒后说求你了/真的 → 仍 nurse_emergency_heal。",
-			NPCID.Dryad => "示例：来个增益/来个群体 → dryad_group_buff；刚被拒后说求你了/真的 → 仍 dryad_group_buff。",
-			NPCID.ArmsDealer => "示例：给我一把枪 → arms_temp_weapon。",
-			NPCID.Demolitionist => "示例：炸开这里/放雷管 → demo_blast；火力支援/扔雷掩护 → demo_fire_support；冷却独立。",
-			NPCID.Cyborg => "示例：火力支援 → cyborg_fire_support。",
-			NPCID.TaxCollector => "示例：给我点钱 → tax_grant_gold。",
-			NPCID.Guide => "示例：下雨/暴雪/沙尘暴/雷雨/大风天/调风/晴天 → guide_weather；清理掉落物 → guide_clear_items；丛林/沙漠/花岗岩/大理石/地牢/空岛/微光/暗影珠/猩红之心/附魔剑/祭坛/地狱熔炉/金矿/钻石/生命水晶在哪、箱子里有没有xx → guide_world_query。天气/清物/指路冷却独立。",
-			_ => ""
-		};
+		private static string BuildExamples(int npcType) {
+			string suffix = npcType switch {
+				NPCID.GoblinTinkerer => "GoblinTinkerer",
+				NPCID.Merchant => "Merchant",
+				NPCID.Nurse => "Nurse",
+				NPCID.Dryad => "Dryad",
+				NPCID.ArmsDealer => "ArmsDealer",
+				NPCID.Demolitionist => "Demolitionist",
+				NPCID.Cyborg => "Cyborg",
+				NPCID.TaxCollector => "TaxCollector",
+				NPCID.Guide => "Guide",
+				_ => null
+			};
+
+			if (suffix == null) {
+				return "";
+			}
+
+			return Language.GetTextValue(LocRoot + "Examples." + suffix).Trim();
+		}
 
 		public static SuperpowerIntent Parse(string raw, int npcType) {
 			var fallback = new SuperpowerIntent { Intent = SuperpowerIds.Chat, Confidence = 0f };

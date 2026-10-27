@@ -5,7 +5,9 @@ namespace AITownNPCs.Common.Ai.Firing
 {
 	/// <summary>
 	/// Applies weapon press rhythm to wantUse before DummyActor.Tick.
-	/// Whitelist → hold then release then recharge; otherwise hold continuously.
+	/// Rules live in <see cref="NpcWeaponChannelRules"/> (whitelist hold-release clusters + blacklist).
+	/// Default is continuous hold; add new guns to the matching cluster or blacklist when needed.
+	/// Not full vanilla parity — curated for town-NPC dummy firing.
 	/// </summary>
 	public static class NpcWeaponChannel
 	{

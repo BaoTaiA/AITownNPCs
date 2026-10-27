@@ -7,6 +7,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
@@ -129,7 +130,7 @@ namespace AITownNPCs.Common.Ai.Chat
 					addressedCall = true;
 					target = addressed.Npc;
 					utterance = string.IsNullOrWhiteSpace(addressed.StrippedText)
-						? "（玩家在呼叫你）"
+						? ModText.Get("Runtime.Chat.PlayerCalling")
 						: addressed.StrippedText;
 				}
 				else if (trimmed.StartsWith("@")) {
@@ -143,7 +144,7 @@ namespace AITownNPCs.Common.Ai.Chat
 						? trimmed.Substring(1).TrimStart()
 						: "";
 					if (string.IsNullOrWhiteSpace(utterance)) {
-						utterance = "（玩家在呼叫你）";
+						utterance = ModText.Get("Runtime.Chat.PlayerCalling");
 					}
 				}
 				else {
@@ -297,10 +298,6 @@ namespace AITownNPCs.Common.Ai.Chat
 
 			string modName = ModContent.GetInstance<AITownNPCs>()?.DisplayName ?? "AI Town NPCs";
 			string text = Language.GetTextValue("Mods.AITownNPCs.Ai.NoModelAutoDisabled", modName);
-			if (string.IsNullOrWhiteSpace(text)
-			    || text.StartsWith("Mods.", System.StringComparison.Ordinal)) {
-				text = modName + "没有可用的大模型，AI对话与超能力已自动关闭";
-			}
 
 			if (NpcAiSpeech.NotifyPlayerLiteral(playerWhoAmI, text, NpcAiSpeech.WarningColor)) {
 				NotifiedNoModel[playerWhoAmI] = true;

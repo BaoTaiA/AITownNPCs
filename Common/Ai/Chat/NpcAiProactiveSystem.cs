@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
@@ -106,7 +107,7 @@ namespace AITownNPCs.Common.Ai.Chat
 				}
 				else if (walkBy) {
 					MarkWalkByCooldown(p, speaker.whoAmI);
-					AiConversationMemory.AppendEvent(player, speaker, "向玩家打过招呼");
+					AiConversationMemory.AppendEvent(player, speaker, ModText.Get("Runtime.Chat.MemGreeted"));
 				}
 			}
 		}
@@ -182,9 +183,7 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 
 			speaker = bestReady;
-			trigger =
-				$"（路过停留）玩家{player.name}在你旁边连续停留了一会儿。"
-				+ $"请结合你对该玩家的短期记忆，用约15字打招呼，必须称呼其名字「{player.name}」";
+			trigger = ModText.Get("Runtime.Chat.WalkByTrigger", player.name);
 		}
 
 		private static void ClearStayForPlayer(int playerWhoAmI) {

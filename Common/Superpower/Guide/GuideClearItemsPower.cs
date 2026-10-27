@@ -1,5 +1,6 @@
 using Terraria;
 using Terraria.ID;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Guide
 {
@@ -8,9 +9,9 @@ namespace AITownNPCs.Common.Superpower.Guide
 		public string Id => SuperpowerIds.GuideClearItems;
 		public int NpcType => NPCID.Guide;
 		public int CooldownFrames => 60 * 60;
-		public string DisplayNameZh => "清除掉落物";
-		public string DescriptionZh => "清除全世界地面掉落物品";
-		public string RefuseStyleZh => "温和";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			int cleared = 0;
@@ -25,7 +26,7 @@ namespace AITownNPCs.Common.Superpower.Guide
 				}
 			}
 
-			return SuperpowerResult.Ok(Id, true, "已清除掉落物", "数量=" + cleared);
+			return SuperpowerResult.Ok(Id, true, ModText.Get("Runtime.Superpower.Fixed.clear_items_ok"), ModText.Get("Runtime.Superpower.Qty", cleared));
 		}
 	}
 }

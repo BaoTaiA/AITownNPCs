@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.ArmsDealer
 {
@@ -13,9 +14,9 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 		public string Id => SuperpowerIds.ArmsTempWeapon;
 		public int NpcType => NPCID.ArmsDealer;
 		public int CooldownFrames => 60 * 60 * 5;
-		public string DisplayNameZh => "临时配枪";
-		public string DescriptionZh => "借一把临时远程武器，10 分钟后收回";
-		public string RefuseStyleZh => "粗鲁、暴躁、讲义气";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			ReclaimAll(player, notify: false);
@@ -23,7 +24,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			(int ammoId, int ammoStack) = PickAmmo(weaponId);
 			int empty = FindEmptySlot(player);
 			if (empty < 0) {
-				return SuperpowerResult.Failed(Id, "inventory_full", "背包已满无法给枪");
+				return SuperpowerResult.Failed(Id, "inventory_full", ModText.Get("Runtime.Superpower.Fixed.inventory_full_gun"));
 			}
 
 			Item item = player.inventory[empty];
@@ -33,17 +34,17 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			SyncSlot(player, empty);
 
 			string ammoFact = TryGiveLoanAmmo(player, ammoId, ammoStack)
-				? "附带弹药：" + Lang.GetItemNameValue(ammoId) + "x" + ammoStack
-				: "背包没空位，只给了枪没给弹药";
+				? ModText.Get("Runtime.Superpower.AmmoWith", Lang.GetItemNameValue(ammoId), ammoStack)
+				: ModText.Get("Runtime.Superpower.AmmoSkipped");
 
 			ServerPlayerNet.AddBuffSynced(
 				player,
 				ModContent.BuffType<ArmsDealerWeaponBuff>(),
 				BuffSeconds * 60);
 			return SuperpowerResult.Ok(Id, true,
-				"已借出临时配枪：" + Lang.GetItemNameValue(weaponId),
+				ModText.Get("Runtime.Superpower.LoanedGun", Lang.GetItemNameValue(weaponId)),
 				ammoFact,
-				"10分钟后收回");
+				ModText.Get("Runtime.Superpower.LoanDuration"));
 		}
 
 		public static void ReclaimAll(Player player, bool notify) {
@@ -85,7 +86,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			ServerPlayerNet.ClearBuffSynced(player, buffType);
 
 			if (removed && notify) {
-				NpcAiSpeech.NotifyPlayerLiteral(player.whoAmI, "枪我收回了。", Color.Orange);
+				NpcAiSpeech.NotifyPlayerLiteral(player.whoAmI, ModText.Get("Runtime.Superpower.GunReclaimed"), Color.Orange);
 				TryRememberReclaim(player);
 			}
 		}
@@ -127,7 +128,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
 				if (npc.active && npc.type == NPCID.ArmsDealer) {
-					AiConversationMemory.AppendEvent(player, npc, "已收回借出的枪和弹药");
+					AiConversationMemory.AppendEvent(player, npc, ModText.Get("Runtime.Chat.MemReclaimGun"));
 					return;
 				}
 			}

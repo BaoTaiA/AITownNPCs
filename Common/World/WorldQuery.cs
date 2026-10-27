@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AITownNPCs.Common.Loc;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -27,57 +28,66 @@ namespace AITownNPCs.Common.World
 	{
 		private const int VerticalSplitTiles = 40;
 
-		private static readonly Dictionary<string, string> BiomeAliases = new(StringComparer.OrdinalIgnoreCase) {
-			["丛林"] = "丛林", ["jungle"] = "丛林",
-			["蘑菇"] = "蘑菇地", ["蘑菇地"] = "蘑菇地", ["发光蘑菇"] = "蘑菇地", ["mushroom"] = "蘑菇地",
-			["腐化"] = "腐化", ["corruption"] = "腐化",
-			["猩红"] = "猩红", ["crimson"] = "猩红",
-			["神圣"] = "神圣", ["hallow"] = "神圣", ["神圣之地"] = "神圣",
-			["雪"] = "雪原", ["雪原"] = "雪原", ["雪地"] = "雪原", ["冰雪"] = "雪原", ["snow"] = "雪原",
-			["沙漠"] = "沙漠", ["desert"] = "沙漠",
-			["地下沙漠"] = "地下沙漠",
-			["海洋"] = "海洋", ["海"] = "海洋", ["beach"] = "海洋", ["海滩"] = "海洋",
-			["花岗岩"] = "花岗岩", ["花岗岩洞"] = "花岗岩", ["granite"] = "花岗岩",
-			["大理石"] = "大理石", ["大理石洞"] = "大理石", ["marble"] = "大理石"
+		private static readonly string[] BiomeIds = {
+			"jungle", "mushroom", "corruption", "crimson", "hallow", "snow",
+			"desert", "underground_desert", "ocean", "granite", "marble"
 		};
 
-		private static readonly Dictionary<string, string> StructureAliases = new(StringComparer.OrdinalIgnoreCase) {
-			["空岛"] = "sky", ["天空岛"] = "sky", ["浮岛"] = "sky", ["sky"] = "sky", ["island"] = "sky",
-			["地牢"] = "dungeon", ["地城"] = "dungeon", ["dungeon"] = "dungeon",
-			["神庙"] = "temple", ["丛林神庙"] = "temple", ["temple"] = "temple",
-			["生命树"] = "tree", ["活木"] = "tree", ["活树"] = "tree",
-			["金字塔"] = "pyramid", ["pyramid"] = "pyramid",
-			["蜂巢"] = "hive", ["蜂房"] = "hive", ["hive"] = "hive",
-			["微光之湖"] = "shimmer", ["微光"] = "shimmer", ["以太"] = "shimmer", ["shimmer"] = "shimmer", ["aether"] = "shimmer",
-			["暗影珠"] = "shadow_orb", ["暗影珠子"] = "shadow_orb",
-			["猩红之心"] = "crimson_heart",
-			["附魔剑祠"] = "sword", ["附魔剑"] = "sword", ["剑祠"] = "sword",
-			["地狱熔炉"] = "hellforge", ["hellforge"] = "hellforge",
-			["恶魔祭坛"] = "altar", ["猩红祭坛"] = "altar", ["祭坛"] = "altar"
+		private static readonly string[] StructureIds = {
+			"sky", "dungeon", "temple", "tree", "pyramid", "hive", "shimmer",
+			"shadow_orb", "crimson_heart", "sword", "hellforge", "altar"
 		};
 
-		private static readonly (string hint, int tile)[] OreHints = {
-			("铜", TileID.Copper), ("锡", TileID.Tin),
-			("铁", TileID.Iron), ("铅", TileID.Lead),
-			("银", TileID.Silver), ("钨", TileID.Tungsten),
-			("金", TileID.Gold), ("铂", TileID.Platinum), ("白金", TileID.Platinum),
-			("陨石", TileID.Meteorite),
-			("魔矿", TileID.Demonite), ("猩红矿", TileID.Crimtane), ("血肉", TileID.Crimtane),
-			("狱石", TileID.Hellstone), ("地狱石", TileID.Hellstone),
-			("钴", TileID.Cobalt), ("钯", TileID.Palladium),
-			("秘银", TileID.Mythril), ("山铜", TileID.Orichalcum),
-			("精金", TileID.Adamantite), ("钛", TileID.Titanium),
-			("叶绿", TileID.Chlorophyte),
-			("夜明", TileID.LunarOre), ("月矿", TileID.LunarOre),
-			("紫晶", TileID.Amethyst), ("黄玉", TileID.Topaz),
-			("蓝玉", TileID.Sapphire), ("蓝宝石", TileID.Sapphire),
-			("翡翠", TileID.Emerald), ("绿宝石", TileID.Emerald),
-			("红玉", TileID.Ruby), ("红宝石", TileID.Ruby),
-			("钻石", TileID.Diamond),
-			("琥珀", TileID.TreeAmber),
-			("copper", TileID.Copper), ("iron", TileID.Iron), ("gold", TileID.Gold),
-			("hellstone", TileID.Hellstone), ("chlorophyte", TileID.Chlorophyte)
+		private static readonly (string id, int tile)[] OreIds = {
+			("copper", TileID.Copper), ("tin", TileID.Tin),
+			("iron", TileID.Iron), ("lead", TileID.Lead),
+			("silver", TileID.Silver), ("tungsten", TileID.Tungsten),
+			("gold", TileID.Gold), ("platinum", TileID.Platinum),
+			("meteorite", TileID.Meteorite),
+			("demonite", TileID.Demonite), ("crimtane", TileID.Crimtane),
+			("hellstone", TileID.Hellstone),
+			("cobalt", TileID.Cobalt), ("palladium", TileID.Palladium),
+			("mythril", TileID.Mythril), ("orichalcum", TileID.Orichalcum),
+			("adamantite", TileID.Adamantite), ("titanium", TileID.Titanium),
+			("chlorophyte", TileID.Chlorophyte),
+			("lunar", TileID.LunarOre),
+			("amethyst", TileID.Amethyst), ("topaz", TileID.Topaz),
+			("sapphire", TileID.Sapphire),
+			("emerald", TileID.Emerald),
+			("ruby", TileID.Ruby),
+			("diamond", TileID.Diamond),
+			("amber", TileID.TreeAmber)
 		};
+
+		private static Dictionary<string, string> _biomeAliases;
+		private static Dictionary<string, string> _structureAliases;
+		private static Dictionary<string, int> _oreAliasToTile;
+
+		private static Dictionary<string, string> BiomeAliases =>
+			_biomeAliases ??= AliasLists.BuildMap("Biome", BiomeIds);
+
+		private static Dictionary<string, string> StructureAliases =>
+			_structureAliases ??= AliasLists.BuildMap("Structure", StructureIds);
+
+		private static Dictionary<string, int> OreAliasToTile {
+			get {
+				if (_oreAliasToTile != null) {
+					return _oreAliasToTile;
+				}
+
+				_oreAliasToTile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+				foreach ((string id, int tile) in OreIds) {
+					_oreAliasToTile[id] = tile;
+					foreach (string alias in AliasLists.Get("Ore." + id)) {
+						if (!_oreAliasToTile.ContainsKey(alias)) {
+							_oreAliasToTile[alias] = tile;
+						}
+					}
+				}
+
+				return _oreAliasToTile;
+			}
+		}
 
 		public static bool TryResolve(string query, string target, Vector2 playerTile, out WorldQueryHit hit) {
 			hit = null;
@@ -92,9 +102,10 @@ namespace AITownNPCs.Common.World
 			}
 
 			WorldQueryKind kind = ParseKind(query, target);
+			string resolvedKey = null;
 			Vector2? found = kind switch {
-				WorldQueryKind.Biome => FindNearestBiome(target, playerTile, out _),
-				WorldQueryKind.Structure => FindNearestStructure(target, playerTile, out _),
+				WorldQueryKind.Biome => FindNearestBiome(target, playerTile, out resolvedKey),
+				WorldQueryKind.Structure => FindNearestStructure(target, playerTile, out resolvedKey),
 				WorldQueryKind.Ore => FindNearestOre(target, playerTile, out _),
 				WorldQueryKind.Chest => FindNearestChestItem(target, playerTile, out _),
 				WorldQueryKind.LifeCrystal => FindNearest(WorldCache.LifeCrystals, playerTile),
@@ -103,8 +114,12 @@ namespace AITownNPCs.Common.World
 			};
 
 			string label = kind switch {
-				WorldQueryKind.LifeCrystal => "生命水晶",
-				WorldQueryKind.LifeFruit => "生命果",
+				WorldQueryKind.LifeCrystal => ModText.Get("Runtime.World.Label.LifeCrystal"),
+				WorldQueryKind.LifeFruit => ModText.Get("Runtime.World.Label.LifeFruit"),
+				WorldQueryKind.Biome when !string.IsNullOrEmpty(resolvedKey) =>
+					ModText.Get("Runtime.World.Biome." + resolvedKey),
+				WorldQueryKind.Structure when !string.IsNullOrEmpty(resolvedKey) =>
+					ModText.Get("Runtime.World.Structure." + resolvedKey),
 				_ => string.IsNullOrEmpty(target) ? query : target
 			};
 
@@ -125,84 +140,95 @@ namespace AITownNPCs.Common.World
 			float dy = targetTile.Y - playerTile.Y;
 			int ax = (int)Math.Round(Math.Abs(dx));
 			int ay = (int)Math.Round(Math.Abs(dy));
-			string depth = DescribeLayerAt((int)Math.Round(targetTile.Y));
+			string depthId = DescribeLayerAt((int)Math.Round(targetTile.Y));
+			string depth = ModText.Get("Runtime.World.Layer." + depthId);
 
 			if (ay < VerticalSplitTiles) {
-				string dir = PrimaryDir(dx, dy);
-				return $"在你{dir}大约{Math.Max(ax, ay)}格，深度{depth}。";
+				string dirId = PrimaryDir(dx, dy);
+				string dir = ModText.Get("Runtime.World.Dir." + dirId);
+				return ModText.Get("Runtime.World.LineNear", dir, Math.Max(ax, ay), depth);
 			}
 
 			if (ax < VerticalSplitTiles) {
-				string v = dy > 0 ? "下" : "上";
-				return $"在你{v}大约{ay}格，深度{depth}。";
+				string vId = dy > 0 ? "down" : "up";
+				string v = ModText.Get("Runtime.World.Dir." + vId);
+				return ModText.Get("Runtime.World.LineVertical", v, ay, depth);
 			}
 
-			string h = dx >= 0 ? "右" : "左";
-			string climb = dy > 0 ? "往下挖" : "往上走";
-			return $"在你{h}大约{ax}格，然后{climb}大约{ay}格，深度{depth}。";
+			string hId = dx >= 0 ? "right" : "left";
+			string h = ModText.Get("Runtime.World.Dir." + hId);
+			string climb = dy > 0
+				? ModText.Get("Runtime.World.ClimbDown")
+				: ModText.Get("Runtime.World.ClimbUp");
+			return ModText.Get("Runtime.World.LineCorner", h, ax, climb, ay, depth);
 		}
 
+		/// <summary>English direction ids: right / left / up / down.</summary>
 		public static string PrimaryDir(float dx, float dy) {
 			if (Math.Abs(dx) >= Math.Abs(dy)) {
-				return dx >= 0 ? "右" : "左";
+				return dx >= 0 ? "right" : "left";
 			}
 
-			return dy >= 0 ? "下" : "上";
+			return dy >= 0 ? "down" : "up";
 		}
 
+		/// <summary>English layer ids: hell / cave / underground / sky / surface.</summary>
 		public static string DescribeLayerAt(int tileY) {
 			if (tileY > Main.UnderworldLayer) {
-				return "地狱";
+				return "hell";
 			}
 
 			if (tileY > Main.rockLayer) {
-				return "洞穴";
+				return "cave";
 			}
 
 			if (tileY > Main.worldSurface) {
-				return "地下";
+				return "underground";
 			}
 
 			if (tileY < Main.worldSurface * 0.35) {
-				return "天空";
+				return "sky";
 			}
 
-			return "地表";
+			return "surface";
 		}
 
 		private static WorldQueryKind ParseKind(string query, string target) {
-			if (query is "chest" or "宝箱" or "箱子") {
+			if (AliasLists.EqualsAny(query, "QueryKind.chest")
+			    || AliasLists.ContainsAny(target, "QueryKind.chest")) {
 				return WorldQueryKind.Chest;
 			}
 
-			if (query is "life_crystal" or "生命水晶" || target.Contains("生命水晶") || target.Contains("心水晶")) {
+			if (AliasLists.EqualsAny(query, "QueryKind.life_crystal")
+			    || AliasLists.ContainsAny(target, "QueryKind.life_crystal")) {
 				return WorldQueryKind.LifeCrystal;
 			}
 
-			if (query is "life_fruit" or "生命果" || target.Contains("生命果")) {
+			if (AliasLists.EqualsAny(query, "QueryKind.life_fruit")
+			    || AliasLists.ContainsAny(target, "QueryKind.life_fruit")) {
 				return WorldQueryKind.LifeFruit;
 			}
 
-			if (StructureAliases.ContainsKey(target) || ContainsAny(target, StructureAliases.Keys)) {
+			if (StructureAliases.ContainsKey(target) || ContainsAnyKey(target, StructureAliases.Keys)) {
 				return WorldQueryKind.Structure;
 			}
 
-			if (BiomeAliases.ContainsKey(target) || ContainsAny(target, BiomeAliases.Keys)) {
+			if (BiomeAliases.ContainsKey(target) || ContainsAnyKey(target, BiomeAliases.Keys)) {
 				return WorldQueryKind.Biome;
 			}
 
-			if (MatchOre(target) >= 0 || query is "ore" or "矿物" or "矿") {
+			if (MatchOre(target) >= 0 || AliasLists.EqualsAny(query, "QueryKind.ore")) {
 				return WorldQueryKind.Ore;
 			}
 
-			if (query is "structure" or "结构") {
+			if (AliasLists.EqualsAny(query, "QueryKind.structure")) {
 				return WorldQueryKind.Structure;
 			}
 
 			return WorldQueryKind.Biome;
 		}
 
-		private static bool ContainsAny(string target, IEnumerable<string> keys) {
+		private static bool ContainsAnyKey(string target, IEnumerable<string> keys) {
 			foreach (string k in keys) {
 				if (target.Contains(k, StringComparison.OrdinalIgnoreCase)) {
 					return true;
@@ -213,7 +239,7 @@ namespace AITownNPCs.Common.World
 		}
 
 		private static Vector2? FindNearestBiome(string target, Vector2 player, out string key) {
-			key = ResolveBiomeKey(target);
+			key = AliasLists.ResolveId(BiomeAliases, target);
 			if (key == null || !WorldCache.BiomeCenters.TryGetValue(key, out List<Vector2> list) || list.Count == 0) {
 				return null;
 			}
@@ -221,26 +247,8 @@ namespace AITownNPCs.Common.World
 			return FindNearest(list, player);
 		}
 
-		private static string ResolveBiomeKey(string target) {
-			if (string.IsNullOrEmpty(target)) {
-				return null;
-			}
-
-			if (BiomeAliases.TryGetValue(target, out string key)) {
-				return key;
-			}
-
-			foreach (KeyValuePair<string, string> kv in BiomeAliases) {
-				if (target.Contains(kv.Key, StringComparison.OrdinalIgnoreCase)) {
-					return kv.Value;
-				}
-			}
-
-			return null;
-		}
-
 		private static Vector2? FindNearestStructure(string target, Vector2 player, out string key) {
-			key = ResolveStructureKey(target);
+			key = AliasLists.ResolveId(StructureAliases, target);
 			if (key == null) {
 				return null;
 			}
@@ -262,24 +270,6 @@ namespace AITownNPCs.Common.World
 			};
 		}
 
-		private static string ResolveStructureKey(string target) {
-			if (string.IsNullOrEmpty(target)) {
-				return null;
-			}
-
-			if (StructureAliases.TryGetValue(target, out string key)) {
-				return key;
-			}
-
-			foreach (KeyValuePair<string, string> kv in StructureAliases) {
-				if (target.Contains(kv.Key, StringComparison.OrdinalIgnoreCase)) {
-					return kv.Value;
-				}
-			}
-
-			return null;
-		}
-
 		private static Vector2? FindNearestOre(string target, Vector2 player, out int tileType) {
 			tileType = MatchOre(target);
 			if (tileType < 0 || !WorldCache.OreLocations.TryGetValue(tileType, out List<Vector2> list)
@@ -295,9 +285,9 @@ namespace AITownNPCs.Common.World
 				return -1;
 			}
 
-			foreach ((string hint, int tile) in OreHints) {
-				if (target.Contains(hint, StringComparison.OrdinalIgnoreCase)) {
-					return tile;
+			foreach (KeyValuePair<string, int> kv in OreAliasToTile) {
+				if (target.Contains(kv.Key, StringComparison.OrdinalIgnoreCase)) {
+					return kv.Value;
 				}
 			}
 

@@ -7,7 +7,9 @@ namespace AITownNPCs.Common.Ai.Firing
 {
 	/// <summary>
 	/// Isolates a dummy as the local player for Update or projectile AI, without the real player's input or cursor.
-	/// Role (authority vs spectator) is frozen on NpcFiringState.SpectatorClient before Enter; do not re-read Main.myPlayer for damage.
+	/// HARD RULE: while swapped, never derive follower/spectator authority from Main.myPlayer.
+	/// Freeze role on NpcFiringState.SpectatorClient before Enter; damage paths read only that flag
+	/// (or SpectatorVisual copied onto the projectile at spawn).
 	/// </summary>
 	public static class NpcDummyLocal
 	{
@@ -22,6 +24,7 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static readonly TriggersSet SavedJustReleased = new();
 
 		private static bool _active;
+		private static int _activeDummyWho = -1;
 		private static int _savedMyPlayer;
 		private static int _savedMouseX;
 		private static int _savedMouseY;
@@ -42,6 +45,9 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static bool _latchSmartCursorOld;
 
 		public static bool IsRunning => _active;
+
+		/// <summary>Dummy slot currently inside Enter (not Main.myPlayer — use this for NPC lookup).</summary>
+		public static int ActiveDummyWho => _active ? _activeDummyWho : -1;
 
 		/// <summary>
 		/// True while this client is pretending the dummy is the local player.
@@ -98,6 +104,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			// Isolate cursor item so dummy ItemCheck cannot alias/contaminate equip slots.
 			Main.mouseItem = new Item();
 
+			_activeDummyWho = dummy.whoAmI;
 			Main.myPlayer = dummy.whoAmI;
 			// Dedicated server has no window. Player.Update clears controlUseItem,
 			// then copies the mouse back only while Main.hasFocus is true.
@@ -129,40 +136,44 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			if (dummy != null) {
-				dummy.controlUseItem = wantUse;
+			try {
+				if (dummy != null) {
+					dummy.controlUseItem = wantUse;
+				}
+
+				CopyTriggers(PlayerInput.Triggers.Current, SavedCurrent);
+				CopyTriggers(PlayerInput.Triggers.Old, SavedOld);
+				CopyTriggers(PlayerInput.Triggers.JustPressed, SavedJustPressed);
+				CopyTriggers(PlayerInput.Triggers.JustReleased, SavedJustReleased);
+				// Edges were already consumed by the real player this frame. Do not publish them again.
+				ClearConsumedEdges(PlayerInput.Triggers.JustPressed);
+				ClearConsumedEdges(PlayerInput.Triggers.JustReleased);
+				if (_latchSmartCursorOld && PlayerInput.Triggers.Old != null) {
+					PlayerInput.Triggers.Old.SmartCursor = true;
+				}
+
+				Main.mouseX = _savedMouseX;
+				Main.mouseY = _savedMouseY;
+				Main.mouseLeft = _savedMouseLeft;
+				Main.mouseRight = _savedMouseRight;
+				Main.mouseLeftRelease = _savedMouseLeftRelease;
+				Main.mouseRightRelease = _savedMouseRightRelease;
+				Main.playerInventory = _savedInventory;
+				Main.hasFocus = _savedHasFocus;
+				Main.screenPosition = _savedScreen;
+				Main.mouseItem = _savedMouseItem ?? new Item();
+				_savedMouseItem = null;
+				Main.SmartCursorWanted_Mouse = _savedSmartCursorWantedMouse;
+				Main.SmartCursorWanted_GamePad = _savedSmartCursorWantedGamePad;
+				Main.SmartCursorShowing = _savedSmartCursorShowing;
+				Main.SmartCursorX = _savedSmartCursorX;
+				Main.SmartCursorY = _savedSmartCursorY;
 			}
-
-			CopyTriggers(PlayerInput.Triggers.Current, SavedCurrent);
-			CopyTriggers(PlayerInput.Triggers.Old, SavedOld);
-			CopyTriggers(PlayerInput.Triggers.JustPressed, SavedJustPressed);
-			CopyTriggers(PlayerInput.Triggers.JustReleased, SavedJustReleased);
-			// Edges were already consumed by the real player this frame. Do not publish them again.
-			ClearConsumedEdges(PlayerInput.Triggers.JustPressed);
-			ClearConsumedEdges(PlayerInput.Triggers.JustReleased);
-			if (_latchSmartCursorOld && PlayerInput.Triggers.Old != null) {
-				PlayerInput.Triggers.Old.SmartCursor = true;
+			finally {
+				Main.myPlayer = _savedMyPlayer;
+				_activeDummyWho = -1;
+				_active = false;
 			}
-
-			Main.mouseX = _savedMouseX;
-			Main.mouseY = _savedMouseY;
-			Main.mouseLeft = _savedMouseLeft;
-			Main.mouseRight = _savedMouseRight;
-			Main.mouseLeftRelease = _savedMouseLeftRelease;
-			Main.mouseRightRelease = _savedMouseRightRelease;
-			Main.playerInventory = _savedInventory;
-			Main.hasFocus = _savedHasFocus;
-			Main.screenPosition = _savedScreen;
-			Main.mouseItem = _savedMouseItem ?? new Item();
-			_savedMouseItem = null;
-			Main.SmartCursorWanted_Mouse = _savedSmartCursorWantedMouse;
-			Main.SmartCursorWanted_GamePad = _savedSmartCursorWantedGamePad;
-			Main.SmartCursorShowing = _savedSmartCursorShowing;
-			Main.SmartCursorX = _savedSmartCursorX;
-			Main.SmartCursorY = _savedSmartCursorY;
-
-			Main.myPlayer = _savedMyPlayer;
-			_active = false;
 		}
 
 		public static void Forget(int dummyWho) {

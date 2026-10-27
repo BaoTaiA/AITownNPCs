@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower
 {
@@ -82,38 +83,38 @@ namespace AITownNPCs.Common.Superpower
 
 			if (Facts != null) {
 				foreach (string f in Facts) {
-					if (string.IsNullOrWhiteSpace(f) || f.StartsWith("拒绝风格") || f.StartsWith("台词模板：")) {
+					if (string.IsNullOrWhiteSpace(f) || SuperpowerLoc.IsRefuseStyleFact(f) || SuperpowerLoc.IsLineTemplateFact(f)) {
 						continue;
 					}
 
-					return f.Trim();
+					return SuperpowerLoc.StripFactMarker(f).Trim();
 				}
 			}
 
 			return Outcome switch {
-				SuperpowerOutcome.Ok => "已完成",
-				SuperpowerOutcome.Quoted => "已出报价待确认",
-				SuperpowerOutcome.Refused => "未答应",
-				SuperpowerOutcome.Failed => "未能完成",
-				SuperpowerOutcome.Info => "已说明",
-				_ => "已处理"
+				SuperpowerOutcome.Ok => ModText.Get("Runtime.Superpower.OutcomeOk"),
+				SuperpowerOutcome.Quoted => ModText.Get("Runtime.Superpower.OutcomeQuoted"),
+				SuperpowerOutcome.Refused => ModText.Get("Runtime.Superpower.OutcomeRefused"),
+				SuperpowerOutcome.Failed => ModText.Get("Runtime.Superpower.OutcomeFailed"),
+				SuperpowerOutcome.Info => ModText.Get("Runtime.Superpower.OutcomeInfo"),
+				_ => ModText.Get("Runtime.Superpower.OutcomeHandled")
 			};
 		}
 
 		public string BuildFactsBlock() {
 			var sb = new StringBuilder();
-			sb.Append("本轮执行结果词：").Append(ResolveFixedResultZh());
+			sb.Append(ModText.Get("Runtime.Superpower.FactsResultWord")).Append(ResolveFixedResultZh());
 
 			if (Facts != null && Facts.Count > 0) {
 				bool any = false;
 				for (int i = 0; i < Facts.Count; i++) {
 					string f = Facts[i];
-					if (string.IsNullOrWhiteSpace(f) || f.StartsWith("台词模板：")) {
+					if (string.IsNullOrWhiteSpace(f) || SuperpowerLoc.IsLineTemplateFact(f)) {
 						continue;
 					}
 
-					// RefuseStyleZh only reaches the reply LLM on Refused outcomes.
-					if (f.StartsWith("拒绝风格") && Outcome != SuperpowerOutcome.Refused) {
+					// RefuseStyle only reaches the reply LLM on Refused outcomes.
+					if (SuperpowerLoc.IsRefuseStyleFact(f) && Outcome != SuperpowerOutcome.Refused) {
 						continue;
 					}
 
@@ -122,14 +123,14 @@ namespace AITownNPCs.Common.Superpower
 					}
 
 					if (!any) {
-						sb.Append("；补充：");
+						sb.Append(ModText.Get("Runtime.Superpower.FactsExtra"));
 						any = true;
 					}
 					else {
 						sb.Append('；');
 					}
 
-					sb.Append(f);
+					sb.Append(SuperpowerLoc.StripFactMarker(f));
 				}
 			}
 
@@ -137,7 +138,7 @@ namespace AITownNPCs.Common.Superpower
 				sb.Append("；").Append(ReplyHint);
 			}
 
-			sb.Append("。回复要求：回复中必须有结果内容");
+			sb.Append(ModText.Get("Runtime.Superpower.FactsReplyReq"));
 			return sb.ToString();
 		}
 
@@ -152,19 +153,19 @@ namespace AITownNPCs.Common.Superpower
 			bool any = false;
 			for (int i = 0; i < Facts.Count; i++) {
 				string f = Facts[i];
-				if (string.IsNullOrWhiteSpace(f) || f.StartsWith("拒绝风格") || f.StartsWith("台词模板：")) {
+				if (string.IsNullOrWhiteSpace(f) || SuperpowerLoc.IsRefuseStyleFact(f) || SuperpowerLoc.IsLineTemplateFact(f)) {
 					continue;
 				}
 
 				if (!any) {
-					sb.Append('：');
+					sb.Append(ModText.Get("Runtime.Superpower.PowerSep"));
 					any = true;
 				}
 				else {
 					sb.Append('；');
 				}
 
-				sb.Append(f.Trim());
+				sb.Append(SuperpowerLoc.StripFactMarker(f).Trim());
 			}
 
 			return sb.ToString();

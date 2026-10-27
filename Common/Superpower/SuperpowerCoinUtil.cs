@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Loc;
 using AITownNPCs.Common.Net;
 using Terraria;
 
@@ -16,7 +17,7 @@ namespace AITownNPCs.Common.Superpower
 			copper %= 10000;
 			long silver = copper / 100;
 			long copperLeft = copper % 100;
-			return plat + "铂 " + gold + "金 " + silver + "银 " + copperLeft + "铜";
+			return ModText.Get("Runtime.Coin.Format", plat, gold, silver, copperLeft);
 		}
 
 		public static void GiveCopper(Player player, long copper) {

@@ -2,6 +2,7 @@ using AITownNPCs.Common.Ai.Follow;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
@@ -60,8 +61,8 @@ namespace AITownNPCs.Common.Ai.Chat
 			string biome = WorldContextBuilder.DescribeBiome(Player);
 			if (!string.IsNullOrEmpty(biome) && biome != _lastBiome) {
 				if (!string.IsNullOrEmpty(_lastBiome)) {
-					RememberWithFollower("玩家进入生物群系：" + biome);
-					QueueFollowerEvent("刚从别处来到" + biome);
+					RememberWithFollower(ModText.Get("Runtime.Chat.MemEnterBiome", biome));
+					QueueFollowerEvent(ModText.Get("Runtime.Chat.MemArriveBiome", biome));
 				}
 
 				_lastBiome = biome;
@@ -73,8 +74,8 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 			else if (_dayLatch != Main.dayTime) {
 				_dayLatch = Main.dayTime;
-				RememberWithFollower(Main.dayTime ? "到白天了" : "到夜晚了");
-				QueueFollowerEvent(Main.dayTime ? "天刚亮" : "天刚黑");
+				RememberWithFollower(Main.dayTime ? ModText.Get("Runtime.Chat.MemDay") : ModText.Get("Runtime.Chat.MemNight"));
+				QueueFollowerEvent(Main.dayTime ? ModText.Get("Runtime.Chat.FocusDawn") : ModText.Get("Runtime.Chat.FocusDusk"));
 			}
 
 			bool bossNear = false;
@@ -94,8 +95,8 @@ namespace AITownNPCs.Common.Ai.Chat
 
 			if (bossNear && !_bossLatch) {
 				_bossLatch = true;
-				RememberWithFollower("遭遇Boss：" + bossName);
-				QueueFollowerEvent("附近出现了Boss「" + bossName + "」");
+				RememberWithFollower(ModText.Get("Runtime.Chat.MemBoss", bossName));
+				QueueFollowerEvent(ModText.Get("Runtime.Chat.FocusBossAppear", bossName));
 			}
 			else if (!bossNear) {
 				_bossLatch = false;
@@ -104,8 +105,8 @@ namespace AITownNPCs.Common.Ai.Chat
 			bool low = Player.statLife < Player.statLifeMax2 * 0.3f;
 			if (low && !_lowLifeLatch) {
 				_lowLifeLatch = true;
-				RememberWithFollower("玩家血量很低");
-				QueueFollowerEvent("玩家伤得很重");
+				RememberWithFollower(ModText.Get("Runtime.Chat.MemLowLife"));
+				QueueFollowerEvent(ModText.Get("Runtime.Chat.FocusHurt"));
 			}
 			else if (!low) {
 				_lowLifeLatch = false;
@@ -116,7 +117,7 @@ namespace AITownNPCs.Common.Ai.Chat
 			if (_noHitTimer > 60 * 300) {
 				_noHitTimer = 0;
 				if (NpcFollowQuery.FindFollower(Player) != null) {
-					QueueFollowerEvent("一路上挺安静的");
+					QueueFollowerEvent(ModText.Get("Runtime.Chat.FocusQuiet"));
 				}
 			}
 		}
@@ -143,8 +144,8 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 
 			string name = Lang.GetNPCNameValue(target.type);
-			RememberWithFollower("击败Boss：" + name);
-			QueueFollowerEvent("刚一起打赢了Boss「" + name + "」");
+			RememberWithFollower(ModText.Get("Runtime.Chat.MemBossKill", name));
+			QueueFollowerEvent(ModText.Get("Runtime.Chat.FocusBossWin", name));
 		}
 
 	}

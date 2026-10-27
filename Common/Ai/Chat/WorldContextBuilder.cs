@@ -3,11 +3,11 @@ using System.Linq;
 using System.Text;
 using AITownNPCs.Common.Ai.Combat;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Loc;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.GameContent.Events;
 using Terraria.ID;
-using Terraria.Localization;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
@@ -15,7 +15,7 @@ namespace AITownNPCs.Common.Ai.Chat
 	{
 		public static string Build(Player player, NPC speaker, float nearbyRadius = 800f) {
 			if (player == null || !player.active) {
-				return "无玩家上下文。";
+				return ModText.Get("Runtime.Chat.NoPlayerContext");
 			}
 
 			Vector2 origin = speaker != null && speaker.active
@@ -25,46 +25,47 @@ namespace AITownNPCs.Common.Ai.Chat
 			PerceptionSnapshot snap = Capture(player, speaker, nearbyRadius);
 
 			var sb = new StringBuilder();
-			sb.AppendLine("当前环境（结构化感知）：");
-			sb.Append("生物群系=").Append(snap.Biome).Append('；');
-			sb.Append("地形层=").Append(snap.Layer).Append('；');
-			sb.Append("坐标=(").Append((int)(origin.X / 16f)).Append(',').Append((int)(origin.Y / 16f)).Append(")；");
-			sb.Append("深度=").Append(snap.Layer).Append('；');
-			sb.Append("时间=").Append(snap.DayTime ? "白天" : "夜晚");
+			sb.AppendLine(ModText.Get("Runtime.Chat.EnvHeader"));
+			sb.Append(ModText.Get("Runtime.Chat.Biome")).Append(snap.Biome).Append('；');
+			sb.Append(ModText.Get("Runtime.Chat.Layer")).Append(snap.Layer).Append('；');
+			sb.Append(ModText.Get("Runtime.Chat.Coords")).Append('(').Append((int)(origin.X / 16f)).Append(',').Append((int)(origin.Y / 16f)).Append(")；");
+			sb.Append(ModText.Get("Runtime.Chat.Depth")).Append(snap.Layer).Append('；');
+			sb.Append(ModText.Get("Runtime.Chat.Time")).Append(snap.DayTime ? ModText.Get("Runtime.Chat.Day") : ModText.Get("Runtime.Chat.Night"));
 			sb.Append(' ').Append(snap.GameClock).Append('；');
-			if (snap.BloodMoon) sb.Append("血月；");
-			if (snap.Eclipse) sb.Append("日食；");
-			sb.Append("天气=").Append(snap.Weather).Append('；');
+			if (snap.BloodMoon) sb.Append(ModText.Get("Runtime.Chat.BloodMoon"));
+			if (snap.Eclipse) sb.Append(ModText.Get("Runtime.Chat.Eclipse"));
+			sb.Append(ModText.Get("Runtime.Chat.Weather")).Append(snap.Weather).Append('；');
 			sb.AppendLine();
 
-			sb.Append("玩家=").Append(player.name);
-			sb.Append(" 生命=").Append(player.statLife).Append('/').Append(player.statLifeMax2);
-			sb.Append(" 魔力=").Append(player.statMana).Append('/').Append(player.statManaMax2);
+			sb.Append(ModText.Get("Runtime.Chat.Player")).Append(player.name);
+			sb.Append(ModText.Get("Runtime.Chat.Life")).Append(player.statLife).Append('/').Append(player.statLifeMax2);
+			sb.Append(ModText.Get("Runtime.Chat.Mana")).Append(player.statMana).Append('/').Append(player.statManaMax2);
 			if (snap.PlayerLowLife) {
-				sb.Append("（低血量）");
+				sb.Append(ModText.Get("Runtime.Chat.LowLifeParen"));
 			}
 
 			sb.AppendLine();
 
-			sb.Append("附近敌怪数量=").Append(snap.EnemyCount);
+			sb.Append(ModText.Get("Runtime.Chat.EnemyCount")).Append(snap.EnemyCount);
 			if (snap.EnemySummary != null) {
-				sb.Append(" 主要=").Append(snap.EnemySummary);
+				sb.Append(ModText.Get("Runtime.Chat.EnemyMain")).Append(snap.EnemySummary);
 			}
 
 			if (snap.EnemiesTargetingOwner > 0) {
-				sb.Append(" 正在攻击玩家=").Append(snap.EnemiesTargetingOwner);
+				sb.Append(ModText.Get("Runtime.Chat.EnemiesTargeting")).Append(snap.EnemiesTargetingOwner);
 			}
 
 			sb.AppendLine();
 			if (snap.BossName != null) {
-				sb.Append("Boss在场=是：").Append(snap.BossName).Append(" 约").Append(snap.BossLifePct).Append('%').AppendLine();
+				sb.Append(ModText.Get("Runtime.Chat.BossPresent")).Append(snap.BossName)
+					.Append(ModText.Get("Runtime.Chat.BossAbout")).Append(snap.BossLifePct).Append('%').AppendLine();
 			}
 			else {
-				sb.AppendLine("Boss在场=否");
+				sb.AppendLine(ModText.Get("Runtime.Chat.BossAbsent"));
 			}
 
-			sb.Append("附近其他城镇NPC=").Append(
-				string.IsNullOrEmpty(snap.NearbyTownNpcs) ? "无" : snap.NearbyTownNpcs);
+			sb.Append(ModText.Get("Runtime.Chat.NearbyTown")).Append(
+				string.IsNullOrEmpty(snap.NearbyTownNpcs) ? ModText.Get("Runtime.Chat.None") : snap.NearbyTownNpcs);
 			sb.AppendLine();
 			AppendSpeakerLoadout(sb, speaker);
 			return sb.ToString();
@@ -73,20 +74,21 @@ namespace AITownNPCs.Common.Ai.Chat
 		/// <summary>Compact world line for proactive / superpower-result replies.</summary>
 		public static string BuildCompact(Player player, NPC speaker) {
 			if (player == null || !player.active) {
-				return "无玩家上下文。";
+				return ModText.Get("Runtime.Chat.NoPlayerContext");
 			}
 
 			PerceptionSnapshot snap = Capture(player, speaker, 800f);
 			var sb = new StringBuilder();
-			sb.Append("环境精简：生物群系=").Append(snap.Biome);
-			sb.Append('；').Append(snap.DayTime ? "白天" : "夜晚");
-			sb.Append("；天气=").Append(snap.Weather);
+			sb.Append(ModText.Get("Runtime.Chat.CompactEnv")).Append(snap.Biome);
+			sb.Append('；').Append(snap.DayTime ? ModText.Get("Runtime.Chat.Day") : ModText.Get("Runtime.Chat.Night"));
+			sb.Append('；').Append(ModText.Get("Runtime.Chat.Weather")).Append(snap.Weather);
 			if (snap.PlayerLowLife) {
-				sb.Append("；玩家低血量");
+				sb.Append(ModText.Get("Runtime.Chat.CompactLowLife"));
 			}
 
 			if (snap.BossName != null) {
-				sb.Append("；Boss=").Append(snap.BossName).Append("约").Append(snap.BossLifePct).Append('%');
+				sb.Append(ModText.Get("Runtime.Chat.CompactBoss")).Append(snap.BossName)
+					.Append(ModText.Get("Runtime.Chat.BossAbout")).Append(snap.BossLifePct).Append('%');
 			}
 
 			AppendSpeakerLoadoutInline(sb, speaker);
@@ -95,52 +97,52 @@ namespace AITownNPCs.Common.Ai.Chat
 
 		private static void AppendSpeakerLoadout(StringBuilder sb, NPC speaker) {
 			if (speaker == null || !speaker.active) {
-				sb.Append("装备武器=无");
+				sb.Append(ModText.Get("Runtime.Chat.WeaponNone"));
 				return;
 			}
 
 			EquippedTownNPC equip = speaker.GetGlobalNPC<EquippedTownNPC>();
 			Item weapon = equip?.Weapon;
 			if (weapon == null || weapon.IsAir) {
-				sb.Append("装备武器=无");
+				sb.Append(ModText.Get("Runtime.Chat.WeaponNone"));
 			}
 			else {
-				sb.Append("装备武器=有：").Append(Lang.GetItemNameValue(weapon.type));
+				sb.Append(ModText.Get("Runtime.Chat.WeaponHas")).Append(Lang.GetItemNameValue(weapon.type));
 			}
 
 			NpcCombatState combat = speaker.GetGlobalNPC<NpcCombatState>();
 			if (combat != null && combat.CombatControlsLocomotion) {
-				sb.Append("；战斗中=是");
+				sb.Append(ModText.Get("Runtime.Chat.InCombat"));
 			}
 		}
 
 		private static void AppendSpeakerLoadoutInline(StringBuilder sb, NPC speaker) {
 			if (speaker == null || !speaker.active) {
-				sb.Append("；装备武器=无");
+				sb.Append(ModText.Get("Runtime.Chat.WeaponNoneInline"));
 				return;
 			}
 
 			EquippedTownNPC equip = speaker.GetGlobalNPC<EquippedTownNPC>();
 			Item weapon = equip?.Weapon;
 			if (weapon == null || weapon.IsAir) {
-				sb.Append("；装备武器=无");
+				sb.Append(ModText.Get("Runtime.Chat.WeaponNoneInline"));
 			}
 			else {
-				sb.Append("；装备武器=有：").Append(Lang.GetItemNameValue(weapon.type));
+				sb.Append(ModText.Get("Runtime.Chat.WeaponHasInline")).Append(Lang.GetItemNameValue(weapon.type));
 			}
 
 			NpcCombatState combat = speaker.GetGlobalNPC<NpcCombatState>();
 			if (combat != null && combat.CombatControlsLocomotion) {
-				sb.Append("；战斗中=是");
+				sb.Append(ModText.Get("Runtime.Chat.InCombat"));
 			}
 		}
 
 		/// <summary>Structured snapshot used by follower ambient sensing and Build.</summary>
 		public static PerceptionSnapshot Capture(Player player, NPC speaker, float nearbyRadius = 800f) {
 			var snap = new PerceptionSnapshot {
-				Biome = player != null && player.active ? DescribeBiome(player) : "未知",
-				Layer = player != null && player.active ? DescribeLayer(player) : "未知",
-				Weather = player != null && player.active ? DescribeWeather(player) : "未知",
+				Biome = player != null && player.active ? DescribeBiome(player) : ModText.Get("Runtime.Context.Biome.unknown"),
+				Layer = player != null && player.active ? DescribeLayer(player) : ModText.Get("Runtime.Context.Layer.unknown"),
+				Weather = player != null && player.active ? DescribeWeather(player) : ModText.Get("Runtime.Context.Weather.unknown"),
 				BloodMoon = Main.bloodMoon,
 				Eclipse = Main.eclipse,
 				Raining = Main.raining,
@@ -235,20 +237,13 @@ namespace AITownNPCs.Common.Ai.Chat
 				return false;
 			}
 
-			var sb = new StringBuilder();
-			sb.Append("（跟随闲聊）你正跟着玩家").Append(player.name).Append("。");
-			sb.Append("眼下最值得随口一提的是：").Append(focus).Append('。');
-			sb.Append("结合你们近期相处记忆，用约15字自然说一句，像同行伙伴随口搭话；");
-			sb.Append("不要罗列环境、不要播报状态");
-			trigger = sb.ToString();
+			trigger = ModText.Get("Runtime.Chat.FollowerAmbient", player.name, focus);
 			return true;
 		}
 
 		/// <summary>Focused event line for biome/boss/low-life style triggers.</summary>
 		public static string BuildFollowerEventTrigger(Player player, string focus) {
-			return "（跟随事件）你正跟着玩家" + player.name + "。"
-				+ "刚发生：" + focus + "。"
-				+ "结合短期记忆用约15字自然反应一句，像伙伴随口说，不要播报";
+			return ModText.Get("Runtime.Chat.FollowerEvent", player.name, focus);
 		}
 
 		private static bool TryPickAmbientFocus(PerceptionSnapshot snap, out string focus, out string topic) {
@@ -257,82 +252,86 @@ namespace AITownNPCs.Common.Ai.Chat
 
 			if (snap.BossName != null) {
 				topic = "boss:" + snap.BossName;
-				focus = "Boss「" + snap.BossName + "」还在附近（约" + snap.BossLifePct + "%）";
+				focus = ModText.Get("Runtime.Chat.FocusBoss", snap.BossName, snap.BossLifePct);
 				return true;
 			}
 
 			if (snap.PlayerLowLife) {
 				topic = "lowlife";
-				focus = "玩家血量很低";
+				focus = ModText.Get("Runtime.Chat.FocusLowLife");
 				return true;
 			}
 
 			if (snap.BloodMoon) {
 				topic = "bloodmoon";
-				focus = "今晚是血月";
+				focus = ModText.Get("Runtime.Chat.FocusBloodMoon");
 				return true;
 			}
 
 			if (snap.Eclipse) {
 				topic = "eclipse";
-				focus = "外面在日食";
+				focus = ModText.Get("Runtime.Chat.FocusEclipse");
 				return true;
 			}
 
 			if (snap.EnemyCount >= 4) {
 				topic = "enemies:" + snap.EnemyCount;
 				focus = snap.EnemySummary != null
-					? "附近敌怪不少（" + snap.EnemySummary + "）"
-					: "附近敌怪不少";
+					? ModText.Get("Runtime.Chat.FocusEnemies", snap.EnemySummary)
+					: ModText.Get("Runtime.Chat.FocusEnemiesPlain");
 				return true;
 			}
 
 			if (snap.EnemiesTargetingOwner > 0) {
 				topic = "aggro:" + snap.EnemiesTargetingOwner;
-				focus = "有敌怪正在盯着玩家";
+				focus = ModText.Get("Runtime.Chat.FocusAggro");
 				return true;
 			}
 
 			// Soft ambient: biome + day/night only when nothing urgent.
 			topic = "soft:" + snap.Biome + ":" + (snap.DayTime ? "day" : "night") + ":" + snap.Weather;
-			focus = snap.Biome + "里，" + (snap.DayTime ? "白天" : "夜晚") + "，天气" + snap.Weather;
+			focus = ModText.Get(
+				"Runtime.Chat.FocusSoft",
+				snap.Biome,
+				snap.DayTime ? ModText.Get("Runtime.Chat.Day") : ModText.Get("Runtime.Chat.Night"),
+				snap.Weather);
 			return true;
 		}
 
 		public static string DescribeBiome(Player player) {
-			if (player.ZoneDungeon) return "地牢";
-			if (player.ZoneCorrupt) return "腐化";
-			if (player.ZoneCrimson) return "猩红";
-			if (player.ZoneHallow) return "神圣";
-			if (player.ZoneJungle) return "丛林";
-			if (player.ZoneSnow) return "雪原";
-			if (player.ZoneDesert) return "沙漠";
-			if (player.ZoneBeach) return "海滩";
-			if (player.ZoneGlowshroom) return "蘑菇地";
-			if (player.ZoneMeteor) return "陨石";
-			if (player.ZoneUnderworldHeight) return "地狱";
-			if (player.ZoneSkyHeight) return "空岛";
-			if (player.ZoneForest) return "森林";
-			return "未知";
+			if (player.ZoneDungeon) return ModText.Get("Runtime.Context.Biome.dungeon");
+			if (player.ZoneCorrupt) return ModText.Get("Runtime.Context.Biome.corruption");
+			if (player.ZoneCrimson) return ModText.Get("Runtime.Context.Biome.crimson");
+			if (player.ZoneHallow) return ModText.Get("Runtime.Context.Biome.hallow");
+			if (player.ZoneJungle) return ModText.Get("Runtime.Context.Biome.jungle");
+			if (player.ZoneSnow) return ModText.Get("Runtime.Context.Biome.snow");
+			if (player.ZoneDesert) return ModText.Get("Runtime.Context.Biome.desert");
+			if (player.ZoneBeach) return ModText.Get("Runtime.Context.Biome.beach");
+			if (player.ZoneGlowshroom) return ModText.Get("Runtime.Context.Biome.mushroom");
+			if (player.ZoneMeteor) return ModText.Get("Runtime.Context.Biome.meteor");
+			if (player.ZoneUnderworldHeight) return ModText.Get("Runtime.Context.Biome.underworld");
+			if (player.ZoneSkyHeight) return ModText.Get("Runtime.Context.Biome.sky");
+			if (player.ZoneForest) return ModText.Get("Runtime.Context.Biome.forest");
+			return ModText.Get("Runtime.Context.Biome.unknown");
 		}
 
 		public static string DescribeLayer(Player player) {
-			if (player.ZoneUnderworldHeight) return "地狱";
-			if (player.ZoneRockLayerHeight) return "洞穴";
-			if (player.ZoneDirtLayerHeight) return "地下";
-			if (player.ZoneSkyHeight) return "天空";
-			return "地表";
+			if (player.ZoneUnderworldHeight) return ModText.Get("Runtime.Context.Layer.hell");
+			if (player.ZoneRockLayerHeight) return ModText.Get("Runtime.Context.Layer.cave");
+			if (player.ZoneDirtLayerHeight) return ModText.Get("Runtime.Context.Layer.underground");
+			if (player.ZoneSkyHeight) return ModText.Get("Runtime.Context.Layer.sky");
+			return ModText.Get("Runtime.Context.Layer.surface");
 		}
 
 		public static string DescribeWeather(Player player) {
-			if (Sandstorm.Happening) return "沙暴";
+			if (Sandstorm.Happening) return ModText.Get("Runtime.Context.Weather.sandstorm");
 			bool strongWind = System.Math.Abs(Main.windSpeedCurrent) >= 0.4f;
-			if (Main.raining && player.ZoneSnow) return "暴雪";
-			if (Main.raining && strongWind) return "雷雨";
-			if (Main.raining) return "下雨";
-			if (Main.IsItAHappyWindyDay || (Main.dayTime && strongWind)) return "大风天";
-			if (Main.cloudAlpha > 0.45f) return "多云";
-			return "晴";
+			if (Main.raining && player.ZoneSnow) return ModText.Get("Runtime.Context.Weather.blizzard");
+			if (Main.raining && strongWind) return ModText.Get("Runtime.Context.Weather.thunderstorm");
+			if (Main.raining) return ModText.Get("Runtime.Context.Weather.rain");
+			if (Main.IsItAHappyWindyDay || (Main.dayTime && strongWind)) return ModText.Get("Runtime.Context.Weather.windy");
+			if (Main.cloudAlpha > 0.45f) return ModText.Get("Runtime.Context.Weather.cloudy");
+			return ModText.Get("Runtime.Context.Weather.clear");
 		}
 
 		public static string FormatGameTime() {

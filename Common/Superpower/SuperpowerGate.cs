@@ -9,12 +9,11 @@ namespace AITownNPCs.Common.Superpower
 
 		public static SuperpowerResult TryRefuse(Player player, NPC npc, ISuperpower power) {
 			if (SuperpowerCooldownStore.IsOnCooldown(player.whoAmI, npc.type, power.Id, out _)) {
-				string name = power.DisplayNameZh;
 				return new SuperpowerResult {
 					Outcome = SuperpowerOutcome.Refused,
 					AbilityId = power.Id,
 					ReasonCode = "cooldown",
-					FixedResultZh = "「" + name + "」超能力没准备好"
+					FixedResultZh = SuperpowerLoc.CooldownNotReady(power.DisplayName)
 				};
 			}
 
@@ -24,8 +23,8 @@ namespace AITownNPCs.Common.Superpower
 					AbilityId = power.Id,
 					StartCooldown = false,
 					ReasonCode = "random",
-					FixedResultZh = "概率触发拒绝",
-					Facts = new List<string> { "拒绝风格：" + power.RefuseStyleZh }
+					FixedResultZh = SuperpowerLoc.RandomRefuse(),
+					Facts = new List<string> { SuperpowerLoc.FormatRefuseStyleFact(power.RefuseStyle) }
 				};
 			}
 

@@ -3,6 +3,7 @@ using AITownNPCs.Common.Net;
 using AITownNPCs.Common.Superpower.ArmsDealer;
 using Terraria;
 using Terraria.ID;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Merchant
 {
@@ -12,15 +13,15 @@ namespace AITownNPCs.Common.Superpower.Merchant
 		public string Id => SuperpowerIds.MerchantBuyTrash;
 		public int NpcType => NPCID.Merchant;
 		public int CooldownFrames => 60 * 60 * 5;
-		public string DisplayNameZh => "收购垃圾";
-		public string DescriptionZh => "扫描背包报价收购垃圾，确认后成交（约半价到八折）";
-		public string RefuseStyleZh => "市侩、精明、客气但算计";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			ulong favoritedMask = 0;
 			bool haveMask = PlayerSuperpowerClientSnapshot.TryGet(player.whoAmI, out favoritedMask, out _, out _);
 			if (Main.netMode == NetmodeID.Server && Main.dedServ && !haveMask) {
-				return SuperpowerResult.Failed(Id, "no_client_state", "请再说一次（客户端状态未同步）");
+				return SuperpowerResult.Failed(Id, "no_client_state", ModText.Get("Runtime.Superpower.Fixed.no_client_state"));
 			}
 
 			if (!haveMask && Main.netMode == NetmodeID.SinglePlayer) {
@@ -62,7 +63,7 @@ namespace AITownNPCs.Common.Superpower.Merchant
 			}
 
 			if (lines.Count == 0) {
-				return SuperpowerResult.Failed(Id, "empty", "背包没有可收购的垃圾");
+				return SuperpowerResult.Failed(Id, "empty", ModText.Get("Runtime.Superpower.Fixed.trash_empty"));
 			}
 
 			var quote = new MerchantPendingQuote {
@@ -75,14 +76,14 @@ namespace AITownNPCs.Common.Superpower.Merchant
 				HasFavoritedMask = haveMask
 			};
 			MerchantPendingQuoteStore.Set(quote);
-			return SuperpowerResult.Quoted(Id, "已生成收购垃圾报价",
-				"总价=" + SuperpowerCoinUtil.FormatCopper(total));
+			return SuperpowerResult.Quoted(Id, ModText.Get("Runtime.Superpower.Fixed.trash_quoted"),
+				ModText.Get("Runtime.Superpower.TotalPrice", SuperpowerCoinUtil.FormatCopper(total)));
 		}
 
 		public static SuperpowerResult CommitQuote(Player player, MerchantPendingQuote quote) {
 			if (quote == null || quote.IsExpired()) {
 				MerchantPendingQuoteStore.Clear(player.whoAmI);
-				return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "expired", "报价已过期");
+				return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "expired", ModText.Get("Runtime.Superpower.Fixed.quote_expired"));
 			}
 
 			ulong liveMask = quote.FavoritedMaskAtQuote;
@@ -98,18 +99,18 @@ namespace AITownNPCs.Common.Superpower.Merchant
 			foreach (MerchantQuoteLine line in quote.Lines) {
 				if (line.Slot < 0 || line.Slot >= 50) {
 					MerchantPendingQuoteStore.Clear(player.whoAmI);
-					return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "stale", "背包已变化");
+					return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "stale", ModText.Get("Runtime.Superpower.Fixed.bag_stale"));
 				}
 
 				if ((quote.HasFavoritedMask || haveLive) && (liveMask & (1UL << line.Slot)) != 0) {
 					MerchantPendingQuoteStore.Clear(player.whoAmI);
-					return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "stale", "背包已变化");
+					return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "stale", ModText.Get("Runtime.Superpower.Fixed.bag_stale"));
 				}
 
 				Item item = player.inventory[line.Slot];
 				if (item == null || item.type != line.ItemType || item.stack != line.Stack) {
 					MerchantPendingQuoteStore.Clear(player.whoAmI);
-					return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "stale", "背包已变化");
+					return SuperpowerResult.Failed(SuperpowerIds.MerchantBuyTrash, "stale", ModText.Get("Runtime.Superpower.Fixed.bag_stale"));
 				}
 			}
 
@@ -124,8 +125,8 @@ namespace AITownNPCs.Common.Superpower.Merchant
 			}
 
 			return SuperpowerResult.Ok(SuperpowerIds.MerchantBuyTrash, false,
-				"已收购垃圾并付款",
-				"总价=" + SuperpowerCoinUtil.FormatCopper(quote.TotalPrice));
+				ModText.Get("Runtime.Superpower.Fixed.trash_bought"),
+				ModText.Get("Runtime.Superpower.TotalPrice", SuperpowerCoinUtil.FormatCopper(quote.TotalPrice)));
 		}
 
 		private static bool IsBuyableTrash(Item item, bool skipFavoritedCheck) {

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Terraria;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Merchant
 {
@@ -40,9 +41,10 @@ namespace AITownNPCs.Common.Superpower.Merchant
 		}
 
 		public string BuildQuoteAnnounce() {
-			string body = "这些我收：" + BuildIconChatLine()
-			              + " 总共" + SuperpowerCoinUtil.FormatCopper(TotalPrice)
-			              + "，确定吗？回复「可以」或「不要」。";
+			string body = ModText.Get(
+				"Runtime.Superpower.QuoteAnnounce",
+				BuildIconChatLine(),
+				SuperpowerCoinUtil.FormatCopper(TotalPrice));
 			if (PlayerWhoAmI < 0 || PlayerWhoAmI >= Main.maxPlayers) {
 				return body;
 			}

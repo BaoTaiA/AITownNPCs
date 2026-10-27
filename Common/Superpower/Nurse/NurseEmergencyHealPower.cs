@@ -1,5 +1,6 @@
 using Terraria;
 using Terraria.ID;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Superpower.Nurse
 {
@@ -8,33 +9,33 @@ namespace AITownNPCs.Common.Superpower.Nurse
 		public string Id => SuperpowerIds.NurseEmergencyHeal;
 		public int NpcType => NPCID.Nurse;
 		public int CooldownFrames => 60 * 60 * 5;
-		public string DisplayNameZh => "紧急治疗";
-		public string DescriptionZh => "传送到玩家身边回满血并清除 debuff，稍后回家";
-		public string RefuseStyleZh => "傲娇、毒舌、嘴硬心软";
+		public string DisplayName => SuperpowerLoc.DisplayName(Id);
+		public string Description => SuperpowerLoc.Description(Id);
+		public string RefuseStyle => SuperpowerLoc.RefuseStyle(Id);
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			if (player.dead) {
-				return SuperpowerResult.Failed(Id, "dead", "玩家已死亡");
+				return SuperpowerResult.Failed(Id, "dead", ModText.Get("Runtime.Superpower.Fixed.player_dead"));
 			}
 
 			if (!TryGetTrustedLife(player, out int life, out int lifeMax)) {
-				return SuperpowerResult.Failed(Id, "no_client_state", "请再说一次（客户端状态未同步）");
+				return SuperpowerResult.Failed(Id, "no_client_state", ModText.Get("Runtime.Superpower.Fixed.no_client_state"));
 			}
 
 			if (lifeMax > 0 && life >= lifeMax) {
-				return SuperpowerResult.Failed(Id, "full_hp", "玩家满血无需治疗",
-					"拒绝风格：" + RefuseStyleZh);
+				return SuperpowerResult.Failed(Id, "full_hp", ModText.Get("Runtime.Superpower.Fixed.full_hp"),
+					SuperpowerLoc.FormatRefuseStyleFact(RefuseStyle));
 			}
 
 			if (NurseEmergencyHealState.IsBusy(npc.whoAmI)) {
-				return SuperpowerResult.Failed(Id, "busy", "护士正忙");
+				return SuperpowerResult.Failed(Id, "busy", ModText.Get("Runtime.Superpower.Fixed.nurse_busy"));
 			}
 
 			if (!NurseEmergencyHealState.Start(npc, player)) {
-				return SuperpowerResult.Failed(Id, "start_failed", "紧急治疗启动失败");
+				return SuperpowerResult.Failed(Id, "start_failed", ModText.Get("Runtime.Superpower.Fixed.heal_start_fail"));
 			}
 
-			return SuperpowerResult.Ok(Id, true, "已紧急治疗至满血");
+			return SuperpowerResult.Ok(Id, true, ModText.Get("Runtime.Superpower.Fixed.heal_ok"));
 		}
 
 		/// <summary>

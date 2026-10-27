@@ -119,7 +119,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
-			// Visual-only sim: allow AI collision, never change HP. Numbers come from follower HitVisual.
+			// Visual-only sim: allow AI collision, never change HP. Numbers sync via SendStrikeNPC (HitVisual is legacy).
 			modifiers.FinalDamage *= 0f;
 			modifiers.Knockback *= 0f;
 			modifiers.DisableCrit();
@@ -220,8 +220,9 @@ namespace AITownNPCs.Common.Ai.Firing
 					NpcDummyPool.TryGetNpcWho(source.owner, out followNpcWho);
 				}
 			}
-			else if (NpcDummyLocal.IsRunning && NpcDummyPool.IsDummy(Main.myPlayer)) {
-				NpcDummyPool.TryGetNpcWho(Main.myPlayer, out followNpcWho);
+			else if (NpcDummyLocal.IsRunning && NpcDummyLocal.ActiveDummyWho >= 0) {
+				// Do not read Main.myPlayer for authority — ActiveDummyWho is the Enter identity.
+				NpcDummyPool.TryGetNpcWho(NpcDummyLocal.ActiveDummyWho, out followNpcWho);
 			}
 
 			if (followNpcWho < 0 || followNpcWho >= Main.maxNPCs) {

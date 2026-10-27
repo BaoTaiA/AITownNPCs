@@ -1,6 +1,7 @@
 using AITownNPCs.Common.Ai.Follow;
 using Terraria;
 using Terraria.ModLoader;
+using AITownNPCs.Common.Loc;
 
 namespace AITownNPCs.Common.Ai.Chat
 {
@@ -18,11 +19,11 @@ namespace AITownNPCs.Common.Ai.Chat
 		}
 
 		private static void OnFollowStarted(Player player, NPC npc) {
-			AiConversationMemory.AppendEvent(player, npc, "开始跟随该玩家");
+			AiConversationMemory.AppendEvent(player, npc, ModText.Get("Runtime.Chat.MemFollowStart"));
 		}
 
 		private static void OnFollowStopped(Player player, NPC npc) {
-			AiConversationMemory.AppendEvent(player, npc, "停止跟随该玩家");
+			AiConversationMemory.AppendEvent(player, npc, ModText.Get("Runtime.Chat.MemFollowStop"));
 		}
 	}
 }
