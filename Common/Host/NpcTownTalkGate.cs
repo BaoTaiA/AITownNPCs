@@ -1,4 +1,5 @@
 using AITownNPCs.Common.Ai.Firing;
+using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -26,10 +27,18 @@ namespace AITownNPCs.Common.Host
 				&& player != null
 				&& player.whoAmI == Main.myPlayer
 				&& npcIndex >= 0
-				&& npcIndex < Main.maxNPCs
-				&& NpcInteractGate.TryGetBlockMessage(player, Main.npc[npcIndex], out string message)) {
-				Main.NewText(message, NpcInteractGate.NoticeColor);
-				return;
+				&& npcIndex < Main.maxNPCs) {
+				NPC npc = Main.npc[npcIndex];
+				// Smart cursor can snap interact aim to tiles beside a close follower.
+				// Only open talk when the real mouse is on the NPC hitbox (not SmartCursorX/Y).
+				if (npc == null || !npc.active || !npc.Hitbox.Contains(Main.MouseWorld.ToPoint())) {
+					return;
+				}
+
+				if (NpcInteractGate.TryGetBlockMessage(player, npc, out string message)) {
+					Main.NewText(message, NpcInteractGate.NoticeColor);
+					return;
+				}
 			}
 
 			orig(player, npcIndex, fromNet);

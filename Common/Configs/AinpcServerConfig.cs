@@ -28,6 +28,19 @@ namespace AITownNPCs.Common.Configs
 		D400 = 400
 	}
 
+	/// <summary>
+	/// Soft recall: if farther than this for ~5s, teleport near the owner.
+	/// Independent of <see cref="FollowChatDistance"/> (chat / start-follow range).
+	/// </summary>
+	public enum FollowLostTeleportDistance
+	{
+		D400 = 400,
+		D800 = 800,
+		D1200 = 1200,
+		D1600 = 1600,
+		D2000 = 2000
+	}
+
 	public class AinpcServerConfig : ModConfig
 	{
 		public const string ProviderLabelMiniMax = "MiniMax";
@@ -44,6 +57,18 @@ namespace AITownNPCs.Common.Configs
 
 		[JsonIgnore]
 		public float FollowTriggerDistancePixels => (float)(int)FollowTriggerDistance;
+
+		/// <summary>
+		/// Soft anti-lost teleport radius (pixels). Default 800 matches the old
+		/// "FollowTriggerDistance 200 × 4" behavior without coupling chat range.
+		/// Hard snap at FollowMovement.TeleportDistance (2000) is unchanged.
+		/// </summary>
+		[DefaultValue(FollowLostTeleportDistance.D800)]
+		[DrawTicks]
+		public FollowLostTeleportDistance FollowLostTeleportDistance = FollowLostTeleportDistance.D800;
+
+		[JsonIgnore]
+		public float FollowLostTeleportDistancePixels => (float)(int)FollowLostTeleportDistance;
 
 		/// <summary>Empty = use game-language default from localization.</summary>
 		[DefaultValue("")]

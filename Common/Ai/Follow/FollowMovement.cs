@@ -47,7 +47,8 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			if (distToPlayer > AinpcServerConfig.Instance.FollowTriggerDistancePixels * 4f) {
+			// Soft recall: own config (not chat/follow-start range × 4).
+			if (distToPlayer > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels) {
 				farTimer++;
 				if (allowTeleport && farTimer > 300) {
 					TeleportNearPlayer(npc, player);

@@ -66,7 +66,12 @@ Config: {
 
 	FollowTriggerDistance: {
 		Label: 跟随/对话距离
-		Tooltip: 固定选项（像素）：50 / 100 / 200 / 300 / 400；用于「跟着我」和玩家主动打字。路过招呼固定 50px、停留 10 秒、同 NPC 10 分钟冷却（打字也计入）；聊天框 @NPC 名可全图呼叫；打字无冷却
+		Tooltip: 固定选项（像素）：50 / 100 / 200 / 300 / 400；只用于「跟着我」和玩家主动打字，不影响走丢传送。路过招呼固定 50px、停留 10 秒、同 NPC 10 分钟冷却（打字也计入）；聊天框 @NPC 名可全图呼叫；打字无冷却
+	}
+
+	FollowLostTeleportDistance: {
+		Label: 走丢传送距离
+		Tooltip: 跟随中离主人超过该距离并持续约 5 秒，会镜子传送回身边。与「跟随/对话距离」无关。另有硬上限约 2000 像素会立刻传送。默认 800（约 50 格）
 	}
 
 	Defaults: {
@@ -158,7 +163,12 @@ Configs: {
 
 		FollowTriggerDistance: {
 			Label: 跟随/对话距离
-			Tooltip: 与NPC对话有效距离
+			Tooltip: 只影响「跟着我」和打字对话范围，不影响走丢传送
+		}
+
+		FollowLostTeleportDistance: {
+			Label: 走丢传送距离
+			Tooltip: 超过该距离约 5 秒则传送回身边；与对话距离分开。硬上限约 2000 像素立刻传。默认 800
 		}
 
 		FollowStartKeyword: {
@@ -226,6 +236,11 @@ Configs: {
 			// Tooltip: ""
 		}
 
+		FollowLostTeleportDistancePixels: {
+			// Label: Follow Lost Teleport Distance Pixels
+			// Tooltip: ""
+		}
+
 		MiniMaxApiKey: {
 			// Label: Mini Max Api Key
 			// Tooltip: ""
@@ -284,6 +299,35 @@ Configs: {
 
 		D400: {
 			Label: "400"
+			// Tooltip: ""
+		}
+
+		// Tooltip: ""
+	}
+
+	FollowLostTeleportDistance: {
+		D400: {
+			Label: "400"
+			// Tooltip: ""
+		}
+
+		D800: {
+			Label: "800"
+			// Tooltip: ""
+		}
+
+		D1200: {
+			Label: "1200"
+			// Tooltip: ""
+		}
+
+		D1600: {
+			Label: "1600"
+			// Tooltip: ""
+		}
+
+		D2000: {
+			Label: "2000"
 			// Tooltip: ""
 		}
 

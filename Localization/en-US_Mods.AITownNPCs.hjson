@@ -66,7 +66,12 @@ Config: {
 
 	FollowTriggerDistance: {
 		Label: Follow / chat distance
-		Tooltip: Fixed pixels 50/100/200/300/400 for follow keywords and typed AI chat. Walk-by is fixed 50px, 10s stay, 10min per NPC (typing also starts CD); @NPC name works map-wide; typing itself has no cooldown
+		Tooltip: Fixed pixels 50/100/200/300/400 for follow keywords and typed AI chat only — does not affect lost-NPC teleport. Walk-by is fixed 50px, 10s stay, 10min per NPC (typing also starts CD); @NPC name works map-wide; typing itself has no cooldown
+	}
+
+	FollowLostTeleportDistance: {
+		Label: Lost teleport distance
+		Tooltip: While following, if farther than this for about 5 seconds the NPC mirror-teleports to you. Independent of follow/chat distance. A hard cap near 2000px teleports immediately. Default 800 (~50 tiles)
 	}
 
 	Defaults: {
@@ -158,7 +163,12 @@ Configs: {
 
 		FollowTriggerDistance: {
 			Label: Follow / chat distance
-			Tooltip: Follow keywords + typed chat; walk-by 50px/10s/10min (typing starts CD); @NPC map-wide; typing itself no CD
+			Tooltip: Follow keywords + typed chat only; does not control lost teleport
+		}
+
+		FollowLostTeleportDistance: {
+			Label: Lost teleport distance
+			Tooltip: Soft recall after ~5s beyond this range; separate from chat distance. Hard cap ~2000px is instant. Default 800
 		}
 
 		FollowStartKeyword: {
@@ -226,6 +236,11 @@ Configs: {
 			Tooltip: ""
 		}
 
+		FollowLostTeleportDistancePixels: {
+			Label: Follow Lost Teleport Distance Pixels
+			Tooltip: ""
+		}
+
 		MiniMaxApiKey: {
 			Label: Mini Max Api Key
 			Tooltip: ""
@@ -284,6 +299,35 @@ Configs: {
 
 		D400: {
 			Label: "400"
+			Tooltip: ""
+		}
+
+		Tooltip: ""
+	}
+
+	FollowLostTeleportDistance: {
+		D400: {
+			Label: "400"
+			Tooltip: ""
+		}
+
+		D800: {
+			Label: "800"
+			Tooltip: ""
+		}
+
+		D1200: {
+			Label: "1200"
+			Tooltip: ""
+		}
+
+		D1600: {
+			Label: "1600"
+			Tooltip: ""
+		}
+
+		D2000: {
+			Label: "2000"
 			Tooltip: ""
 		}
 

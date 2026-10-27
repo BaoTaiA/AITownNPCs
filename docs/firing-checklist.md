@@ -8,5 +8,6 @@
 4. **多 NPC**：同时 2～3 个城镇 NPC 开火，无卡死、无假人残留。
 5. **蓄力/通道枪**：白名单里抽一种（如需要先按后松的枪），能正常射出。
 6. **停跟随**：停止跟随后假人停火，观看端不残留挥砍权威。
+7. **智能光标**：NPC 开火中可开关；挖矿/放置高亮跟玩家，不跟假人准星；连射/多 NPC 不抖开关。
 
-换号硬规则：Enter 前冻结 `SpectatorClient`；换号期间禁止用 `Main.myPlayer` 判断权威。
+换号硬规则：Enter 前冻结 `SpectatorClient`；换号期间禁止用 `Main.myPlayer` 判断权威。Leave 必须还原 `SmartCursorWanted_*` / Showing / XY；禁止 latch 或 Leave 清 SmartCursor 边沿。
