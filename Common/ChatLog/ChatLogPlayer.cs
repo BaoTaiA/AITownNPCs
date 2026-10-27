@@ -1,4 +1,5 @@
 using System;
+using AITownNPCs.Common.Ai.Chat;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -39,8 +40,10 @@ namespace AITownNPCs.Common.ChatLog
 			}
 
 			// Singleplayer / listen-server local player: replay from world data.
+			// Same join tip path as MP ChatHistoryRequest → OnPlayerJoinedWorld.
 			if (Player.whoAmI == Main.myPlayer) {
 				ChatLogWorldSystem.ReplayLocalHistory(PlayerId);
+				NpcAiChatSystem.OnPlayerJoinedWorld(Player.whoAmI);
 			}
 		}
 	}

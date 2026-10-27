@@ -128,17 +128,17 @@ Config: {
 Buffs: {
 	ArmsDealerWeaponBuff: {
 		DisplayName: 军火商配枪
-		Description: 临时借用军火商的枪，时间到自动收回
+		Description: 临时借用军火商的枪（仅限背包自用），10 分钟后自动收回
 	}
 
 	GuideGuidanceBuff: {
 		DisplayName: 向导指引
-		Description: 头顶箭头指向目标方向，持续 5 分钟
+		Description: 头顶箭头指向目标方向，持续 10 分钟
 	}
 
 	SuperHeartBuff: {
 		DisplayName: 护士爱心
-		Description: 每秒额外回复 50 点生命，持续 1 分钟
+		Description: 每秒额外回复 50 点生命，持续 3 分钟
 	}
 }
 

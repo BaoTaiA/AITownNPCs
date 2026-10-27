@@ -11,14 +11,14 @@ namespace AITownNPCs.Common.Superpower.Merchant
 		public int NpcType => NPCID.Merchant;
 		public int CooldownFrames => 60 * 60 * 5;
 		public string DisplayNameZh => "紧急送货";
-		public string DescriptionZh => "高价远程送基础物资（火把、绳子、药水、弹药等）";
+		public string DescriptionZh => "高价远程送基础物资（火把、绳子、药水、弹药、炸弹、雷管等）";
 		public string RefuseStyleZh => "市侩、精明、客气但算计";
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
 			string hint = intent.GetParam("itemHint", intent.GetParam("item", ""));
 			if (!MerchantCatalog.TryResolve(hint, out MerchantCatalogEntry entry)) {
 				return SuperpowerResult.Failed(Id, "unknown_item", "无法识别要送的货物",
-					"可送：火把、绳子、治疗药水、箭、子弹、木头、土、回忆药水");
+					"可送：火把、绳子、治疗药水、箭、子弹、木头、土、回忆药水、炸弹、雷管、手榴弹");
 			}
 
 			float mult = Main.rand.NextFloat(2.0f, 3.0f);

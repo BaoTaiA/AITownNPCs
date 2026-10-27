@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.Net;
 using Microsoft.Xna.Framework;
@@ -10,12 +9,12 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 {
 	public sealed class ArmsDealerTempWeaponPower : ISuperpower
 	{
-		public const int BuffSeconds = 60 * 5;
+		public const int BuffSeconds = 60 * 10;
 		public string Id => SuperpowerIds.ArmsTempWeapon;
 		public int NpcType => NPCID.ArmsDealer;
 		public int CooldownFrames => 60 * 60 * 5;
 		public string DisplayNameZh => "临时配枪";
-		public string DescriptionZh => "借一把临时远程武器，5 分钟后收回";
+		public string DescriptionZh => "借一把临时远程武器，10 分钟后收回";
 		public string RefuseStyleZh => "粗鲁、暴躁、讲义气";
 
 		public SuperpowerResult Execute(Player player, NPC npc, SuperpowerIntent intent) {
@@ -29,7 +28,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 
 			Item item = player.inventory[empty];
 			item.SetDefaults(weaponId);
-			item.GetGlobalItem<ArmsLoanGlobalItem>().IsArmsLoan = true;
+			ArmsLoanGlobalItem.MarkLoan(item, player.whoAmI);
 			item.favorited = false;
 			SyncSlot(player, empty);
 
@@ -44,7 +43,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			return SuperpowerResult.Ok(Id, true,
 				"已借出临时配枪：" + Lang.GetItemNameValue(weaponId),
 				ammoFact,
-				"5分钟后收回");
+				"10分钟后收回");
 		}
 
 		public static void ReclaimAll(Player player, bool notify) {
@@ -55,11 +54,31 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			bool removed = false;
 			for (int i = 0; i < player.inventory.Length; i++) {
 				Item item = player.inventory[i];
-				if (item != null && !item.IsAir && item.TryGetGlobalItem(out ArmsLoanGlobalItem g) && g.IsArmsLoan) {
+				if (ArmsLoanGlobalItem.IsLoan(item)) {
 					item.TurnToAir();
 					SyncSlot(player, i);
 					removed = true;
 				}
+			}
+
+			removed |= StripLoanSlots(player.bank?.item);
+			removed |= StripLoanSlots(player.bank2?.item);
+			removed |= StripLoanSlots(player.bank3?.item);
+			removed |= StripLoanSlots(player.bank4?.item);
+
+			if (ArmsLoanGlobalItem.IsLoan(player.trashItem)) {
+				player.trashItem.TurnToAir();
+				removed = true;
+			}
+
+			// Mouse + sticky state only exist on the owning client / SP.
+			if (player.whoAmI == Main.myPlayer || Main.netMode == NetmodeID.SinglePlayer) {
+				if (ArmsLoanGlobalItem.IsLoan(Main.mouseItem)) {
+					Main.mouseItem.TurnToAir();
+					removed = true;
+				}
+
+				player.GetModPlayer<ArmsLoanPlayerHooks>().ClearStickyMouseState();
 			}
 
 			int buffType = ModContent.BuffType<ArmsDealerWeaponBuff>();
@@ -69,6 +88,39 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 				NpcAiSpeech.NotifyPlayerLiteral(player.whoAmI, "枪我收回了。", Color.Orange);
 				TryRememberReclaim(player);
 			}
+		}
+
+		/// <summary>Client-local wipe before asking the server to reclaim inventory (buff ended).</summary>
+		public static void ClearLocalLoanExtras(Player player) {
+			if (player == null) {
+				return;
+			}
+
+			if (ArmsLoanGlobalItem.IsLoan(Main.mouseItem)) {
+				Main.mouseItem.TurnToAir();
+			}
+
+			if (ArmsLoanGlobalItem.IsLoan(player.trashItem)) {
+				player.trashItem.TurnToAir();
+			}
+
+			player.GetModPlayer<ArmsLoanPlayerHooks>().ClearStickyMouseState();
+		}
+
+		private static bool StripLoanSlots(Item[] slots) {
+			if (slots == null) {
+				return false;
+			}
+
+			bool any = false;
+			for (int i = 0; i < slots.Length; i++) {
+				if (ArmsLoanGlobalItem.IsLoan(slots[i])) {
+					slots[i].TurnToAir();
+					any = true;
+				}
+			}
+
+			return any;
 		}
 
 		private static void TryRememberReclaim(Player player) {
@@ -104,7 +156,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 					continue;
 				}
 
-				if (!slot.TryGetGlobalItem(out ArmsLoanGlobalItem g) || !g.IsArmsLoan) {
+				if (!ArmsLoanGlobalItem.IsLoan(slot)) {
 					continue;
 				}
 
@@ -127,7 +179,7 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 				Item dest = player.inventory[empty];
 				dest.SetDefaults(ammoId);
 				dest.stack = put;
-				dest.GetGlobalItem<ArmsLoanGlobalItem>().IsArmsLoan = true;
+				ArmsLoanGlobalItem.MarkLoan(dest, player.whoAmI);
 				dest.favorited = false;
 				remain -= put;
 				SyncSlot(player, empty);
@@ -141,47 +193,25 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 		}
 
 		private static int PickWeapon() {
-			var pool = new List<int> {
-				ItemID.FlintlockPistol, ItemID.Musket, ItemID.TheUndertaker, ItemID.Boomstick, ItemID.Handgun
-			};
-			if (NPC.downedBoss2) {
-				pool.Add(ItemID.PhoenixBlaster);
-				pool.Add(ItemID.Minishark);
-			}
-
-			if (Main.hardMode) {
-				pool.Add(ItemID.ClockworkAssaultRifle);
-				pool.Add(ItemID.Uzi);
-			}
-
-			if (NPC.downedMechBossAny) {
-				pool.Add(ItemID.Megashark);
-			}
-
-			if (NPC.downedPlantBoss) {
-				pool.Add(ItemID.VenusMagnum);
-			}
-
-			return pool[Main.rand.Next(pool.Count)];
+			return Main.hardMode ? ItemID.Uzi : ItemID.Minishark;
 		}
 
 		/// <summary>All current loan guns use bullets; ammo tier follows world progress.</summary>
 		private static (int ammoId, int stack) PickAmmo(int weaponId) {
 			_ = weaponId;
 			if (NPC.downedPlantBoss) {
-				return (ItemID.ChlorophyteBullet, 800);
+				return (ItemID.ChlorophyteBullet, 1000);
 			}
 
 			if (Main.hardMode) {
-				return (ItemID.CrystalBullet, 800);
+				return (ItemID.CrystalBullet, 1000);
 			}
 
 			if (NPC.downedBoss2) {
-				return (ItemID.MeteorShot, 800);
+				return (ItemID.MeteorShot, 1000);
 			}
 
-			return (ItemID.MusketBall, 800);
+			return (ItemID.MusketBall, 1000);
 		}
 	}
 }
-

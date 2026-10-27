@@ -12,7 +12,7 @@ namespace AITownNPCs.Common.Superpower.Guide
 {
 	public sealed class GuideGuidanceBuff : ModBuff
 	{
-		public const int DurationTicks = 60 * 60 * 5;
+		public const int DurationTicks = 60 * 60 * 10;
 
 		public override string Texture => "AITownNPCs/Content/Buffs/GuideGuidance";
 

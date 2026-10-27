@@ -74,7 +74,12 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			}
 			else {
 				EndFlight(npc, combat, follow);
-				bool wantJump = grounded && rise > FollowMovement.TileSize * 2f;
+				bool mustHug = stance.PreferMeleeHug || stance.Band == StanceBand.MeleeHug;
+				bool canShoot = !mustHug
+					&& dist <= stance.MaxFireDistance
+					&& NpcCombatFire.HasLineOfSight(npc, boss);
+				// Mirror Normal chase: do not hop for height when already able to fire (arena platforms).
+				bool wantJump = grounded && rise > FollowMovement.TileSize * 2f && !canShoot;
 				NpcCombatLocomotion.WalkToward(npc, follow, anchor, wantJump, ref stuck);
 			}
 

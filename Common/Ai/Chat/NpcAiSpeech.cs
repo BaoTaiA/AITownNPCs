@@ -87,7 +87,9 @@ namespace AITownNPCs.Common.Ai.Chat
 			}
 
 			Color c = color ?? SpeechColor;
-			if (Main.netMode == NetmodeID.SinglePlayer) {
+			// SP or local client: show immediately (client-side gates like arms-loan use this path).
+			if (Main.netMode == NetmodeID.SinglePlayer
+			    || (Main.netMode == NetmodeID.MultiplayerClient && playerWhoAmI == Main.myPlayer)) {
 				Main.NewText(text, c);
 				return true;
 			}

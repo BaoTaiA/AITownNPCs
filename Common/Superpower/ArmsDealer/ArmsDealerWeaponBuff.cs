@@ -33,6 +33,8 @@ namespace AITownNPCs.Common.Superpower.ArmsDealer
 			}
 
 			if (Main.netMode == NetmodeID.MultiplayerClient) {
+				// Mouse/trash live on the client; clear before server strips inventory.
+				ArmsDealerTempWeaponPower.ClearLocalLoanExtras(Player);
 				SuperpowerNetSystem.RequestArmsWeaponReclaim();
 				return;
 			}

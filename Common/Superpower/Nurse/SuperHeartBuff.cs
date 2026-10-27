@@ -5,7 +5,7 @@ namespace AITownNPCs.Common.Superpower.Nurse
 {
 	public sealed class SuperHeartBuff : ModBuff
 	{
-		public const int DurationTicks = 60 * 60;
+		public const int DurationTicks = 60 * 60 * 3;
 
 		public override string Texture => "AITownNPCs/Content/Buffs/SuperHeart";
 

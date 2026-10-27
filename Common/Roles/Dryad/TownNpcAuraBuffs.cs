@@ -29,6 +29,8 @@ namespace AITownNPCs.Common.Roles.Dryad
 		private readonly Dictionary<int, int> _buffTime = new();
 		private int _baseLifeMax;
 		private bool _hasBaseLifeMax;
+		private bool _baseLavaImmune;
+		private bool _hasBaseLavaImmune;
 		private int _syncTimer;
 
 		/// <summary>Aggregated outgoing damage mult from aura potions (Wrath/MagicPower/Archery).</summary>
@@ -105,6 +107,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 					RestoreLifeMax(npc);
 				}
 
+				RestoreLavaImmune(npc);
 				OutgoingDamageMult = 1f;
 				CritChanceAdd = 0f;
 				ThornsFraction = 0f;
@@ -117,6 +120,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 				TickTimers(npc);
 				if (_buffTime.Count == 0) {
 					npc.netUpdate = true;
+					RestoreLavaImmune(npc);
 					OutgoingDamageMult = 1f;
 					CritChanceAdd = 0f;
 					ThornsFraction = 0f;
@@ -136,18 +140,15 @@ namespace AITownNPCs.Common.Roles.Dryad
 		}
 
 		public override void ResetEffects(NPC npc) {
-			if (_buffTime.Count == 0) {
-				return;
-			}
-
-			int defense = 0;
+			// NPC.defense is persistent (unlike Player.statDefense); always rebuild from defDefense.
+			int bonus = 0;
 			foreach (var kv in _buffTime) {
 				if (PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
-					defense += fx.DefenseAdd;
+					bonus += fx.DefenseAdd;
 				}
 			}
 
-			npc.defense += defense;
+			npc.defense = npc.defDefense + bonus;
 		}
 
 		public override void UpdateLifeRegen(NPC npc, ref int damage) {
@@ -317,6 +318,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 			float moveSpeedMult = 1f;
 			Vector3 light = Vector3.Zero;
 			bool wantLifeforce = false;
+			bool wantLavaImmune = false;
 
 			foreach (var kv in _buffTime) {
 				if (!PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
@@ -345,9 +347,12 @@ namespace AITownNPCs.Common.Roles.Dryad
 				}
 
 				if (fx.LavaImmune) {
-					npc.lavaImmune = true;
+					wantLavaImmune = true;
 				}
 			}
+
+			EnsureBaseLavaImmune(npc);
+			npc.lavaImmune = wantLavaImmune || _baseLavaImmune;
 
 			if (wantLifeforce) {
 				if (!_hasBaseLifeMax) {
@@ -408,6 +413,23 @@ namespace AITownNPCs.Common.Roles.Dryad
 				_hasBaseLifeMax = false;
 				_baseLifeMax = 0;
 			}
+		}
+
+		private void EnsureBaseLavaImmune(NPC npc) {
+			if (_hasBaseLavaImmune || npc == null) {
+				return;
+			}
+
+			_baseLavaImmune = npc.lavaImmune;
+			_hasBaseLavaImmune = true;
+		}
+
+		private void RestoreLavaImmune(NPC npc) {
+			if (!_hasBaseLavaImmune || npc == null) {
+				return;
+			}
+
+			npc.lavaImmune = _baseLavaImmune;
 		}
 
 		private static void ClearVanillaBuffSlot(NPC npc, int buffType) {

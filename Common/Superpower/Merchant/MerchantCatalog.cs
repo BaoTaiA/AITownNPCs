@@ -21,7 +21,10 @@ namespace AITownNPCs.Common.Superpower.Merchant
 			new() { ItemType = ItemID.MusketBall, Stack = 100, ShopUnitPriceCopper = 7, Hints = new[] { "子弹", "子弹" } },
 			new() { ItemType = ItemID.Wood, Stack = 50, ShopUnitPriceCopper = 20, Hints = new[] { "木头", "木板", "木材" } },
 			new() { ItemType = ItemID.DirtBlock, Stack = 100, ShopUnitPriceCopper = 1, Hints = new[] { "土", "土块" } },
-			new() { ItemType = ItemID.RecallPotion, Stack = 3, ShopUnitPriceCopper = 2000, Hints = new[] { "回忆药水", "回城" } }
+			new() { ItemType = ItemID.RecallPotion, Stack = 3, ShopUnitPriceCopper = 2000, Hints = new[] { "回忆药水", "回城" } },
+			new() { ItemType = ItemID.Bomb, Stack = 50, ShopUnitPriceCopper = 300, Hints = new[] { "炸弹", "bomb" } },
+			new() { ItemType = ItemID.Dynamite, Stack = 30, ShopUnitPriceCopper = 2000, Hints = new[] { "雷管", "dynamite" } },
+			new() { ItemType = ItemID.Grenade, Stack = 50, ShopUnitPriceCopper = 75, Hints = new[] { "手榴弹", "grenade" } }
 		};
 
 		public static bool TryResolve(string hint, out MerchantCatalogEntry entry) {

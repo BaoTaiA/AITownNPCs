@@ -383,6 +383,7 @@ namespace AITownNPCs.Common.Net
 
 			if (armsLoan && dest.TryGetGlobalItem(out ArmsLoanGlobalItem g)) {
 				g.IsArmsLoan = true;
+				g.OwnerWhoAmI = player.whoAmI;
 			}
 
 			dest.favorited = false;
@@ -531,6 +532,7 @@ namespace AITownNPCs.Common.Net
 				dest.stack = put;
 				if (armsLoan && dest.TryGetGlobalItem(out ArmsLoanGlobalItem g)) {
 					g.IsArmsLoan = true;
+					g.OwnerWhoAmI = player.whoAmI;
 				}
 
 				dest.favorited = false;

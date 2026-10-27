@@ -128,17 +128,17 @@ Config: {
 Buffs: {
 	ArmsDealerWeaponBuff: {
 		DisplayName: Arms Dealer Loan
-		Description: Temporary loaned gun — reclaimed when the buff ends
+		Description: Temporary loaned gun (inventory only, personal use) — reclaimed after 10 minutes
 	}
 
 	GuideGuidanceBuff: {
 		DisplayName: Guide's Guidance
-		Description: Arrow above your head points toward the target for 5 minutes
+		Description: Arrow above your head points toward the target for 10 minutes
 	}
 
 	SuperHeartBuff: {
 		DisplayName: Super Heart
-		Description: Restores an extra 50 life per second for 1 minute
+		Description: Restores an extra 50 life per second for 3 minutes
 	}
 }
 
