@@ -15,9 +15,10 @@ namespace AITownNPCs.Common.Roles.Dryad
 		public float MoveSpeedMult;   // 1 = none; 1.25 = Swiftness
 		public bool Lifeforce;        // + floor(floor(base/5)/20)*20 lifeMax
 		public Vector3 LightRgb;      // zero = no light
+		/// <summary>Wrath = all weapons; MagicPower/Archery also use this field but TownNpcAuraBuffs splits by buff id.</summary>
 		public float OutgoingDamageMult;
 		public float CritChanceAdd;   // 0-100 style; Rage = 10
-		public bool LavaImmune;
+		public bool LavaImmune;       // Obsidian Skin: lava + OnFire immune settle
 		public float ThornsFraction;  // 1 = Thorns potion
 
 		public static PotionBuffNpcEffect Empty => new() {

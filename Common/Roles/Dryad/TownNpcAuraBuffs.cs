@@ -31,10 +31,21 @@ namespace AITownNPCs.Common.Roles.Dryad
 		private bool _hasBaseLifeMax;
 		private bool _baseLavaImmune;
 		private bool _hasBaseLavaImmune;
+		private bool _baseOnFireImmune;
+		private bool _hasBaseOnFireImmune;
 		private int _syncTimer;
 
-		/// <summary>Aggregated outgoing damage mult from aura potions (Wrath/MagicPower/Archery).</summary>
+		/// <summary>Wrath (and other generic) outgoing mult — all weapons.</summary>
 		public float OutgoingDamageMult { get; private set; } = 1f;
+
+		/// <summary>Magic Power — applied only to magic weapons in NpcDamageMods.</summary>
+		public float MagicPowerMult { get; private set; } = 1f;
+
+		/// <summary>Archery — applied only to ranged weapons / arrow speed.</summary>
+		public float ArcheryMult { get; private set; } = 1f;
+
+		/// <summary>Swiftness move-speed scale for follow/combat desired speeds (not velocity multiply).</summary>
+		public float MoveSpeedMult { get; private set; } = 1f;
 
 		/// <summary>Aggregated crit chance add (Rage).</summary>
 		public float CritChanceAdd { get; private set; }
@@ -108,9 +119,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 				}
 
 				RestoreLavaImmune(npc);
-				OutgoingDamageMult = 1f;
-				CritChanceAdd = 0f;
-				ThornsFraction = 0f;
+				ResetCombatAggregates();
 				_syncTimer = 0;
 				return;
 			}
@@ -121,9 +130,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 				if (_buffTime.Count == 0) {
 					npc.netUpdate = true;
 					RestoreLavaImmune(npc);
-					OutgoingDamageMult = 1f;
-					CritChanceAdd = 0f;
-					ThornsFraction = 0f;
+					ResetCombatAggregates();
 					_syncTimer = 0;
 					return;
 				}
@@ -187,7 +194,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 		}
 
 		public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) {
-			TryReflectThorns(npc, player, damageDone);
+			TryReflectThornsToPlayer(npc, player, damageDone);
 		}
 
 		public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone) {
@@ -195,20 +202,41 @@ namespace AITownNPCs.Common.Roles.Dryad
 				return;
 			}
 
-			TryReflectThorns(npc, Main.player[projectile.owner], damageDone);
+			TryReflectThornsToPlayer(npc, Main.player[projectile.owner], damageDone);
 		}
 
-		private void TryReflectThorns(NPC npc, Player attacker, int damageDone) {
-			if (ThornsFraction <= 0f || attacker == null || !attacker.active || attacker.dead || damageDone <= 0) {
-				return;
-			}
-
-			if (Main.netMode == NetmodeID.MultiplayerClient) {
+		private void TryReflectThornsToPlayer(NPC npc, Player attacker, int damageDone) {
+			if (!CanReflect(damageDone) || attacker == null || !attacker.active || attacker.dead) {
 				return;
 			}
 
 			int reflect = System.Math.Max(1, (int)(damageDone * ThornsFraction));
 			attacker.Hurt(PlayerDeathReason.ByNPC(npc.whoAmI), reflect, -attacker.direction);
+		}
+
+		/// <summary>
+		/// Reflect contact damage from a hostile NPC. tML has no GlobalNPC.OnHitByNPC;
+		/// <see cref="TownNpcThornsContactReflect"/> calls this from the attacker's OnHitNPC.
+		/// </summary>
+		internal void ReflectContactFromNpc(NPC townNpc, NPC attacker, int damageDone) {
+			if (!CanReflect(damageDone)
+				|| attacker == null
+				|| !attacker.active
+				|| attacker.friendly
+				|| attacker.townNPC
+				|| attacker.life <= 0) {
+				return;
+			}
+
+			int reflect = System.Math.Max(1, (int)(damageDone * ThornsFraction));
+			int hitDir = attacker.Center.X >= townNpc.Center.X ? 1 : -1;
+			attacker.SimpleStrikeNPC(reflect, hitDir, crit: false, noPlayerInteraction: true);
+		}
+
+		private bool CanReflect(int damageDone) {
+			return ThornsFraction > 0f
+				&& damageDone > 0
+				&& Main.netMode != NetmodeID.MultiplayerClient;
 		}
 
 		public override void PostDraw(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
@@ -311,14 +339,20 @@ namespace AITownNPCs.Common.Roles.Dryad
 			}
 		}
 
-		private void ApplyUnifiedEffects(NPC npc) {
+		private void ResetCombatAggregates() {
 			OutgoingDamageMult = 1f;
+			MagicPowerMult = 1f;
+			ArcheryMult = 1f;
+			MoveSpeedMult = 1f;
 			CritChanceAdd = 0f;
 			ThornsFraction = 0f;
-			float moveSpeedMult = 1f;
+		}
+
+		private void ApplyUnifiedEffects(NPC npc) {
+			ResetCombatAggregates();
 			Vector3 light = Vector3.Zero;
 			bool wantLifeforce = false;
-			bool wantLavaImmune = false;
+			bool wantObsidian = false;
 
 			foreach (var kv in _buffTime) {
 				if (!PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
@@ -333,7 +367,14 @@ namespace AITownNPCs.Common.Roles.Dryad
 					light += fx.LightRgb;
 				}
 
-				if (fx.OutgoingDamageMult > 1f) {
+				// Split class potions; Wrath (and any future generic) stay on OutgoingDamageMult.
+				if (kv.Key == BuffID.MagicPower && fx.OutgoingDamageMult > 1f) {
+					MagicPowerMult *= fx.OutgoingDamageMult;
+				}
+				else if (kv.Key == BuffID.Archery && fx.OutgoingDamageMult > 1f) {
+					ArcheryMult *= fx.OutgoingDamageMult;
+				}
+				else if (fx.OutgoingDamageMult > 1f) {
 					OutgoingDamageMult *= fx.OutgoingDamageMult;
 				}
 
@@ -343,16 +384,21 @@ namespace AITownNPCs.Common.Roles.Dryad
 				}
 
 				if (fx.MoveSpeedMult > 1f) {
-					moveSpeedMult *= fx.MoveSpeedMult;
+					MoveSpeedMult *= fx.MoveSpeedMult;
 				}
 
 				if (fx.LavaImmune) {
-					wantLavaImmune = true;
+					wantObsidian = true;
 				}
 			}
 
 			EnsureBaseLavaImmune(npc);
-			npc.lavaImmune = wantLavaImmune || _baseLavaImmune;
+			npc.lavaImmune = wantObsidian || _baseLavaImmune;
+			EnsureBaseOnFireImmune(npc);
+			npc.buffImmune[BuffID.OnFire] = wantObsidian || _baseOnFireImmune;
+			if (wantObsidian) {
+				ClearVanillaBuffSlot(npc, BuffID.OnFire);
+			}
 
 			if (wantLifeforce) {
 				if (!_hasBaseLifeMax) {
@@ -379,18 +425,6 @@ namespace AITownNPCs.Common.Roles.Dryad
 			}
 			else if (_hasBaseLifeMax) {
 				RestoreLifeMax(npc);
-			}
-
-			if (moveSpeedMult > 1f
-				&& System.Math.Abs(npc.velocity.X) > 0.05f
-				&& System.Math.Abs(npc.velocity.X) < 5f) {
-				npc.velocity.X *= moveSpeedMult;
-				if (npc.velocity.X > 5f) {
-					npc.velocity.X = 5f;
-				}
-				else if (npc.velocity.X < -5f) {
-					npc.velocity.X = -5f;
-				}
 			}
 
 			if (light != Vector3.Zero) {
@@ -424,12 +458,27 @@ namespace AITownNPCs.Common.Roles.Dryad
 			_hasBaseLavaImmune = true;
 		}
 
-		private void RestoreLavaImmune(NPC npc) {
-			if (!_hasBaseLavaImmune || npc == null) {
+		private void EnsureBaseOnFireImmune(NPC npc) {
+			if (_hasBaseOnFireImmune || npc == null) {
 				return;
 			}
 
-			npc.lavaImmune = _baseLavaImmune;
+			_baseOnFireImmune = npc.buffImmune[BuffID.OnFire];
+			_hasBaseOnFireImmune = true;
+		}
+
+		private void RestoreLavaImmune(NPC npc) {
+			if (npc == null) {
+				return;
+			}
+
+			if (_hasBaseLavaImmune) {
+				npc.lavaImmune = _baseLavaImmune;
+			}
+
+			if (_hasBaseOnFireImmune) {
+				npc.buffImmune[BuffID.OnFire] = _baseOnFireImmune;
+			}
 		}
 
 		private static void ClearVanillaBuffSlot(NPC npc, int buffType) {
@@ -443,6 +492,21 @@ namespace AITownNPCs.Common.Roles.Dryad
 					b--;
 				}
 			}
+		}
+	}
+
+	/// <summary>
+	/// tML GlobalNPC has OnHitByItem/Projectile but no OnHitByNPC. Reflect thorns when a
+	/// hostile NPC successfully hits a town NPC (attacker hook OnHitNPC).
+	/// </summary>
+	public sealed class TownNpcThornsContactReflect : GlobalNPC
+	{
+		public override void OnHitNPC(NPC npc, NPC target, NPC.HitInfo hit) {
+			if (target == null || !target.active || !target.townNPC || hit.Damage <= 0) {
+				return;
+			}
+
+			target.GetGlobalNPC<TownNpcAuraBuffs>().ReflectContactFromNpc(target, npc, hit.Damage);
 		}
 	}
 }

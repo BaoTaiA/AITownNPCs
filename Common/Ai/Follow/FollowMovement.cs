@@ -4,6 +4,7 @@ using AITownNPCs.Common.Ai.Combat.Normal;
 using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Configs;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.Audio;
@@ -292,12 +293,28 @@ namespace AITownNPCs.Common.Ai.Follow
 			return true;
 		}
 
+		/// <summary>Dryad Swiftness (and similar) scale for chase caps — never multiply residual velocity.</summary>
+		public static float MoveSpeedScale(NPC npc) {
+			if (npc == null || !npc.townNPC) {
+				return 1f;
+			}
+
+			float m = npc.GetGlobalNPC<TownNpcAuraBuffs>().MoveSpeedMult;
+			return m > 0.01f ? m : 1f;
+		}
+
 		private static void EaseHorizontal(NPC npc, float desired) {
+			float accel = FollowAccel;
+			// Scale accel only when chasing a non-zero target; braking to 0 stays snappy.
+			if (Math.Abs(desired) > 0.05f) {
+				accel *= MoveSpeedScale(npc);
+			}
+
 			if (npc.velocity.X < desired) {
-				npc.velocity.X = Math.Min(npc.velocity.X + FollowAccel, desired);
+				npc.velocity.X = Math.Min(npc.velocity.X + accel, desired);
 			}
 			else if (npc.velocity.X > desired) {
-				npc.velocity.X = Math.Max(npc.velocity.X - FollowAccel, desired);
+				npc.velocity.X = Math.Max(npc.velocity.X - accel, desired);
 			}
 		}
 
@@ -309,8 +326,9 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			npc.direction = dir > 0f ? 1 : -1;
 			npc.spriteDirection = npc.direction;
-			float desired = dir * MaxSpeedX;
-			float step = DodgeAccel;
+			float scale = MoveSpeedScale(npc);
+			float desired = dir * MaxSpeedX * scale;
+			float step = DodgeAccel * scale;
 			if (npc.velocity.X < desired) {
 				npc.velocity.X = Math.Min(npc.velocity.X + step, desired);
 			}
@@ -423,7 +441,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			float dir = dx >= 0f ? 1f : -1f;
 			npc.direction = dir >= 0f ? 1 : -1;
 			npc.spriteDirection = npc.direction;
-			float scaled = Math.Min(speed, Math.Max(1.8f, abs * 0.05f));
+			float cap = speed * MoveSpeedScale(npc);
+			float scaled = Math.Min(cap, Math.Max(1.8f, abs * 0.05f));
 			EaseHorizontal(npc, dir * scaled);
 
 			bool blocked = Collision.SolidCollision(
@@ -545,6 +564,10 @@ namespace AITownNPCs.Common.Ai.Follow
 
 		/// <summary>Shared ground step used by follow and combat kite movement.</summary>
 		public static void StepHorizontallyToward(NPC npc, float goalX, float cap, ref int stuckTimer, float accel = 0.55f) {
+			float scale = MoveSpeedScale(npc);
+			cap *= scale;
+			accel *= scale;
+
 			float dx = goalX - npc.Center.X;
 			float absX = Math.Abs(dx);
 			if (absX >= HorizontalDeadzone * 0.5f) {

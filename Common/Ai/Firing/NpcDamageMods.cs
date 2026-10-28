@@ -1,10 +1,14 @@
 using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Roles.Dryad;
 using Terraria;
+using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Ai.Firing
 {
 	/// <summary>
-	/// Neutral damage modifiers for firing. Reads <see cref="NpcCombatHooks"/> only — no role types.
+	/// Outgoing damage for NPC firing: Wrath via <see cref="NpcCombatHooks"/>;
+	/// Magic Power / Archery via <see cref="TownNpcAuraBuffs"/> gated by equipped weapon class.
 	/// </summary>
 	public static class NpcDamageMods
 	{
@@ -19,6 +23,8 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			float mult = GetOutgoingMult(npc);
+			mult *= ClassPotionMult(npc);
+
 			if (mult > 1f) {
 				damage = System.Math.Max(1, (int)(damage * mult));
 			}
@@ -29,6 +35,44 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			return damage;
+		}
+
+		/// <summary>Archery potion arrow/projectile speed scale (1 = none).</summary>
+		public static float GetArcherySpeedMult(NPC npc) {
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return 1f;
+			}
+
+			Item weapon = npc.GetGlobalNPC<EquippedTownNPC>().Weapon;
+			if (weapon == null || weapon.IsAir || !weapon.CountsAsClass(DamageClass.Ranged)) {
+				return 1f;
+			}
+
+			float m = npc.GetGlobalNPC<TownNpcAuraBuffs>().ArcheryMult;
+			return m > 1f ? m : 1f;
+		}
+
+		private static float ClassPotionMult(NPC npc) {
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return 1f;
+			}
+
+			Item weapon = npc.GetGlobalNPC<EquippedTownNPC>().Weapon;
+			if (weapon == null || weapon.IsAir) {
+				return 1f;
+			}
+
+			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();
+			float mult = 1f;
+			if (weapon.CountsAsClass(DamageClass.Magic) && aura.MagicPowerMult > 1f) {
+				mult *= aura.MagicPowerMult;
+			}
+
+			if (weapon.CountsAsClass(DamageClass.Ranged) && aura.ArcheryMult > 1f) {
+				mult *= aura.ArcheryMult;
+			}
+
+			return mult;
 		}
 	}
 }
