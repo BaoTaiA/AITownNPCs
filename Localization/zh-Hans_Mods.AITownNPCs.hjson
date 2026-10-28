@@ -492,13 +492,13 @@ Superpower: {
 
 	nurse_emergency_heal: {
 		DisplayName: 紧急治疗
-		Description: 传送到玩家身边回满血并清除 debuff，稍后回家
+		Description: 传送到玩家身边回满血并清除 debuff
 		RefuseStyle: 傲娇、毒舌、嘴硬心软
 	}
 
 	dryad_group_buff: {
 		DisplayName: 群体增益
-		Description: 传送到玩家身边放原版结界，结界结束后再等 8 秒回去
+		Description: 传送到玩家身边释放原版结界
 		RefuseStyle: 温柔、甜美
 	}
 

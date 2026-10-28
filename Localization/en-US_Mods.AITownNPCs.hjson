@@ -492,13 +492,13 @@ Superpower: {
 
 	nurse_emergency_heal: {
 		DisplayName: Emergency Heal
-		Description: Teleports to the player, fully heals and clears debuffs, then returns home
+		Description: Teleports to the player, fully heals and clears debuffs
 		RefuseStyle: Tsundere, sharp-tongued, soft-hearted
 	}
 
 	dryad_group_buff: {
 		DisplayName: Group Buff
-		Description: Teleports to the player, casts the vanilla Dryad ward, waits 8s after it ends, then returns
+		Description: Teleports to the player and casts the vanilla Dryad ward
 		RefuseStyle: Gentle, sweet
 	}
 
