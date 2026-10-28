@@ -96,12 +96,17 @@ Config: {
 
 	ProviderId: {
 		Label: 模型提供商
-		Tooltip: 选择 MiniMax / 火山方舟（非下拉）；接口地址内置
+		Tooltip: MiniMax / 火山方舟 / 自定义端点（OpenAI 兼容）；国内两家地址内置，自定义可接国外网关
 	}
 
 	Provider: {
 		Label: 模型提供商
-		Tooltip: 选择 MiniMax / 火山方舟（非下拉）；接口地址内置
+		Tooltip: MiniMax / 火山方舟 / 自定义端点（OpenAI 兼容）；国内两家地址内置，自定义可接国外网关
+	}
+
+	BaseUrl: {
+		Label: 接口地址
+		Tooltip: OpenAI 兼容根路径（如 https://api.openai.com/v1）；不要带 /chat/completions。仅「自定义端点」可改并保存；国内两家显示内置地址
 	}
 
 	Model: {
@@ -188,12 +193,17 @@ Configs: {
 
 		ProviderId: {
 			Label: 模型提供商
-			Tooltip: 选择大模型提供商
+			Tooltip: MiniMax / 火山方舟 / 自定义端点（OpenAI 兼容，可接国外）
 		}
 
 		Provider: {
 			Label: 模型提供商
-			Tooltip: 选择大模型提供商
+			Tooltip: MiniMax / 火山方舟 / 自定义端点（OpenAI 兼容，可接国外）
+		}
+
+		BaseUrl: {
+			Label: 接口地址
+			Tooltip: OpenAI 兼容根路径（如 https://api.openai.com/v1）；勿带 /chat/completions。仅自定义可改
 		}
 
 		Model: {
@@ -260,6 +270,21 @@ Configs: {
 			// Label: Volc Ark Model
 			// Tooltip: ""
 		}
+
+		CustomApiKey: {
+			// Label: Custom Api Key
+			// Tooltip: ""
+		}
+
+		CustomModel: {
+			// Label: Custom Model
+			// Tooltip: ""
+		}
+
+		CustomBaseUrl: {
+			// Label: Custom Base Url
+			// Tooltip: ""
+		}
 	}
 
 	AiProvider: {
@@ -272,6 +297,11 @@ Configs: {
 
 		VolcArk: {
 			Label: 火山方舟
+			// Tooltip: ""
+		}
+
+		Custom: {
+			Label: 自定义端点（OpenAI 兼容）
 			// Tooltip: ""
 		}
 	}

@@ -44,7 +44,7 @@ namespace AITownNPCs.Common.Configs.UI
 			_field.OnTextChange += (_, _) => {
 				Value = Sanitize(_field.CurrentString);
 				if (Item is AinpcServerConfig cfg) {
-					cfg.WriteStore(cfg.Provider, cfg.Model, Value);
+					cfg.WriteStore(cfg.Provider, cfg.Model, Value, cfg.BaseUrl);
 				}
 			};
 			background.Append(_field);

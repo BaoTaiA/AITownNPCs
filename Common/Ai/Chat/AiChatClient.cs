@@ -46,8 +46,17 @@ namespace AITownNPCs.Common.Ai.Chat
 				return false;
 			}
 
-			return !string.IsNullOrWhiteSpace(ResolveApiKey(config))
-				&& !string.IsNullOrWhiteSpace(ResolveModel(config));
+			if (string.IsNullOrWhiteSpace(ResolveApiKey(config))
+				|| string.IsNullOrWhiteSpace(ResolveModel(config))) {
+				return false;
+			}
+
+			if (config.Provider == AiProvider.Custom
+				&& string.IsNullOrWhiteSpace(AiProviderEndpoints.NormalizeBaseUrl(config.CustomBaseUrl))) {
+				return false;
+			}
+
+			return true;
 		}
 
 		public static bool IsConfigured(AinpcServerConfig config) {
@@ -101,7 +110,11 @@ namespace AITownNPCs.Common.Ai.Chat
 			CancellationToken ct) {
 			string apiKey = ResolveApiKey(config);
 			string model = ResolveModel(config);
-			string baseUrl = AiProviderEndpoints.GetBaseUrl(config.Provider).TrimEnd('/');
+			string baseUrl = AiProviderEndpoints.GetBaseUrl(config.Provider, config).TrimEnd('/');
+			if (string.IsNullOrWhiteSpace(baseUrl)) {
+				return null;
+			}
+
 			string url = baseUrl + "/chat/completions";
 			int maxTokens = maxTokensOverride ?? config.AiMaxTokens;
 
@@ -110,11 +123,12 @@ namespace AITownNPCs.Common.Ai.Chat
 				["temperature"] = temperatureOverride ?? AiProviderEndpoints.DefaultTemperature,
 				["messages"] = BuildMessages(messages)
 			};
-			if (config.Provider == AiProvider.VolcArk) {
-				payload["max_tokens"] = maxTokens;
+			// OpenAI-compatible default: max_tokens. MiniMax uses max_completion_tokens.
+			if (config.Provider == AiProvider.MiniMax) {
+				payload["max_completion_tokens"] = maxTokens;
 			}
 			else {
-				payload["max_completion_tokens"] = maxTokens;
+				payload["max_tokens"] = maxTokens;
 			}
 
 			string json = JsonSerializer.Serialize(payload);
@@ -164,20 +178,21 @@ namespace AITownNPCs.Common.Ai.Chat
 		private static string ResolveApiKey(AinpcServerConfig config) {
 			return config.Provider switch {
 				AiProvider.VolcArk => config.VolcArkApiKey?.Trim(),
+				AiProvider.Custom => config.CustomApiKey?.Trim(),
 				_ => config.MiniMaxApiKey?.Trim()
 			};
 		}
 
 		private static string ResolveModel(AinpcServerConfig config) {
-			if (config.Provider == AiProvider.VolcArk) {
-				return string.IsNullOrWhiteSpace(config.VolcArkModel)
+			return config.Provider switch {
+				AiProvider.VolcArk => string.IsNullOrWhiteSpace(config.VolcArkModel)
 					? AiProviderEndpoints.VolcArkModelId
-					: config.VolcArkModel.Trim();
-			}
-
-			return string.IsNullOrWhiteSpace(config.MiniMaxModel)
-				? AiProviderEndpoints.MiniMaxModelId
-				: config.MiniMaxModel.Trim();
+					: config.VolcArkModel.Trim(),
+				AiProvider.Custom => (config.CustomModel ?? "").Trim(),
+				_ => string.IsNullOrWhiteSpace(config.MiniMaxModel)
+					? AiProviderEndpoints.MiniMaxModelId
+					: config.MiniMaxModel.Trim()
+			};
 		}
 
 		private static List<Dictionary<string, string>> BuildMessages(IReadOnlyList<ChatMessageDto> messages) {

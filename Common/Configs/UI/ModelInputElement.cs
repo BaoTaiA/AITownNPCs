@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.GameContent.UI.Elements;
 using Terraria.GameInput;
 using Terraria.Localization;
@@ -12,37 +15,40 @@ using Terraria.UI;
 
 namespace AITownNPCs.Common.Configs.UI
 {
+	/// <summary>Model id on its own row (full width, wraps) under the label.</summary>
 	public sealed class ModelInputElement : ConfigElement<string>
 	{
-		private SingleLineFocusField _field;
+		private const float LabelRow = 30f;
+		private const float BoxHeight = 36f;
+		private const float LineHeight = 18f;
+
+		private WrappedFocusInputTextField _field;
 		private AiProvider _seenProvider;
 
 		public override void OnBind() {
 			base.OnBind();
-			Height.Set(30f, 0f);
+			Height.Set(LabelRow + BoxHeight + 6f, 0f);
 			_seenProvider = (Item as AinpcServerConfig)?.Provider ?? AiProvider.MiniMax;
 
-			var textBoxBackground = new UIPanel();
-			textBoxBackground.SetPadding(0);
-			textBoxBackground.Top.Set(0f, 0f);
-			textBoxBackground.Left.Set(-190f, 1f);
-			textBoxBackground.Width.Set(180f, 0f);
-			textBoxBackground.Height.Set(30f, 0f);
-			Append(textBoxBackground);
+			var background = new UIPanel();
+			background.SetPadding(8f);
+			background.Top.Set(LabelRow, 0f);
+			background.Left.Set(8f, 0f);
+			background.Width.Set(-16f, 1f);
+			background.Height.Set(BoxHeight, 0f);
+			Append(background);
 
-			_field = new SingleLineFocusField(Language.GetTextValue("tModLoader.ModConfigTypeHere"));
+			_field = new WrappedFocusInputTextField(Language.GetTextValue("tModLoader.ModConfigTypeHere"));
 			_field.SetText(Value ?? "");
-			_field.Top.Set(5f, 0f);
-			_field.Left.Set(10f, 0f);
-			_field.Width.Set(-20f, 1f);
-			_field.Height.Set(20f, 0f);
+			_field.Width.Set(0f, 1f);
+			_field.Height.Set(0f, 1f);
 			_field.OnTextChange += (_, _) => {
 				Value = _field.CurrentString;
 				if (Item is AinpcServerConfig cfg) {
-					cfg.WriteStore(cfg.Provider, Value, cfg.ApiKey);
+					cfg.WriteStore(cfg.Provider, Value, cfg.ApiKey, cfg.BaseUrl);
 				}
 			};
-			textBoxBackground.Append(_field);
+			background.Append(_field);
 		}
 
 		public override void Update(GameTime gameTime) {
@@ -52,7 +58,6 @@ namespace AITownNPCs.Common.Configs.UI
 			}
 
 			if (_seenProvider != cfg.Provider) {
-				// Only commit stale UI if config has not already switched stores.
 				if (cfg.UiBoundProvider == _seenProvider) {
 					Value = _field.CurrentString ?? "";
 					cfg.SyncUiForProvider();
@@ -74,7 +79,7 @@ namespace AITownNPCs.Common.Configs.UI
 			}
 		}
 
-		private sealed class SingleLineFocusField : UIElement
+		private sealed class WrappedFocusInputTextField : UIElement
 		{
 			internal string CurrentString = "";
 			internal bool Focused => _focused;
@@ -85,7 +90,7 @@ namespace AITownNPCs.Common.Configs.UI
 
 			public event EventHandler OnTextChange;
 
-			public SingleLineFocusField(string hintText) {
+			public WrappedFocusInputTextField(string hintText) {
 				_hintText = hintText ?? "";
 			}
 
@@ -117,7 +122,7 @@ namespace AITownNPCs.Common.Configs.UI
 						_focused = false;
 					}
 
-					if (Main.inputText.IsKeyDown(Keys.Enter) && !Main.oldInputText.IsKeyDown(Keys.Enter)) {
+					if (JustPressed(Keys.Enter) || JustPressed(Keys.Tab)) {
 						_focused = false;
 					}
 
@@ -143,7 +148,47 @@ namespace AITownNPCs.Common.Configs.UI
 					display += "|";
 				}
 
-				Utils.DrawBorderString(spriteBatch, display, new Vector2(space.X, space.Y), Color.White);
+				IReadOnlyList<string> lines = WrapByWidth(display, space.Width);
+				float y = space.Y;
+				int maxLines = Math.Max(1, (int)(space.Height / LineHeight));
+				for (int i = 0; i < lines.Count && i < maxLines; i++) {
+					Utils.DrawBorderString(spriteBatch, lines[i], new Vector2(space.X, y), Color.White);
+					y += LineHeight;
+				}
+			}
+
+			private static bool JustPressed(Keys key) {
+				return Main.inputText.IsKeyDown(key) && !Main.oldInputText.IsKeyDown(key);
+			}
+
+			private static List<string> WrapByWidth(string text, float maxWidth) {
+				var lines = new List<string>();
+				if (string.IsNullOrEmpty(text) || maxWidth <= 8f) {
+					lines.Add(text ?? "");
+					return lines;
+				}
+
+				var font = FontAssets.MouseText.Value;
+				var current = new StringBuilder();
+				foreach (char c in text) {
+					current.Append(c);
+					if (font.MeasureString(current.ToString()).X > maxWidth && current.Length > 1) {
+						current.Length--;
+						lines.Add(current.ToString());
+						current.Clear();
+						current.Append(c);
+					}
+				}
+
+				if (current.Length > 0) {
+					lines.Add(current.ToString());
+				}
+
+				if (lines.Count == 0) {
+					lines.Add("");
+				}
+
+				return lines;
 			}
 		}
 	}

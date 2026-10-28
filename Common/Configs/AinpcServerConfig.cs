@@ -15,7 +15,8 @@ namespace AITownNPCs.Common.Configs
 	public enum AiProvider
 	{
 		MiniMax,
-		VolcArk
+		VolcArk,
+		Custom
 	}
 
 	/// <summary>Discrete follow/chat distances in pixels (no slider).</summary>
@@ -45,6 +46,7 @@ namespace AITownNPCs.Common.Configs
 	{
 		public const string ProviderLabelMiniMax = "MiniMax";
 		public const string ProviderLabelVolcArk = "Volcengine Ark";
+		public const string ProviderLabelCustom = "Custom";
 
 		public override ConfigScope Mode => ConfigScope.ServerSide;
 
@@ -116,6 +118,12 @@ namespace AITownNPCs.Common.Configs
 		public AiProvider Provider {
 			get {
 				string id = ProviderId ?? "";
+				if (string.Equals(id, ProviderLabelCustom, StringComparison.Ordinal)
+				    || id.IndexOf("Custom", StringComparison.OrdinalIgnoreCase) >= 0
+				    || id.IndexOf("\u81ea\u5b9a\u4e49", StringComparison.Ordinal) >= 0) {
+					return AiProvider.Custom;
+				}
+
 				if (string.Equals(id, ProviderLabelVolcArk, StringComparison.Ordinal)
 				    || id.IndexOf("Volc", StringComparison.OrdinalIgnoreCase) >= 0
 				    || id.IndexOf("ark", StringComparison.OrdinalIgnoreCase) >= 0
@@ -126,6 +134,12 @@ namespace AITownNPCs.Common.Configs
 				return AiProvider.MiniMax;
 			}
 		}
+
+		[DefaultValue("")]
+		[JsonIgnore]
+		[ShowDespiteJsonIgnore]
+		[CustomModConfigItem(typeof(BaseUrlInputElement))]
+		public string BaseUrl = "";
 
 		[DefaultValue(AiProviderEndpoints.MiniMaxModelId)]
 		[JsonIgnore]
@@ -170,13 +184,25 @@ namespace AITownNPCs.Common.Configs
 		[CustomModConfigItem(typeof(HiddenConfigElement))]
 		public string VolcArkModel = AiProviderEndpoints.VolcArkModelId;
 
+		[DefaultValue("")]
+		[CustomModConfigItem(typeof(HiddenConfigElement))]
+		public string CustomApiKey = "";
+
+		[DefaultValue("")]
+		[CustomModConfigItem(typeof(HiddenConfigElement))]
+		public string CustomModel = "";
+
+		[DefaultValue("")]
+		[CustomModConfigItem(typeof(HiddenConfigElement))]
+		public string CustomBaseUrl = "";
+
 		[JsonIgnore]
 		private AiProvider _uiBoundProvider = AiProvider.MiniMax;
 
 		[JsonIgnore]
 		private bool _uiHydrated;
 
-		/// <summary>Provider whose Model/ApiKey are currently shown in the UI.</summary>
+		/// <summary>Provider whose Model/ApiKey/BaseUrl are currently shown in the UI.</summary>
 		[JsonIgnore]
 		public AiProvider UiBoundProvider => _uiBoundProvider;
 
@@ -191,13 +217,13 @@ namespace AITownNPCs.Common.Configs
 		public override void OnChanged() {
 			EnsureUiHydrated();
 			ApplyProviderSwitch();
-			WriteStore(_uiBoundProvider, Model, ApiKey);
+			WriteStore(_uiBoundProvider, Model, ApiKey, BaseUrl);
 			NormalizeStoredModels();
 			NpcAiChatSystem.OnConfigChangedRestartProbe();
 		}
 
 		/// <summary>
-		/// Switch Model/ApiKey to the selected provider's saved values.
+		/// Switch Model/ApiKey/BaseUrl to the selected provider's saved values.
 		/// Safe to call repeatedly; only flushes when a real switch is pending.
 		/// </summary>
 		public void SyncUiForProvider() {
@@ -206,27 +232,55 @@ namespace AITownNPCs.Common.Configs
 		}
 
 		public string StoredModel(AiProvider provider) {
-			return provider == AiProvider.VolcArk
-				? (string.IsNullOrWhiteSpace(VolcArkModel) ? AiProviderEndpoints.VolcArkModelId : VolcArkModel.Trim())
-				: (string.IsNullOrWhiteSpace(MiniMaxModel) ? AiProviderEndpoints.MiniMaxModelId : MiniMaxModel.Trim());
+			return provider switch {
+				AiProvider.VolcArk => string.IsNullOrWhiteSpace(VolcArkModel)
+					? AiProviderEndpoints.VolcArkModelId
+					: VolcArkModel.Trim(),
+				AiProvider.Custom => (CustomModel ?? "").Trim(),
+				_ => string.IsNullOrWhiteSpace(MiniMaxModel)
+					? AiProviderEndpoints.MiniMaxModelId
+					: MiniMaxModel.Trim()
+			};
 		}
 
 		public string StoredApiKey(AiProvider provider) {
-			return provider == AiProvider.VolcArk ? (VolcArkApiKey ?? "") : (MiniMaxApiKey ?? "");
+			return provider switch {
+				AiProvider.VolcArk => VolcArkApiKey ?? "",
+				AiProvider.Custom => CustomApiKey ?? "",
+				_ => MiniMaxApiKey ?? ""
+			};
 		}
 
-		public void WriteStore(AiProvider provider, string model, string apiKey) {
-			if (provider == AiProvider.VolcArk) {
-				VolcArkApiKey = apiKey ?? "";
-				VolcArkModel = string.IsNullOrWhiteSpace(model)
-					? AiProviderEndpoints.VolcArkModelId
-					: model.Trim();
-			}
-			else {
-				MiniMaxApiKey = apiKey ?? "";
-				MiniMaxModel = string.IsNullOrWhiteSpace(model)
-					? AiProviderEndpoints.MiniMaxModelId
-					: model.Trim();
+		public string StoredBaseUrl(AiProvider provider) {
+			return provider switch {
+				AiProvider.VolcArk => AiProviderEndpoints.VolcArkCodingBaseUrl,
+				AiProvider.Custom => AiProviderEndpoints.NormalizeBaseUrl(CustomBaseUrl),
+				_ => AiProviderEndpoints.MiniMaxBaseUrl
+			};
+		}
+
+		public void WriteStore(AiProvider provider, string model, string apiKey, string baseUrl = null) {
+			switch (provider) {
+				case AiProvider.VolcArk:
+					VolcArkApiKey = apiKey ?? "";
+					VolcArkModel = string.IsNullOrWhiteSpace(model)
+						? AiProviderEndpoints.VolcArkModelId
+						: model.Trim();
+					break;
+				case AiProvider.Custom:
+					CustomApiKey = apiKey ?? "";
+					CustomModel = (model ?? "").Trim();
+					if (baseUrl != null) {
+						CustomBaseUrl = AiProviderEndpoints.NormalizeBaseUrl(baseUrl);
+					}
+
+					break;
+				default:
+					MiniMaxApiKey = apiKey ?? "";
+					MiniMaxModel = string.IsNullOrWhiteSpace(model)
+						? AiProviderEndpoints.MiniMaxModelId
+						: model.Trim();
+					break;
 			}
 		}
 
@@ -254,7 +308,7 @@ namespace AITownNPCs.Common.Configs
 				return;
 			}
 
-			WriteStore(_uiBoundProvider, Model, ApiKey);
+			WriteStore(_uiBoundProvider, Model, ApiKey, BaseUrl);
 			_uiBoundProvider = Provider;
 			LoadUiFromStore(Provider);
 		}
@@ -262,6 +316,7 @@ namespace AITownNPCs.Common.Configs
 		private void LoadUiFromStore(AiProvider provider) {
 			ApiKey = StoredApiKey(provider);
 			Model = StoredModel(provider);
+			BaseUrl = StoredBaseUrl(provider);
 		}
 
 		private void NormalizeStoredModels() {
@@ -272,6 +327,8 @@ namespace AITownNPCs.Common.Configs
 			if (string.IsNullOrWhiteSpace(VolcArkModel)) {
 				VolcArkModel = AiProviderEndpoints.VolcArkModelId;
 			}
+
+			CustomBaseUrl = AiProviderEndpoints.NormalizeBaseUrl(CustomBaseUrl);
 		}
 
 		private void MigrateLegacyAdditionalData() {
@@ -289,7 +346,9 @@ namespace AITownNPCs.Common.Configs
 					if (panel != null) {
 						ProviderId = panel.Provider == AiProvider.VolcArk
 							? ProviderLabelVolcArk
-							: ProviderLabelMiniMax;
+							: panel.Provider == AiProvider.Custom
+								? ProviderLabelCustom
+								: ProviderLabelMiniMax;
 						if (!string.IsNullOrEmpty(panel.MiniMaxApiKey)) {
 							MiniMaxApiKey = panel.MiniMaxApiKey;
 						}
@@ -313,12 +372,25 @@ namespace AITownNPCs.Common.Configs
 			}
 
 			if (token.Type == JTokenType.Integer) {
-				return token.Value<int>() == (int)AiProvider.VolcArk
-					? ProviderLabelVolcArk
-					: ProviderLabelMiniMax;
+				int value = token.Value<int>();
+				if (value == (int)AiProvider.VolcArk) {
+					return ProviderLabelVolcArk;
+				}
+
+				if (value == (int)AiProvider.Custom) {
+					return ProviderLabelCustom;
+				}
+
+				return ProviderLabelMiniMax;
 			}
 
 			string text = token.ToString() ?? "";
+			if (text.IndexOf("Custom", StringComparison.OrdinalIgnoreCase) >= 0
+			    || text.IndexOf("\u81ea\u5b9a\u4e49", StringComparison.Ordinal) >= 0
+			    || text == "2") {
+				return ProviderLabelCustom;
+			}
+
 			// Legacy saved configs may still use the old Chinese provider label.
 			if (text.IndexOf("Volc", StringComparison.OrdinalIgnoreCase) >= 0
 			    || text.IndexOf("ark", StringComparison.OrdinalIgnoreCase) >= 0

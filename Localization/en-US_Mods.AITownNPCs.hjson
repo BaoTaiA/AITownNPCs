@@ -96,12 +96,17 @@ Config: {
 
 	ProviderId: {
 		Label: Model provider
-		Tooltip: Flat ticks MiniMax / 火山方舟 (not a dropdown); base URL is built-in
+		Tooltip: MiniMax / Volcengine Ark / Custom (OpenAI-compatible). Built-in CN endpoints, or paste any overseas-compatible base URL
 	}
 
 	Provider: {
 		Label: Model provider
-		Tooltip: Flat ticks MiniMax / 火山方舟 (not a dropdown); base URL is built-in
+		Tooltip: MiniMax / Volcengine Ark / Custom (OpenAI-compatible). Built-in CN endpoints, or paste any overseas-compatible base URL
+	}
+
+	BaseUrl: {
+		Label: Base URL
+		Tooltip: OpenAI-compatible root (e.g. https://api.openai.com/v1 or a Google-compatible / proxy gateway). Do not include /chat/completions. Only Custom saves edits; CN providers show the built-in URL
 	}
 
 	Model: {
@@ -188,12 +193,17 @@ Configs: {
 
 		ProviderId: {
 			Label: Model provider
-			Tooltip: Flat ticks, not a dropdown
+			Tooltip: MiniMax / Volcengine Ark / Custom (OpenAI-compatible for overseas models)
 		}
 
 		Provider: {
 			Label: Model provider
-			Tooltip: Flat ticks, not a dropdown
+			Tooltip: MiniMax / Volcengine Ark / Custom (OpenAI-compatible for overseas models)
+		}
+
+		BaseUrl: {
+			Label: Base URL
+			Tooltip: OpenAI-compatible root (e.g. https://api.openai.com/v1); do not include /chat/completions. Only Custom saves edits
 		}
 
 		Model: {
@@ -260,6 +270,21 @@ Configs: {
 			Label: Volc Ark Model
 			Tooltip: ""
 		}
+
+		CustomApiKey: {
+			Label: Custom Api Key
+			Tooltip: ""
+		}
+
+		CustomModel: {
+			Label: Custom Model
+			Tooltip: ""
+		}
+
+		CustomBaseUrl: {
+			Label: Custom Base Url
+			Tooltip: ""
+		}
 	}
 
 	AiProvider: {
@@ -272,6 +297,11 @@ Configs: {
 
 		VolcArk: {
 			Label: Volcengine Ark
+			Tooltip: ""
+		}
+
+		Custom: {
+			Label: Custom (OpenAI-compatible)
 			Tooltip: ""
 		}
 	}
