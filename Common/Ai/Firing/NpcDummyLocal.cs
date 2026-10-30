@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.GameInput;
 
 namespace AITownNPCs.Common.Ai.Firing
@@ -36,11 +37,20 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static Item _savedMouseItem;
 		private static bool _savedMouseLeftRelease;
 		private static bool _savedMouseRightRelease;
-		private static bool _savedSmartCursorWantedMouse;
-		private static bool _savedSmartCursorWantedGamePad;
+		// Globals written by Player.Update / SmartInteract — dummy must not leave them at aim.
+		private static int _savedTileTargetX;
+		private static int _savedTileTargetY;
 		private static bool _savedSmartCursorShowing;
 		private static int _savedSmartCursorX;
 		private static int _savedSmartCursorY;
+		private static bool _savedSmartInteractGenuine;
+		private static bool _savedSmartInteractFake;
+		private static int _savedSmartInteractX;
+		private static int _savedSmartInteractY;
+		private static int _savedSmartInteractNpc;
+		private static int _savedSmartInteractProj;
+		private static bool _savedSmartInteractPotionOfReturn;
+		private static bool _cursorNeedsRefresh;
 
 		public static bool IsRunning => _active;
 
@@ -85,14 +95,8 @@ namespace AITownNPCs.Common.Ai.Firing
 			_savedMouseItem = Main.mouseItem;
 			_savedMouseLeftRelease = Main.mouseLeftRelease;
 			_savedMouseRightRelease = Main.mouseRightRelease;
-			// Freeze player smart-cursor across the dummy window (aim uses aimWorld only).
-			_savedSmartCursorWantedMouse = Main.SmartCursorWanted_Mouse;
-			_savedSmartCursorWantedGamePad = Main.SmartCursorWanted_GamePad;
-			_savedSmartCursorShowing = Main.SmartCursorShowing;
-			_savedSmartCursorX = Main.SmartCursorX;
-			_savedSmartCursorY = Main.SmartCursorY;
-			Main.SmartCursorWanted_Mouse = false;
-			Main.SmartCursorWanted_GamePad = false;
+			CapturePlayerCursor();
+			_cursorNeedsRefresh = true;
 
 			CopyTriggers(SavedCurrent, PlayerInput.Triggers.Current);
 			CopyTriggers(SavedOld, PlayerInput.Triggers.Old);
@@ -157,11 +161,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				Main.screenPosition = _savedScreen;
 				Main.mouseItem = _savedMouseItem ?? new Item();
 				_savedMouseItem = null;
-				Main.SmartCursorWanted_Mouse = _savedSmartCursorWantedMouse;
-				Main.SmartCursorWanted_GamePad = _savedSmartCursorWantedGamePad;
-				Main.SmartCursorShowing = _savedSmartCursorShowing;
-				Main.SmartCursorX = _savedSmartCursorX;
-				Main.SmartCursorY = _savedSmartCursorY;
+				RestorePlayerCursor();
 			}
 			finally {
 				Main.myPlayer = _savedMyPlayer;
@@ -183,8 +183,21 @@ namespace AITownNPCs.Common.Ai.Firing
 				MouseLeft = Main.mouseLeft,
 				MouseRight = Main.mouseRight,
 				MouseLeftRelease = Main.mouseLeftRelease,
-				MouseRightRelease = Main.mouseRightRelease
+				MouseRightRelease = Main.mouseRightRelease,
+				TileTargetX = Player.tileTargetX,
+				TileTargetY = Player.tileTargetY,
+				SmartCursorShowing = Main.SmartCursorShowing,
+				SmartCursorX = Main.SmartCursorX,
+				SmartCursorY = Main.SmartCursorY,
+				SmartInteractGenuine = Main.SmartInteractShowingGenuine,
+				SmartInteractFake = Main.SmartInteractShowingFake,
+				SmartInteractX = Main.SmartInteractX,
+				SmartInteractY = Main.SmartInteractY,
+				SmartInteractNpc = Main.SmartInteractNPC,
+				SmartInteractProj = Main.SmartInteractProj,
+				SmartInteractPotionOfReturn = Main.SmartInteractPotionOfReturn
 			});
+			_cursorNeedsRefresh = true;
 
 			Main.myPlayer = dummyWho;
 			if (AimWorld.TryGetValue(dummyWho, out Vector2 aim)) {
@@ -213,12 +226,73 @@ namespace AITownNPCs.Common.Ai.Firing
 			Main.mouseRight = frame.MouseRight;
 			Main.mouseLeftRelease = frame.MouseLeftRelease;
 			Main.mouseRightRelease = frame.MouseRightRelease;
+			Player.tileTargetX = frame.TileTargetX;
+			Player.tileTargetY = frame.TileTargetY;
+			Main.SmartCursorShowing = frame.SmartCursorShowing;
+			Main.SmartCursorX = frame.SmartCursorX;
+			Main.SmartCursorY = frame.SmartCursorY;
+			Main.SmartInteractShowingGenuine = frame.SmartInteractGenuine;
+			Main.SmartInteractShowingFake = frame.SmartInteractFake;
+			Main.SmartInteractX = frame.SmartInteractX;
+			Main.SmartInteractY = frame.SmartInteractY;
+			Main.SmartInteractNPC = frame.SmartInteractNpc;
+			Main.SmartInteractProj = frame.SmartInteractProj;
+			Main.SmartInteractPotionOfReturn = frame.SmartInteractPotionOfReturn;
 		}
 
 		public static void DrainProjFrames() {
 			while (ProjFrames.Count > 0) {
 				PopForProjectile();
 			}
+		}
+
+		/// <summary>
+		/// After all dummy borrows this frame, recompute the local player's smart cursor / interact
+		/// from the real mouse so highlight and right-click track the player, not aim.
+		/// </summary>
+		public static void RefreshLocalCursorIfNeeded() {
+			if (!_cursorNeedsRefresh || _active || ProjFrames.Count > 0 || Main.dedServ) {
+				return;
+			}
+
+			_cursorNeedsRefresh = false;
+			Player local = Main.LocalPlayer;
+			if (local == null || !local.active) {
+				return;
+			}
+
+			SmartCursorHelper.SmartCursorLookup(local);
+			local.SmartInteractLookup();
+		}
+
+		private static void CapturePlayerCursor() {
+			_savedTileTargetX = Player.tileTargetX;
+			_savedTileTargetY = Player.tileTargetY;
+			_savedSmartCursorShowing = Main.SmartCursorShowing;
+			_savedSmartCursorX = Main.SmartCursorX;
+			_savedSmartCursorY = Main.SmartCursorY;
+			_savedSmartInteractGenuine = Main.SmartInteractShowingGenuine;
+			_savedSmartInteractFake = Main.SmartInteractShowingFake;
+			_savedSmartInteractX = Main.SmartInteractX;
+			_savedSmartInteractY = Main.SmartInteractY;
+			_savedSmartInteractNpc = Main.SmartInteractNPC;
+			_savedSmartInteractProj = Main.SmartInteractProj;
+			_savedSmartInteractPotionOfReturn = Main.SmartInteractPotionOfReturn;
+		}
+
+		private static void RestorePlayerCursor() {
+			Player.tileTargetX = _savedTileTargetX;
+			Player.tileTargetY = _savedTileTargetY;
+			Main.SmartCursorShowing = _savedSmartCursorShowing;
+			Main.SmartCursorX = _savedSmartCursorX;
+			Main.SmartCursorY = _savedSmartCursorY;
+			Main.SmartInteractShowingGenuine = _savedSmartInteractGenuine;
+			Main.SmartInteractShowingFake = _savedSmartInteractFake;
+			Main.SmartInteractX = _savedSmartInteractX;
+			Main.SmartInteractY = _savedSmartInteractY;
+			Main.SmartInteractNPC = _savedSmartInteractNpc;
+			Main.SmartInteractProj = _savedSmartInteractProj;
+			Main.SmartInteractPotionOfReturn = _savedSmartInteractPotionOfReturn;
 		}
 
 		private static void ApplyUseTriggers(bool wantUse, bool wasDown) {
@@ -295,6 +369,18 @@ namespace AITownNPCs.Common.Ai.Firing
 			public bool MouseRight;
 			public bool MouseLeftRelease;
 			public bool MouseRightRelease;
+			public int TileTargetX;
+			public int TileTargetY;
+			public bool SmartCursorShowing;
+			public int SmartCursorX;
+			public int SmartCursorY;
+			public bool SmartInteractGenuine;
+			public bool SmartInteractFake;
+			public int SmartInteractX;
+			public int SmartInteractY;
+			public int SmartInteractNpc;
+			public int SmartInteractProj;
+			public bool SmartInteractPotionOfReturn;
 		}
 	}
 }

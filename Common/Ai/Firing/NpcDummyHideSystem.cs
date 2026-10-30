@@ -2,6 +2,7 @@ using System;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.GameContent;
 using Terraria.GameContent.Achievements;
 using Terraria.ModLoader;
 
@@ -149,6 +150,8 @@ namespace AITownNPCs.Common.Ai.Firing
 			On_Player.ManageSpecialBiomeVisuals += ManageSpecialBiomeVisuals_SkipDummy;
 			On_Player.ItemCheck_PlayInstruments += ItemCheck_PlayInstruments_SkipDummy;
 			On_Player.SmartSelectLookup += SmartSelect_NoDummy;
+			On_Player.SmartInteractLookup += SmartInteract_NoDummy;
+			On_SmartCursorHelper.SmartCursorLookup += SmartCursor_NoDummy;
 			On_Main.DrawMouseOver += DrawMouseOver_NoDummy;
 			On_Main.DrawInterface_14_EntityHealthBars += DrawHealthBars_NoDummy;
 			// Calamity (and similar) hooks DrawPlayer and assumes a fully-sized real player.
@@ -161,6 +164,8 @@ namespace AITownNPCs.Common.Ai.Firing
 		public override void PostUpdateEverything() {
 			NpcDummyPool.LockAllToNpcs();
 			NpcDummyLocal.DrainProjFrames();
+			// After every dummy/projectile borrow, recompute from the real mouse.
+			NpcDummyLocal.RefreshLocalCursorIfNeeded();
 		}
 
 		private static void Update_SkipVanillaDummy(On_Player.orig_Update orig, Player self, int i) {
@@ -231,6 +236,24 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		private static void SmartSelect_NoDummy(On_Player.orig_SmartSelectLookup orig, Player self) {
 			WithDummiesHidden(() => orig(self));
+		}
+
+		/// <summary>Borrowed dummy Update must not run the player's smart cursor.</summary>
+		private static void SmartCursor_NoDummy(On_SmartCursorHelper.orig_SmartCursorLookup orig, Player player) {
+			if (player != null && NpcDummyPool.IsDummy(player.whoAmI)) {
+				return;
+			}
+
+			orig(player);
+		}
+
+		/// <summary>Right-click smart interact is global; dummy aim must not rewrite it.</summary>
+		private static void SmartInteract_NoDummy(On_Player.orig_SmartInteractLookup orig, Player self) {
+			if (self != null && NpcDummyPool.IsDummy(self.whoAmI)) {
+				return;
+			}
+
+			orig(self);
 		}
 
 		private static void DrawMouseOver_NoDummy(On_Main.orig_DrawMouseOver orig, Main self) {
