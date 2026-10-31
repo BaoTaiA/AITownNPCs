@@ -4,7 +4,7 @@ Items: {
 		Tooltip:
 			'''
 			Equip in an NPC's Reinforcement Heart slot
-			+300 max life per heart, stacks up to 20
+			+500 max life per heart, stacks up to 20
 			'''
 	}
 }
@@ -14,7 +14,7 @@ UI: {
 	WeaponSlot: Weapon
 	AmmoSlot: Ammo
 	HeartSlot: Heart
-	HeartSlotOnly: Only Reinforcement Hearts (max 20)
+	HeartSlotOnly: Only Reinforcement Hearts or Life Crystals (max 20)
 	WingSlot: Wings
 	WingSlotOnly: Wings only
 	PotionSlotA: HP

@@ -8,16 +8,22 @@ namespace AITownNPCs.Common.Roles
 	/// <summary>Role-specific item predicates for equip profiles (potions, etc.).</summary>
 	public static class RoleItemRules
 	{
-		/// <summary>Reinforcement Heart slot: only that item, stack 1–10.</summary>
-		public static bool IsReinforcementHeart(Item item) {
+		/// <summary>Heart slot: Reinforcement Heart or Life Crystal, stack 1–20.</summary>
+		public static bool IsHeartSlotItem(Item item) {
 			if (item == null || item.IsAir) {
 				return false;
 			}
 
+			if (item.stack < 1 || item.stack > ReinforcementHeart.MaxEquipStack) {
+				return false;
+			}
+
 			return item.type == ModContent.ItemType<ReinforcementHeart>()
-				&& item.stack >= 1
-				&& item.stack <= ReinforcementHeart.MaxEquipStack;
+				|| item.type == ItemID.LifeCrystal;
 		}
+
+		/// <summary>Legacy name for heart-slot items (Reinforcement Heart or Life Crystal).</summary>
+		public static bool IsReinforcementHeart(Item item) => IsHeartSlotItem(item);
 
 		/// <summary>Nurse HP slot: life potions (combo heal allowed).</summary>
 		public static bool IsLifePotion(Item item) {

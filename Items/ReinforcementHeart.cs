@@ -8,7 +8,7 @@ namespace AITownNPCs.Items
 	public class ReinforcementHeart : ModItem
 	{
 		public const int MaxEquipStack = 20;
-		public const int LifePerStack = 300;
+		public const int LifePerStack = 500;
 
 		public override void SetStaticDefaults() {
 			Main.RegisterItemAnimation(Type, new DrawAnimationVertical(6, 6));

@@ -4,7 +4,7 @@ Items: {
 		Tooltip:
 			'''
 			装备于 NPC「强化之心」槽
-			每枚提供 +300 生命上限，最多叠加 20
+			每枚提供 +500 生命上限，最多叠加 20
 			'''
 	}
 }
@@ -14,7 +14,7 @@ UI: {
 	WeaponSlot: 武器
 	AmmoSlot: 弹药
 	HeartSlot: 强化之心
-	HeartSlotOnly: 只能放入强化之心（最多 20 个）
+	HeartSlotOnly: 只能放入强化之心或生命水晶（最多 20 个）
 	WingSlot: 翅膀
 	WingSlotOnly: 只能放入翅膀
 	PotionSlotA: HP

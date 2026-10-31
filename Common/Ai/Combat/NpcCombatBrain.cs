@@ -9,7 +9,7 @@ namespace AITownNPCs.Common.Ai.Combat
 {
 	public static class NpcCombatBrain
 	{
-		public const int BossClearFrames = 300;
+		public const int BossClearFrames = 120;
 		public const int TargetAcquireInterval = 8;
 
 		public static bool ShouldRunFollow(NPC npc, NpcCombatState state) {

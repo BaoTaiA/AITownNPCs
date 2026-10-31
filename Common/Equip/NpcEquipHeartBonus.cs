@@ -1,5 +1,6 @@
 using System;
 using AITownNPCs.Common.Host;
+using AITownNPCs.Common.Roles;
 using AITownNPCs.Items;
 using Terraria;
 using Terraria.ID;
@@ -8,11 +9,13 @@ using Terraria.ModLoader;
 namespace AITownNPCs.Common.Equip
 {
 	/// <summary>
-	/// Applies Reinforcement Heart slot bonus: +300 lifeMax per stack (max 20).
+	/// Heart slot bonus: Reinforcement Heart +500 / Life Crystal +150 per stack (max 20).
 	/// Only NPCs whose profile exposes the Heart slot (any index).
 	/// </summary>
 	public class NpcEquipHeartBonus : GlobalNPC
 	{
+		public const int LifeCrystalLifePerStack = 150;
+
 		public override bool InstancePerEntity => true;
 
 		private int _baseLifeMax;
@@ -39,11 +42,16 @@ namespace AITownNPCs.Common.Equip
 
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
 			Item heart = equip.GetSlot((NpcEquipSlotId)heartIndex);
-			if (heart.IsAir || heart.type != ModContent.ItemType<ReinforcementHeart>()) {
+			if (heart.IsAir || !RoleItemRules.IsHeartSlotItem(heart)) {
 				return 0;
 			}
 
-			return Math.Clamp(heart.stack, 0, ReinforcementHeart.MaxEquipStack) * ReinforcementHeart.LifePerStack;
+			int stack = Math.Clamp(heart.stack, 0, ReinforcementHeart.MaxEquipStack);
+			if (heart.type == ItemID.LifeCrystal) {
+				return stack * LifeCrystalLifePerStack;
+			}
+
+			return stack * ReinforcementHeart.LifePerStack;
 		}
 
 		public static bool ProfileHasHeartSlot(int npcType) {

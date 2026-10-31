@@ -90,7 +90,7 @@ namespace AITownNPCs.Common.Equip
 			return new NpcEquipSlotDef {
 				SlotId = slotId,
 				LabelKey = HeartSlotLabelKey,
-				IsAllowed = (item, _) => RoleItemRules.IsReinforcementHeart(item),
+				IsAllowed = (item, _) => RoleItemRules.IsHeartSlotItem(item),
 				RejectMessage = _ => Language.GetTextValue("Mods.AITownNPCs.UI.HeartSlotOnly")
 			};
 		}
