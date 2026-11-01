@@ -170,6 +170,65 @@ namespace AITownNPCs.Common.Ai.Firing
 			return _ownsCache.Contains(dummyWho);
 		}
 
+		/// <summary>
+		/// True if this NPC still has a leased dummy or tagged weapon projectiles to clear.
+		/// </summary>
+		public static bool HasLiveCombatResidue(int npcWhoAmI) {
+			if (npcWhoAmI < 0) {
+				return false;
+			}
+
+			if (TryGetDummyWho(npcWhoAmI, out int dummyWho) && IsDummy(dummyWho)) {
+				return true;
+			}
+
+			for (int i = 0; i < Main.maxProjectiles; i++) {
+				Projectile proj = Main.projectile[i];
+				if (proj == null || !proj.active) {
+					continue;
+				}
+
+				NpcWeaponProjectile tag = proj.GetGlobalProjectile<NpcWeaponProjectile>();
+				if (tag.FromNpcWeapon && tag.FollowNpcWhoAmI == npcWhoAmI) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Kill every projectile tied to this town NPC's dummy (owner or FromNpcWeapon tag).
+		/// Used on combat stop so the dummy can unbind immediately.
+		/// Never kills by owner unless the slot is a confirmed dummy (avoids player 0).
+		/// </summary>
+		public static void KillNpcOwnedProjectiles(int npcWhoAmI) {
+			if (npcWhoAmI < 0) {
+				return;
+			}
+
+			bool hasDummy = TryGetDummyWho(npcWhoAmI, out int dummyWho) && IsDummy(dummyWho);
+			for (int i = 0; i < Main.maxProjectiles; i++) {
+				Projectile proj = Main.projectile[i];
+				if (proj == null || !proj.active) {
+					continue;
+				}
+
+				if (hasDummy && proj.owner == dummyWho) {
+					proj.Kill();
+					continue;
+				}
+
+				NpcWeaponProjectile tag = proj.GetGlobalProjectile<NpcWeaponProjectile>();
+				if (tag.FromNpcWeapon && tag.FollowNpcWhoAmI == npcWhoAmI) {
+					proj.Kill();
+				}
+			}
+
+			_ownsCacheTick = -1;
+			_ownsCache.Clear();
+		}
+
 		public static bool TryGetNpcWho(int dummyWho, out int npcWhoAmI) {
 			return DummyToNpc.TryGetValue(dummyWho, out npcWhoAmI);
 		}

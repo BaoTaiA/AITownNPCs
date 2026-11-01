@@ -168,8 +168,12 @@ namespace AITownNPCs.Common.Ai.Firing
 			if (NpcDummyPool.TryGetDummy(npcWhoAmI, out Player dummy) && dummy != null) {
 				dummy.controlUseItem = false;
 				dummy.channel = false;
+				dummy.itemAnimation = 0;
+				dummy.itemTime = 0;
+				dummy.heldProj = -1;
 			}
 
+			NpcDummyPool.KillNpcOwnedProjectiles(npcWhoAmI);
 			NpcDummyPool.ForceRelease(npcWhoAmI);
 		}
 

@@ -1,5 +1,6 @@
 using AITownNPCs.Common.Ai.Combat.Boss;
 using AITownNPCs.Common.Ai.Combat.Normal;
+using AITownNPCs.Common.Ai.Firing;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Host;
@@ -150,10 +151,6 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
-			if (Main.netMode == Terraria.ID.NetmodeID.MultiplayerClient) {
-				return;
-			}
-
 			NpcCombatState state = npc.GetGlobalNPC<NpcCombatState>();
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
 
@@ -161,6 +158,16 @@ namespace AITownNPCs.Common.Ai.Combat
 			if (!profile.CombatEnabled) {
 				NpcCombatFire.Stop(npc);
 				state.EnterFollowOnly();
+				return;
+			}
+
+			// Clients do not drive combat fire (intents do). They still must Stop on
+			// FollowOnly when residue remains so summons / dummy arms unbind.
+			if (Main.netMode == Terraria.ID.NetmodeID.MultiplayerClient) {
+				if (state.Mode == NpcCombatMode.FollowOnly) {
+					StopFollowOnlyIfNeeded(npc, state);
+				}
+
 				return;
 			}
 
@@ -193,11 +200,18 @@ namespace AITownNPCs.Common.Ai.Combat
 					break;
 				}
 				default:
-					NpcCombatFire.Stop(npc);
-					state.UseCombatFlight = false;
-					state.HasEngagedTarget = false;
+					StopFollowOnlyIfNeeded(npc, state);
 					break;
 			}
+		}
+
+		private static void StopFollowOnlyIfNeeded(NPC npc, NpcCombatState state) {
+			if (NpcDummyPool.HasLiveCombatResidue(npc.whoAmI)) {
+				NpcCombatFire.Stop(npc);
+			}
+
+			state.UseCombatFlight = false;
+			state.HasEngagedTarget = false;
 		}
 
 		public static void SuppressVanillaTownAttack(NPC npc, ref int cooldown, ref int randExtraCooldown) {
