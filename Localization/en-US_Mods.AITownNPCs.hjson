@@ -13,7 +13,7 @@ UI: {
 	Equip: Equip
 	WeaponSlot: Weapon
 	AmmoSlot: Ammo
-	HeartSlot: Heart
+	HeartSlot: HP
 	HeartSlotOnly: Only Reinforcement Hearts or Life Crystals (max 20)
 	WingSlot: Wings
 	WingSlotOnly: Wings only

@@ -13,7 +13,7 @@ UI: {
 	Equip: 装备
 	WeaponSlot: 武器
 	AmmoSlot: 弹药
-	HeartSlot: 强化之心
+	HeartSlot: 血量
 	HeartSlotOnly: 只能放入强化之心或生命水晶（最多 20 个）
 	WingSlot: 翅膀
 	WingSlotOnly: 只能放入翅膀
