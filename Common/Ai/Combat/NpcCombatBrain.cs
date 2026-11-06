@@ -12,6 +12,8 @@ namespace AITownNPCs.Common.Ai.Combat
 	{
 		public const int BossClearFrames = 120;
 		public const int TargetAcquireInterval = 8;
+		/// <summary>Brief occlusion keeps normal engagement; firing still needs LOS.</summary>
+		public const int SightGraceFrames = 45;
 
 		public static bool ShouldRunFollow(NPC npc, NpcCombatState state) {
 			if (npc == null || state == null) {
@@ -109,6 +111,7 @@ namespace AITownNPCs.Common.Ai.Combat
 				state.Mode = NpcCombatMode.Normal;
 				state.CachedTargetWhoAmI = target.whoAmI;
 				state.HasEngagedTarget = true;
+				state.LastLosGameTick = Main.GameUpdateCount;
 				return;
 			}
 
@@ -134,7 +137,19 @@ namespace AITownNPCs.Common.Ai.Combat
 				}
 
 				NPC sticky = NpcNormalCombat.GetCachedIfValid(npc, state);
-				if (sticky != null && player.Distance(sticky.Center) <= NpcNormalCombat.StickyRadius) {
+				if (sticky == null || player.Distance(sticky.Center) > NpcNormalCombat.StickyRadius) {
+					return false;
+				}
+
+				if (NpcCombatFire.HasLineOfSight(npc, sticky)) {
+					state.LastLosGameTick = Main.GameUpdateCount;
+					state.HasEngagedTarget = true;
+					return true;
+				}
+
+				// SightGrace: keep fight ownership while occluded; do not acquire wall-only foes.
+				if (state.LastLosGameTick > 0
+					&& Main.GameUpdateCount - state.LastLosGameTick < SightGraceFrames) {
 					state.HasEngagedTarget = true;
 					return true;
 				}

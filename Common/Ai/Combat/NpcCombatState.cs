@@ -25,6 +25,8 @@ namespace AITownNPCs.Common.Ai.Combat
 		public bool UseCombatFlight;
 		/// <summary>Frames until next full acquire scan (boss + normal).</summary>
 		public int TargetRefreshTicks;
+		/// <summary>GameUpdateCount when normal target last had clear LOS (SightGrace debounce).</summary>
+		public uint LastLosGameTick;
 
 		/// <summary>True while a boss or a normal target is engaged. Follow still moves during normal fights.</summary>
 		public bool CombatControlsLocomotion =>
@@ -100,6 +102,7 @@ namespace AITownNPCs.Common.Ai.Combat
 			CachedTargetWhoAmI = -1;
 			HasEngagedTarget = false;
 			UseCombatFlight = false;
+			LastLosGameTick = 0;
 		}
 
 		public void ClearBossLock() {

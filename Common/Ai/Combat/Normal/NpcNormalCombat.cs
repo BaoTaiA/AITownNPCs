@@ -56,10 +56,8 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 		}
 
 		private static NPC FindNearestAroundPlayer(NPC npc, Player player, float radius) {
-			NPC bestLos = null;
-			float bestLosDist = radius;
-			NPC bestAny = null;
-			float bestAnyDist = radius;
+			NPC best = null;
+			float bestDist = radius;
 
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC other = Main.npc[i];
@@ -68,23 +66,20 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 				}
 
 				float dist = player.Distance(other.Center);
-				if (dist >= radius) {
+				if (dist >= bestDist) {
 					continue;
 				}
 
-				if (dist < bestAnyDist) {
-					bestAnyDist = dist;
-					bestAny = other;
+				// Never lock a foe we cannot shoot — matches Palico Valid/Clear.
+				if (!NpcCombatFire.HasLineOfSight(npc, other)) {
+					continue;
 				}
 
-				if (dist < bestLosDist && NpcCombatFire.HasLineOfSight(npc, other)) {
-					bestLosDist = dist;
-					bestLos = other;
-				}
+				bestDist = dist;
+				best = other;
 			}
 
-			// Prefer a visible target even if slightly farther than one behind a wall.
-			return bestLos ?? bestAny;
+			return best;
 		}
 
 		public static bool IsChaseable(NPC npc, NPC other) {
