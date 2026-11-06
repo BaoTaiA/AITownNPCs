@@ -17,8 +17,8 @@ namespace AITownNPCs.Common.ChatLog
 {
 	public class ChatLogWorldSystem : ModSystem
 	{
-		public const int MaxPublic = 1000;
-		public const int MaxFollowPerPlayer = 500;
+		public const int MaxPublic = 100;
+		public const int MaxFollowPerPlayer = 50;
 		private const int ChunkSize = 24;
 
 		private static readonly List<ChatLogEntry> PublicEntries = new();
@@ -116,6 +116,19 @@ namespace AITownNPCs.Common.ChatLog
 			}
 
 			BumpNextIdFromLoaded();
+			TrimToCaps();
+		}
+
+		private static void TrimToCaps() {
+			while (PublicEntries.Count > MaxPublic) {
+				PublicEntries.RemoveAt(0);
+			}
+
+			foreach (List<ChatLogEntry> list in FollowByPlayerId.Values) {
+				while (list.Count > MaxFollowPerPlayer) {
+					list.RemoveAt(0);
+				}
+			}
 		}
 
 		private static void BumpNextIdFromLoaded() {

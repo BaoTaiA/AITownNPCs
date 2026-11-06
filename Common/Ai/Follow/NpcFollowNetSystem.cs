@@ -124,6 +124,11 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
+			if (!(AinpcServerConfig.Instance?.FollowEnabled ?? false)) {
+				NotifyPlayer(playerWhoAmI, "Mods.AITownNPCs.Follow.Disabled");
+				return;
+			}
+
 			AinpcServerConfig config = AinpcServerConfig.Instance;
 			float range = config.FollowTriggerDistancePixels;
 			NPC best = null;

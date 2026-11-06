@@ -6,7 +6,7 @@ namespace AITownNPCs.Common.ChatLog
 	/// <summary>Client-side follow-channel lines and unread state for the chat tabs.</summary>
 	public static class ChatLogClientBuffer
 	{
-		public const int MaxFollowLocal = 500;
+		public const int MaxFollowLocal = 50;
 
 		private static readonly List<ChatLogEntry> Follow = new();
 		private static readonly HashSet<long> SeenIds = new();

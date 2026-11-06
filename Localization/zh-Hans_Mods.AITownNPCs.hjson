@@ -45,6 +45,7 @@ UI: {
 Follow: {
 	Start: "{0}；开始跟随（{1}）"
 	Stop: "{0}；停止跟随（{1}）"
+	Disabled: NPC跟随功能已关闭
 	NoNpcNearby: 附近没有可跟随的 NPC（靠近后再说「跟着我」）
 	NoFollower: 当前没有 NPC 在跟随你
 	NpcBusy: 该 NPC 正在跟随其他玩家
@@ -62,6 +63,11 @@ Config: {
 		Follow: 对话跟随
 		Ai: AI 对话
 		Superpower: NPC 超能力
+	}
+
+	FollowEnabled: {
+		Label: 是否启用跟随
+		Tooltip: 关闭后无法让 NPC 跟随；可在游戏中随时开关，关闭时已有跟随会立刻解除。不影响 AI 对话与超能力
 	}
 
 	FollowTriggerDistance: {
@@ -165,6 +171,11 @@ Buffs: {
 Configs: {
 	AinpcServerConfig: {
 		DisplayName: AI Town NPCs 服务器配置
+
+		FollowEnabled: {
+			Label: 是否启用跟随
+			Tooltip: 关闭后无法跟随；游戏中可随时开关，关闭时解除已有跟随。不影响 AI 对话与超能力
+		}
 
 		FollowTriggerDistance: {
 			Label: 跟随/对话距离

@@ -45,6 +45,7 @@ UI: {
 Follow: {
 	Start: "{0}; started following ({1})"
 	Stop: "{0}; stopped following ({1})"
+	Disabled: NPC follow is disabled
 	NoNpcNearby: No followable NPC nearby — stand closer and say the start keyword
 	NoFollower: No NPC is following you
 	NpcBusy: This NPC is already following another player
@@ -62,6 +63,11 @@ Config: {
 		Follow: Dialogue Follow
 		Ai: AI Chat
 		Superpower: NPC Superpowers
+	}
+
+	FollowEnabled: {
+		Label: Enable NPC Follow
+		Tooltip: When off, NPCs cannot follow. Toggle anytime in-game; existing follows end immediately. Does not affect AI chat or superpowers
 	}
 
 	FollowTriggerDistance: {
@@ -165,6 +171,11 @@ Buffs: {
 Configs: {
 	AinpcServerConfig: {
 		DisplayName: AI Town NPCs Server Config
+
+		FollowEnabled: {
+			Label: Enable NPC Follow
+			Tooltip: When off, follow is blocked; toggle anytime — existing follows end immediately. AI chat and superpowers unaffected
+		}
 
 		FollowTriggerDistance: {
 			Label: Follow / chat distance

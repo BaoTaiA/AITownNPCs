@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.Serialization;
 using AITownNPCs.Common.Ai.Chat;
+using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Configs.UI;
 using AITownNPCs.Common.Loc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 
@@ -53,6 +56,9 @@ namespace AITownNPCs.Common.Configs
 		public static AinpcServerConfig Instance => ModContent.GetInstance<AinpcServerConfig>();
 
 		[Header("$Mods.AITownNPCs.Config.Headers.Follow")]
+		[DefaultValue(false)]
+		public bool FollowEnabled = false;
+
 		[DefaultValue(FollowChatDistance.D200)]
 		[DrawTicks]
 		public FollowChatDistance FollowTriggerDistance = FollowChatDistance.D200;
@@ -220,6 +226,25 @@ namespace AITownNPCs.Common.Configs
 			WriteStore(_uiBoundProvider, Model, ApiKey, BaseUrl);
 			NormalizeStoredModels();
 			NpcAiChatSystem.OnConfigChangedRestartProbe();
+			StopAllFollowsIfDisabled();
+		}
+
+		private void StopAllFollowsIfDisabled() {
+			if (FollowEnabled || Main.netMode == NetmodeID.MultiplayerClient) {
+				return;
+			}
+
+			for (int i = 0; i < Main.maxNPCs; i++) {
+				NPC npc = Main.npc[i];
+				if (!npc.active) {
+					continue;
+				}
+
+				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+				if (follow.IsFollowing) {
+					NpcFollowNetSystem.StopFollow(npc, announce: false);
+				}
+			}
 		}
 
 		/// <summary>
