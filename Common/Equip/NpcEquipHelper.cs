@@ -1,4 +1,3 @@
-using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Host;
 using Terraria;
 using Terraria.ID;
@@ -10,9 +9,6 @@ namespace AITownNPCs.Common.Equip
 	public static class NpcEquipHelper
 	{
 		public const float InteractDistance = 200f;
-		public const float AttackRange = 700f;
-		public const float MeleeEngageRange = 112f;
-		public const float MeleeProjectileRange = 400f;
 		public const float FacingDeadzone = 16f;
 
 		public static bool IsAllowedWeapon(Item item) {
@@ -21,15 +17,6 @@ namespace AITownNPCs.Common.Equip
 
 		public static bool IsAllowedWing(Item item) {
 			return item != null && !item.IsAir && item.wingSlot > 0;
-		}
-
-		public static float GetEngageRange(Item weapon) {
-			WeaponStance stance = NpcWeaponStance.Resolve(weapon);
-			return stance.Band switch {
-				StanceBand.MeleeHug => MeleeEngageRange,
-				StanceBand.MeleeReach => MeleeProjectileRange,
-				_ => System.Math.Max(stance.IdealDistance * 1.15f, AttackRange * 0.8f)
-			};
 		}
 
 		public static string GetWeaponRejectedMessage(Item item) {

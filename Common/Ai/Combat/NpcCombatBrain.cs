@@ -12,16 +12,6 @@ namespace AITownNPCs.Common.Ai.Combat
 	{
 		public const int BossClearFrames = 120;
 		public const int TargetAcquireInterval = 8;
-		/// <summary>Brief occlusion keeps normal engagement; firing still needs LOS.</summary>
-		public const int SightGraceFrames = 45;
-
-		public static bool ShouldRunFollow(NPC npc, NpcCombatState state) {
-			if (npc == null || state == null) {
-				return true;
-			}
-
-			return state.Mode != NpcCombatMode.Boss;
-		}
 
 		public static void EvaluateMode(NPC npc) {
 			if (!NpcHostRules.IsManagedTownNpc(npc)) {
@@ -111,7 +101,6 @@ namespace AITownNPCs.Common.Ai.Combat
 				state.Mode = NpcCombatMode.Normal;
 				state.CachedTargetWhoAmI = target.whoAmI;
 				state.HasEngagedTarget = true;
-				state.LastLosGameTick = Main.GameUpdateCount;
 				return;
 			}
 
@@ -136,21 +125,15 @@ namespace AITownNPCs.Common.Ai.Combat
 					return false;
 				}
 
-				NPC sticky = NpcNormalCombat.GetCachedIfValid(npc, state);
-				if (sticky == null || player.Distance(sticky.Center) > NpcNormalCombat.StickyRadius) {
+				NpcCombatTargeting targeting = state.Targeting;
+				if (targeting.Current == null) {
 					return false;
 				}
 
-				if (NpcCombatFire.HasLineOfSight(npc, sticky)) {
-					state.LastLosGameTick = Main.GameUpdateCount;
+				// Retain between full Select scans: clear track or SightGrace Obscured hold.
+				if (targeting.Holding || targeting.InTrackingReach(player, npc.Center)) {
 					state.HasEngagedTarget = true;
-					return true;
-				}
-
-				// SightGrace: keep fight ownership while occluded; do not acquire wall-only foes.
-				if (state.LastLosGameTick > 0
-					&& Main.GameUpdateCount - state.LastLosGameTick < SightGraceFrames) {
-					state.HasEngagedTarget = true;
+					state.CachedTargetWhoAmI = targeting.Current.whoAmI;
 					return true;
 				}
 
@@ -196,16 +179,13 @@ namespace AITownNPCs.Common.Ai.Combat
 						NpcNormalCombat.TickFire(npc, equip, state);
 					}
 					else {
-						state.UseCombatFlight = false;
 						NpcCombatFire.Tick(npc, equip, target: null, allowFire: false);
 					}
 
 					break;
 				}
 				case NpcCombatMode.Boss: {
-					NpcBossMove.Tick(npc, state);
-					bool alive = NpcBossCombat.GetLockedBoss(state) != null;
-					if (alive) {
+					if (state.HasEngagedTarget && NpcBossCombat.GetLockedBoss(state) != null) {
 						NpcBossCombat.TickFire(npc, equip, state);
 					}
 					else {
@@ -225,7 +205,6 @@ namespace AITownNPCs.Common.Ai.Combat
 				NpcCombatFire.Stop(npc);
 			}
 
-			state.UseCombatFlight = false;
 			state.HasEngagedTarget = false;
 		}
 

@@ -22,15 +22,6 @@ namespace AITownNPCs.Common.Ai.Combat
 			return true;
 		}
 
-		public static bool HasLineOfSight(NPC from, NPC target) {
-			if (from == null || target == null || !from.active || !target.active) {
-				return false;
-			}
-
-			return Collision.CanHit(from, target)
-				|| Collision.CanHitLine(from.Center, 1, 1, target.Center, 1, 1);
-		}
-
 		public static void ApplyFacing(NPC npc, Vector2 aimWorld) {
 			float dx = aimWorld.X - npc.Center.X;
 			int dir = npc.direction;
@@ -61,7 +52,8 @@ namespace AITownNPCs.Common.Ai.Combat
 				&& target != null
 				&& target.active
 				&& CanFireWeapon(equip)
-				&& HasLineOfSight(npc, target);
+				&& NpcWeaponReach.CanUse(npc, equip.Weapon, target)
+				&& NpcWeaponReach.Clear(npc.Center, target.Center);
 
 			if (target != null && target.active) {
 				AimAtTarget(npc, combat, equip, target);
@@ -81,16 +73,10 @@ namespace AITownNPCs.Common.Ai.Combat
 		}
 
 		private static void AimAtTarget(NPC npc, NpcCombatState combat, EquippedTownNPC equip, NPC target) {
-			WeaponStance stance = NpcWeaponStance.Resolve(equip.Weapon);
-			float dx = target.Center.X - npc.Center.X;
-			float elev = stance.AimElevation;
-			Vector2 aim = target.Center;
-			if (elev > 0f) {
-				aim.Y -= elev * System.Math.Abs(dx);
-			}
-
+			Vector2 hand = NpcWeaponReach.HandPoint(npc);
+			Vector2 aim = NpcWeaponReach.AimPoint(equip.Weapon, hand, target);
 			ApplyFacing(npc, aim);
-			combat.ItemRotation = (aim - npc.Center).ToRotation();
+			combat.ItemRotation = (aim - hand).ToRotation();
 		}
 	}
 }

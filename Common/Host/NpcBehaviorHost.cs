@@ -9,7 +9,7 @@ namespace AITownNPCs.Common.Host
 {
 	/// <summary>
 	/// While following: PreAI skips vanilla town AI; PostAI runs
-	/// EvaluateMode → Follow (skipped only while a boss owns locomotion) → Role → Combat.Tick.
+	/// EvaluateMode → Follow → Role → Combat.Tick (Boss and Normal share follow locomotion).
 	/// Role.IsBusy pauses combat (e.g. nurse throw / dryad ward).
 	/// </summary>
 	public class NpcBehaviorHost : GlobalNPC
@@ -48,15 +48,8 @@ namespace AITownNPCs.Common.Host
 				return;
 			}
 
-			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
 			NpcCombatBrain.EvaluateMode(npc);
-
-			if (NpcCombatBrain.ShouldRunFollow(npc, combat)) {
-				NpcFollowAI.Update(npc);
-			}
-			else {
-				NpcFollowAI.UpdateCombatPaused(npc);
-			}
+			NpcFollowAI.Update(npc);
 
 			NpcRoleRegistry.Update(npc);
 			if (!NpcRoleRegistry.IsBusy(npc)) {

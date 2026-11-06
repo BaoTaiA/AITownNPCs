@@ -1,4 +1,5 @@
 using AITownNPCs.Common.Ai.Combat.Normal;
+using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -8,8 +9,14 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 {
 	public static class NpcBossCombat
 	{
-		/// <summary>Drop the lock when the followed player is farther than this from the boss.</summary>
-		public const float PlayerKeepRadius = 4000f;
+		/// <summary>Boss-part link search around the locked root (not the de-aggro leash).</summary>
+		public const float PartLinkRadius = 4000f;
+
+		/// <summary>Drop Boss lock when the follow player is farther than this from the boss (150 tiles).</summary>
+		public const float PlayerKeepRadius = 2400f;
+
+		/// <summary>Beyond this from the boss, force Stand approach (no ranged hold-in-place). 40 tiles.</summary>
+		public const float ChaseForceDist = 640f;
 
 		/// <summary>Parts without a reliable realLife link to the boss root (vanilla).</summary>
 		private static bool IsKnownBossPartType(int type) =>
@@ -179,13 +186,16 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			}
 
 			// Known vanilla parts that may not set realLife (Golem fists/head, Moon Lord eyes, …).
-			return IsKnownBossPartType(part.type) && part.Distance(locked.Center) <= PlayerKeepRadius;
+			return IsKnownBossPartType(part.type) && part.Distance(locked.Center) <= PartLinkRadius;
 		}
 
 		public static void TickFire(NPC npc, EquippedTownNPC equip, NpcCombatState combat) {
 			NPC locked = GetLockedBoss(combat);
 			NPC target = ResolveFireTarget(npc, locked);
-			NpcCombatFire.Tick(npc, equip, target, allowFire: target != null);
+			bool allowFire = target != null
+				&& NpcWeaponReach.CanUse(npc, equip.Weapon, target)
+				&& NpcWeaponReach.Clear(npc.Center, target.Center);
+			NpcCombatFire.Tick(npc, equip, target, allowFire);
 		}
 	}
 }

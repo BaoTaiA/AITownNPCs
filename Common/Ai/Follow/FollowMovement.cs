@@ -1,5 +1,6 @@
 using System;
 using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Ai.Combat.Boss;
 using AITownNPCs.Common.Ai.Combat.Normal;
 using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Configs;
@@ -38,7 +39,11 @@ namespace AITownNPCs.Common.Ai.Follow
 
 		public static void Tick(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer, ref int farTimer) {
 			// Clients predict locomotion only; server owns teleports.
-			bool allowTeleport = Main.netMode != NetmodeID.MultiplayerClient;
+			// Boss fight: chase boss via Stand (same as Normal). Do not recall-teleport to the
+			// player; de-aggro is EvaluateMode when the player exceeds follow-lost from the boss.
+			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+			bool bossFight = combat != null && combat.Mode == NpcCombatMode.Boss && combat.HasEngagedTarget;
+			bool allowTeleport = Main.netMode != NetmodeID.MultiplayerClient && !bossFight;
 
 			float distToPlayer = Vector2.Distance(npc.Center, player.Center);
 			if (allowTeleport && distToPlayer > TeleportDistance) {
@@ -49,7 +54,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			// Soft recall: own config (not chat/follow-start range × 4).
-			if (distToPlayer > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels) {
+			if (!bossFight && distToPlayer > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels) {
 				farTimer++;
 				if (allowTeleport && farTimer > 300) {
 					TeleportNearPlayer(npc, player);
@@ -148,12 +153,17 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 
 				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-				WeaponStance stance = NpcWeaponStance.Resolve(equip?.Weapon);
-				Vector2 anchor = ComputeAnchor(npc, foe, stance);
-				bool mustHug = stance.PreferMeleeHug || stance.Band == StanceBand.MeleeHug;
-				bool canShoot = !mustHug
-					&& npc.Distance(foe.Center) <= stance.MaxFireDistance
-					&& NpcCombatFire.HasLineOfSight(npc, foe);
+				NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+				if (combat.Targeting.Holding) {
+					NpcWingFlight.Apply(npc, npc.Center, ref stuckTimer);
+					return;
+				}
+
+				Vector2 anchor = CombatStandAnchor(combat, equip?.Weapon, npc, foe);
+				bool forceChase = MustForceBossChase(combat, npc, foe);
+				bool canShoot = !forceChase
+					&& NpcWeaponReach.CanUse(npc, equip?.Weapon, foe)
+					&& NpcWeaponReach.Clear(npc.Center, foe.Center);
 				if (canShoot) {
 					Vector2 hold = new Vector2(anchor.X, npc.Center.Y);
 					if (Math.Abs(npc.Center.X - hold.X) <= TileSize) {
@@ -189,15 +199,21 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 				else {
 					EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-					WeaponStance stance = NpcWeaponStance.Resolve(equip?.Weapon);
-					Vector2 anchor = ComputeAnchor(npc, target, stance);
-					StepToward(npc, follow, anchor.X, MaxSpeedX, ref stuckTimer);
-					bool mustHug = stance.PreferMeleeHug || stance.Band == StanceBand.MeleeHug;
-					bool canShoot = !mustHug
-						&& npc.Distance(target.Center) <= stance.MaxFireDistance
-						&& NpcCombatFire.HasLineOfSight(npc, target);
-					if (!canShoot) {
-						TryPlatformStep(npc, follow, anchor);
+					NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+					if (combat.Targeting.Holding) {
+						stuckTimer = 0;
+						BrakeHorizontal(npc);
+					}
+					else {
+						Vector2 anchor = CombatStandAnchor(combat, equip?.Weapon, npc, target);
+						StepToward(npc, follow, anchor.X, MaxSpeedX, ref stuckTimer);
+						bool forceChase = MustForceBossChase(combat, npc, target);
+						bool canShoot = !forceChase
+							&& NpcWeaponReach.CanUse(npc, equip?.Weapon, target)
+							&& NpcWeaponReach.Clear(npc.Center, target.Center);
+						if (!canShoot) {
+							TryPlatformStep(npc, follow, anchor);
+						}
 					}
 				}
 			}
@@ -519,7 +535,16 @@ namespace AITownNPCs.Common.Ai.Follow
 		private static bool TryGetChaseTarget(NPC npc, out NPC target) {
 			target = null;
 			NpcCombatState state = npc.GetGlobalNPC<NpcCombatState>();
-			if (state == null || state.Mode == NpcCombatMode.Boss || !state.HasEngagedTarget) {
+			if (state == null || !state.HasEngagedTarget) {
+				return false;
+			}
+
+			if (state.Mode == NpcCombatMode.Boss) {
+				target = NpcBossCombat.ResolveFireTarget(npc, NpcBossCombat.GetLockedBoss(state));
+				return target != null;
+			}
+
+			if (state.Mode != NpcCombatMode.Normal) {
 				return false;
 			}
 
@@ -527,27 +552,14 @@ namespace AITownNPCs.Common.Ai.Follow
 			return target != null;
 		}
 
-		/// <summary>Stop distance from the equipped weapon. Same bands the old normal move used.</summary>
-		public static Vector2 ComputeAnchor(NPC npc, NPC target, WeaponStance stance) {
-			float ideal = stance.IdealDistance;
-			Vector2 away = npc.Center - target.Center;
-			away.Y = 0f;
-			if (away.LengthSquared() < 0.01f) {
-				away = new Vector2(-npc.direction, 0f);
-			}
+		static bool MustForceBossChase(NpcCombatState combat, NPC npc, NPC foe) =>
+			combat != null
+			&& combat.Mode == NpcCombatMode.Boss
+			&& foe != null
+			&& npc.Distance(foe.Center) > NpcBossCombat.ChaseForceDist;
 
-			away.Normalize();
-			float dist = npc.Distance(target.Center);
-			if (dist < ideal * 0.7f) {
-				return target.Center + away * ideal;
-			}
-
-			if (dist > ideal * 1.3f) {
-				return target.Center + away * ideal * 0.85f;
-			}
-
-			return new Vector2(npc.Center.X, target.Center.Y);
-		}
+		static Vector2 CombatStandAnchor(NpcCombatState combat, Item weapon, NPC npc, NPC foe) =>
+			NpcWeaponReach.Stand(weapon, npc, foe, holdInRange: !MustForceBossChase(combat, npc, foe));
 
 		private static void FaceAlongTravel(NPC npc, FollowingTownNPC follow) {
 			int dir;

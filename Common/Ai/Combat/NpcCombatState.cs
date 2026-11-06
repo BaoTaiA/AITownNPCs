@@ -1,4 +1,5 @@
 using System.IO;
+using AITownNPCs.Common.Ai.Combat.Normal;
 using Terraria;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -22,16 +23,15 @@ namespace AITownNPCs.Common.Ai.Combat
 		public int BossClearTicks;
 		public int CachedTargetWhoAmI = -1;
 		public bool HasEngagedTarget;
-		public bool UseCombatFlight;
 		/// <summary>Frames until next full acquire scan (boss + normal).</summary>
 		public int TargetRefreshTicks;
-		/// <summary>GameUpdateCount when normal target last had clear LOS (SightGrace debounce).</summary>
-		public uint LastLosGameTick;
 
-		/// <summary>True while a boss or a normal target is engaged. Follow still moves during normal fights.</summary>
+		/// <summary>Palico-style normal targeting state for this follower.</summary>
+		public NpcCombatTargeting Targeting { get; } = new();
+
+		/// <summary>True while Boss or Normal has an engaged target (chat / perception).</summary>
 		public bool CombatControlsLocomotion =>
-			Mode == NpcCombatMode.Boss
-			|| (Mode == NpcCombatMode.Normal && HasEngagedTarget);
+			HasEngagedTarget && Mode != NpcCombatMode.FollowOnly;
 
 		public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
 			bool busy = ItemAnimation > 0 || IsChanneling;
@@ -101,8 +101,7 @@ namespace AITownNPCs.Common.Ai.Combat
 		public void ClearNormalTarget() {
 			CachedTargetWhoAmI = -1;
 			HasEngagedTarget = false;
-			UseCombatFlight = false;
-			LastLosGameTick = 0;
+			Targeting.Clear();
 		}
 
 		public void ClearBossLock() {
