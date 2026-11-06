@@ -11,14 +11,18 @@ namespace AITownNPCs.Common.Net
 	/// Fill ai/localAI via <paramref name="configure"/> before sync.
 	/// <para>
 	/// Policy: NPC superpowers, barrage rain, and role throws use
-	/// <see cref="SpawnServerOwned"/> (owner 255) so dedicated fuse/AI matches singleplayer.
-	/// <see cref="SpawnForPlayer"/> is only for paths that must credit a real player and
-	/// have been verified to run AI on dedicated.
+	/// <see cref="SpawnServerOwned"/>. Single-player attributes to
+	/// <see cref="Main.myPlayer"/> so vanilla grenades/bombs collide and explode;
+	/// dedicated/listen server keeps owner 255. <see cref="SpawnForPlayer"/> is for
+	/// paths that must credit a specific real player.
 	/// </para>
 	/// </summary>
 	public static class NpcProjectileSpawn
 	{
-		/// <summary>Server-owned projectile (dedicated-safe). Owner is always 255 on server.</summary>
+		/// <summary>
+		/// World/NPC effect projectile. Owner is <see cref="Main.myPlayer"/> in single-player,
+		/// 255 on multiplayer server (clients never spawn here).
+		/// </summary>
 		public static int SpawnServerOwned(
 			IEntitySource source,
 			Microsoft.Xna.Framework.Vector2 position,
@@ -27,7 +31,18 @@ namespace AITownNPCs.Common.Net
 			int damage,
 			float knockBack,
 			Action<Projectile> configure = null) {
-			int owner = Main.netMode == NetmodeID.MultiplayerClient ? Main.myPlayer : 255;
+			int owner;
+			if (Main.netMode == NetmodeID.MultiplayerClient) {
+				owner = Main.myPlayer;
+			}
+			else if (Main.netMode == NetmodeID.SinglePlayer) {
+				// Owner 255 skips grenade/bomb collision & fuse in single-player.
+				owner = Main.myPlayer;
+			}
+			else {
+				owner = 255;
+			}
+
 			return Spawn(source, position, velocity, type, damage, knockBack, owner, configure);
 		}
 
