@@ -1,5 +1,4 @@
 using AITownNPCs.Common.Ai.Combat.Normal;
-using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -192,10 +191,8 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 		public static void TickFire(NPC npc, EquippedTownNPC equip, NpcCombatState combat) {
 			NPC locked = GetLockedBoss(combat);
 			NPC target = ResolveFireTarget(npc, locked);
-			bool allowFire = target != null
-				&& NpcWeaponReach.CanUse(npc, equip.Weapon, target)
-				&& NpcWeaponReach.Clear(npc.Center, target.Center);
-			NpcCombatFire.Tick(npc, equip, target, allowFire);
+			// CanUse/Clear run inside NpcCombatFire after AimAtTarget (facing-sensitive HandPoint).
+			NpcCombatFire.Tick(npc, equip, target, allowFire: target != null);
 		}
 	}
 }

@@ -48,16 +48,17 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
+			// Face the target before CanUse — HandPoint offsets by npc.direction.
+			if (target != null && target.active) {
+				AimAtTarget(npc, combat, equip, target);
+			}
+
 			bool allow = allowFire
 				&& target != null
 				&& target.active
 				&& CanFireWeapon(equip)
 				&& NpcWeaponReach.CanUse(npc, equip.Weapon, target)
 				&& NpcWeaponReach.Clear(npc.Center, target.Center);
-
-			if (target != null && target.active) {
-				AimAtTarget(npc, combat, equip, target);
-			}
 
 			// Dedicated server only says whether combat may fire. The follower client
 			// applies the press rhythm against its own dummy, same as single player.
@@ -73,6 +74,8 @@ namespace AITownNPCs.Common.Ai.Combat
 		}
 
 		private static void AimAtTarget(NPC npc, NpcCombatState combat, EquippedTownNPC equip, NPC target) {
+			// Turn toward the foe first so HandPoint matches the attack side (Palico Aim order).
+			ApplyFacing(npc, target.Center);
 			Vector2 hand = NpcWeaponReach.HandPoint(npc);
 			Vector2 aim = NpcWeaponReach.AimPoint(equip.Weapon, hand, target);
 			ApplyFacing(npc, aim);

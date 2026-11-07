@@ -193,35 +193,49 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			RememberTravelSign(player, follow);
 			if (TryGetChaseTarget(npc, out NPC target)) {
+				// Palico: combat facing is Sign(dx) toward Stand / retreat motion — never BehindSign.
 				if (npc.Distance(target.Center) <= DodgeRange) {
 					stuckTimer = 0;
 					RetreatFrom(npc, target, follow);
+					return;
 				}
-				else {
-					EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-					NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
-					if (combat.Targeting.Holding) {
-						stuckTimer = 0;
-						BrakeHorizontal(npc);
-					}
-					else {
-						Vector2 anchor = CombatStandAnchor(combat, equip?.Weapon, npc, target);
-						StepToward(npc, follow, anchor.X, MaxSpeedX, ref stuckTimer);
-						bool forceChase = MustForceBossChase(combat, npc, target);
-						bool canShoot = !forceChase
-							&& NpcWeaponReach.CanUse(npc, equip?.Weapon, target)
-							&& NpcWeaponReach.Clear(npc.Center, target.Center);
-						if (!canShoot) {
-							TryPlatformStep(npc, follow, anchor);
-						}
-					}
+
+				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+				NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+				if (combat.Targeting.Holding) {
+					stuckTimer = 0;
+					BrakeHorizontal(npc);
+					FaceTowardX(npc, target.Center.X);
+					return;
 				}
-			}
-			else {
-				ApplyPlayerSlot(npc, player, follow, ref stuckTimer);
+
+				Vector2 anchor = CombatStandAnchor(combat, equip?.Weapon, npc, target);
+				StepToward(npc, follow, anchor.X, MaxSpeedX, ref stuckTimer);
+				bool forceChase = MustForceBossChase(combat, npc, target);
+				bool canShoot = !forceChase
+					&& NpcWeaponReach.CanUse(npc, equip?.Weapon, target)
+					&& NpcWeaponReach.Clear(npc.Center, target.Center);
+				if (!canShoot) {
+					TryPlatformStep(npc, follow, anchor);
+					FaceTowardX(npc, anchor.X);
+				}
+
+				return;
 			}
 
+			ApplyPlayerSlot(npc, player, follow, ref stuckTimer);
 			FaceAlongTravel(npc, follow);
+		}
+
+		/// <summary>Palico combat navigation: face Stand goal when |dx| &gt; 8.</summary>
+		private static void FaceTowardX(NPC npc, float goalX) {
+			float dx = goalX - npc.Center.X;
+			if (Math.Abs(dx) <= 8f) {
+				return;
+			}
+
+			npc.direction = dx > 0f ? 1 : -1;
+			npc.spriteDirection = npc.direction;
 		}
 
 		private static void ApplyPlayerSlot(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer) {

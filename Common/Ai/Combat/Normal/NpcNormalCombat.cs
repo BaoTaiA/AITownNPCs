@@ -1,5 +1,4 @@
 using AITownNPCs.Common.Ai.Combat.Boss;
-using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
 using Terraria;
 
@@ -19,11 +18,9 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 
 		public static void TickFire(NPC npc, EquippedTownNPC equip, NpcCombatState combat) {
 			NPC visible = combat.Targeting.VisibleTarget;
-			bool allowFire = visible != null
-				&& NpcWeaponReach.CanUse(npc, equip.Weapon, visible)
-				&& NpcWeaponReach.Clear(npc.Center, visible.Center);
+			// CanUse/Clear run inside NpcCombatFire after AimAtTarget (facing-sensitive HandPoint).
 			// VisibleTarget only — Obscured SightGrace retains engage, not fire/aim through walls.
-			NpcCombatFire.Tick(npc, equip, visible, allowFire);
+			NpcCombatFire.Tick(npc, equip, visible, allowFire: visible != null);
 		}
 
 		public static bool IsChaseable(NPC npc, NPC other) {
