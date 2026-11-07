@@ -59,7 +59,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			NpcDummyPool.LockPose(Player, npc);
-			NpcDummyActor.SyncMinionTarget(Player, npc.whoAmI);
 		}
 
 		public override bool PreItemCheck() {

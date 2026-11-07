@@ -54,7 +54,7 @@ namespace AITownNPCs.Common.Ai.Combat
 			if (state.Mode == NpcCombatMode.Boss) {
 				NPC locked = NpcBossCombat.GetLockedBoss(state);
 				if (locked != null) {
-					if (player.Distance(locked.Center) <= NpcBossCombat.PlayerKeepRadius) {
+					if (NpcBossCombat.PlayerWithinKeepRadius(player, locked)) {
 						state.BossClearTicks = 0;
 						state.HasEngagedTarget = true;
 						return;
@@ -113,7 +113,7 @@ namespace AITownNPCs.Common.Ai.Combat
 		private static bool TryMaintainCachedTargets(NPC npc, Player player, NpcCombatState state) {
 			if (state.Mode == NpcCombatMode.Boss) {
 				NPC boss = NpcBossCombat.GetLockedBoss(state);
-				if (boss != null && player.Distance(boss.Center) <= NpcBossCombat.PlayerKeepRadius) {
+				if (boss != null && NpcBossCombat.PlayerWithinKeepRadius(player, boss)) {
 					state.BossClearTicks = 0;
 					state.HasEngagedTarget = true;
 					return true;

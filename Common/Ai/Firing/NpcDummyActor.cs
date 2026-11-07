@@ -1,7 +1,5 @@
 using System;
 using AITownNPCs.Common.Ai.Combat;
-using AITownNPCs.Common.Ai.Combat.Boss;
-using AITownNPCs.Common.Ai.Combat.Normal;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -76,15 +74,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			Vector2 aimWorld = hand.Aim;
 			ApplyPose(dummy, npc, aimWorld);
 			InstallHeld(dummy, equip, hand.Item);
-			NPC focus = LiveFocus(npc, target);
-			if (focus == null && combat.CachedTargetWhoAmI >= 0 && combat.CachedTargetWhoAmI < Main.maxNPCs) {
-				NPC cached = Main.npc[combat.CachedTargetWhoAmI];
-				if (NpcNormalCombat.IsChaseable(npc, cached) && cached.life > 0) {
-					focus = cached;
-				}
-			}
-
-			dummy.MinionAttackTargetNPC = focus != null ? focus.whoAmI : -1;
 			if (hand.Summon) {
 				dummy.slotsMinions = NpcSummonCap.CountMinionSlots(dummy.whoAmI);
 			}
@@ -249,7 +238,6 @@ namespace AITownNPCs.Common.Ai.Firing
 				dummy.compositeBackArm = back;
 				NpcDummyPool.KeepAlive(dummy);
 				NpcDummyLocal.ReleaseUse(dummy.whoAmI);
-				SyncMinionTarget(dummy, npcWhoAmI);
 			}
 
 			NpcDummyPool.KillNpcOwnedProjectiles(npcWhoAmI, preserveSummons: true);
@@ -276,47 +264,6 @@ namespace AITownNPCs.Common.Ai.Firing
 				&& !NpcDummyPool.OwnsProjectiles(NpcDummyPool.TryGetDummyWho(npcWhoAmI, out int dummyWho) ? dummyWho : -1)) {
 				NpcDummyPool.ForceRelease(npcWhoAmI);
 			}
-		}
-
-		/// <summary>Minions only chase the NPC's current hostile target. No target means idle.</summary>
-		public static void SyncMinionTarget(Player dummy, int npcWhoAmI) {
-			if (dummy == null) {
-				return;
-			}
-
-			int target = -1;
-			if (npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
-				NPC npc = Main.npc[npcWhoAmI];
-				if (npc != null && npc.active) {
-					NpcCombatState state = npc.GetGlobalNPC<NpcCombatState>();
-					if (state.Mode == NpcCombatMode.Boss) {
-						NPC boss = NpcBossCombat.GetLockedBoss(state);
-						if (boss != null && boss.active && !boss.friendly && boss.life > 0) {
-							target = boss.whoAmI;
-						}
-					}
-					else if (state.Mode == NpcCombatMode.Normal && state.HasEngagedTarget) {
-						NPC foe = NpcNormalCombat.GetCachedIfValid(npc, state);
-						if (foe != null && foe.life > 0) {
-							target = foe.whoAmI;
-						}
-					}
-				}
-			}
-
-			dummy.MinionAttackTargetNPC = target;
-		}
-
-		private static NPC LiveFocus(NPC npc, NPC target) {
-			if (target == null || !target.active || target.friendly || target.life <= 0) {
-				return null;
-			}
-
-			if (target.boss || NpcBossCombat.IsBossEncounterNpc(target)) {
-				return target;
-			}
-
-			return NpcNormalCombat.IsChaseable(npc, target) ? target : null;
 		}
 
 		private static void ApplyStealth(Player dummy) {

@@ -1,4 +1,5 @@
 using AITownNPCs.Common.Ai.Combat.Normal;
+using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -55,6 +56,61 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			return IsKnownBossPartType(other.type);
 		}
 
+		/// <summary>Worm-style multi-segment boss (Destroyer, EoW, most mod worms).</summary>
+		public static bool IsWormBossEncounter(NPC locked) {
+			if (locked == null || !locked.active) {
+				return false;
+			}
+
+			if (locked.aiStyle == NPCAIStyleID.Worm) {
+				return true;
+			}
+
+			for (int i = 0; i < Main.maxNPCs; i++) {
+				NPC other = Main.npc[i];
+				if (!other.active || other.whoAmI == locked.whoAmI || other.friendly) {
+					continue;
+				}
+
+				if (other.realLife == locked.whoAmI) {
+					return true;
+				}
+
+				if (locked.realLife >= 0
+					&& locked.realLife < Main.maxNPCs
+					&& other.realLife == locked.realLife) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>True while the follow player is still within keep range of the locked boss (any worm segment).</summary>
+		public static bool PlayerWithinKeepRadius(Player player, NPC locked) {
+			if (player == null || locked == null || !locked.active) {
+				return false;
+			}
+
+			if (!IsWormBossEncounter(locked)) {
+				return player.Distance(locked.Center) <= PlayerKeepRadius;
+			}
+
+			float keepSq = PlayerKeepRadius * PlayerKeepRadius;
+			for (int i = 0; i < Main.maxNPCs; i++) {
+				NPC other = Main.npc[i];
+				if (!other.active || other.friendly || !IsPartOfLockedBoss(other, locked)) {
+					continue;
+				}
+
+				if (Vector2.DistanceSquared(player.Center, other.Center) <= keepSq) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		public static NPC FindNearestBoss(Player player, NPC attacker = null, float maxPlayerDistance = float.MaxValue) {
 			NPC bestHurtable = null;
 			float bestHurtableDist = float.MaxValue;
@@ -103,9 +159,13 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 		}
 
 		/// <summary>Damageable aim point for the locked boss (root or a part).</summary>
-		public static NPC ResolveFireTarget(NPC attacker, NPC locked) {
+		public static NPC ResolveFireTarget(NPC attacker, NPC locked, Item weapon = null) {
 			if (locked == null || !locked.active) {
 				return null;
+			}
+
+			if (IsWormBossEncounter(locked)) {
+				return ResolveWormFireTarget(attacker, locked, weapon);
 			}
 
 			if (locked.CanBeChasedBy(attacker)) {
@@ -139,6 +199,63 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 
 			// Invulnerable root with no linked parts (Slime God core): shoot the nearest chaseable foe beside it.
 			return FindNearestChaseableNear(attacker, locked.Center, NpcNormalCombat.LeashDist);
+		}
+
+		/// <summary>
+		/// Prefer a segment that can be shot now (range + LoS), then any LoS segment, then nearest.
+		/// Avoids locking onto a buried body while an exposed tail sits in front.
+		/// </summary>
+		private static NPC ResolveWormFireTarget(NPC attacker, NPC locked, Item weapon) {
+			Vector2 from = attacker != null ? attacker.Center : locked.Center;
+			bool hasWeapon = weapon != null && !weapon.IsAir;
+			float range = hasWeapon ? NpcWeaponReach.EffectiveRange(weapon) : 0f;
+
+			NPC bestShoot = null;
+			float bestShootDist = float.MaxValue;
+			NPC bestClear = null;
+			float bestClearDist = float.MaxValue;
+			NPC bestAny = null;
+			float bestAnyDist = float.MaxValue;
+
+			for (int i = 0; i < Main.maxNPCs; i++) {
+				NPC other = Main.npc[i];
+				if (!other.active || other.friendly || !IsPartOfLockedBoss(other, locked)) {
+					continue;
+				}
+
+				if (attacker != null) {
+					if (!other.CanBeChasedBy(attacker)) {
+						continue;
+					}
+				}
+				else if (!other.CanBeChasedBy()) {
+					continue;
+				}
+
+				Vector2 hit = other.Hitbox.ClosestPointInRect(from);
+				float dist = Vector2.Distance(from, hit);
+				if (dist < bestAnyDist) {
+					bestAnyDist = dist;
+					bestAny = other;
+				}
+
+				if (!NpcWeaponReach.Clear(from, other.Center)) {
+					continue;
+				}
+
+				if (dist < bestClearDist) {
+					bestClearDist = dist;
+					bestClear = other;
+				}
+
+				if (hasWeapon && dist <= range && dist < bestShootDist) {
+					bestShootDist = dist;
+					bestShoot = other;
+				}
+			}
+
+			return bestShoot ?? bestClear ?? bestAny
+				?? FindNearestChaseableNear(attacker, locked.Center, NpcNormalCombat.LeashDist);
 		}
 
 		private static NPC FindNearestChaseableNear(NPC attacker, Vector2 origin, float radius) {
@@ -190,7 +307,8 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 
 		public static void TickFire(NPC npc, EquippedTownNPC equip, NpcCombatState combat) {
 			NPC locked = GetLockedBoss(combat);
-			NPC target = ResolveFireTarget(npc, locked);
+			Item weapon = equip != null && !equip.Weapon.IsAir ? equip.Weapon : null;
+			NPC target = ResolveFireTarget(npc, locked, weapon);
 			// CanUse/Clear run inside NpcCombatFire after AimAtTarget (facing-sensitive HandPoint).
 			NpcCombatFire.Tick(npc, equip, target, allowFire: target != null);
 		}

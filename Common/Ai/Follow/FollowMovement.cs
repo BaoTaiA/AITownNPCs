@@ -556,7 +556,9 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			if (state.Mode == NpcCombatMode.Boss) {
-				target = NpcBossCombat.ResolveFireTarget(npc, NpcBossCombat.GetLockedBoss(state));
+				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+				Item stance = StanceWeapon(equip);
+				target = NpcBossCombat.ResolveFireTarget(npc, NpcBossCombat.GetLockedBoss(state), stance);
 				return target != null;
 			}
 
