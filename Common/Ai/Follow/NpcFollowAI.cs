@@ -1,5 +1,7 @@
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
+using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Ai.Follow
 {
@@ -41,7 +43,23 @@ namespace AITownNPCs.Common.Ai.Follow
 			follow.StuckTimer = stuck;
 			follow.FarTimer = far;
 
+			// Vanilla AI (and its FindFrame) is skipped while following — clear sit leftovers
+			// and drive walk / idle frames from velocity so feet animate.
+			FollowingTownNPC.ClearVanillaTownIdleForFollow(npc);
+			RefreshFollowFrames(npc);
+
 			FollowingTownNPC.ApplyFollowNetFlags(npc, following: true);
+		}
+
+		private static void RefreshFollowFrames(NPC npc) {
+			Main.instance.LoadNPC(npc.type);
+			int frameCount = Main.npcFrameCount[npc.type];
+			if (frameCount <= 0) {
+				return;
+			}
+
+			int frameHeight = TextureAssets.Npc[npc.type].Height() / frameCount;
+			NPCLoader.FindFrame(npc, frameHeight);
 		}
 	}
 }

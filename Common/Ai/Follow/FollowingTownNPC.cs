@@ -174,6 +174,26 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 		}
 
+		/// <summary>
+		/// Drop vanilla town sit / chair-seek leftovers so follow locomotion is not stuck
+		/// in a seated pose. Does not clear dryad ward cast (ai[0] == 14) or other roles.
+		/// </summary>
+		public static void ClearVanillaTownIdleForFollow(NPC npc) {
+			if (npc == null) {
+				return;
+			}
+
+			// AIStyle 7: 5 = sitting, 9 = going to chair.
+			if (npc.ai[0] == 5f || npc.ai[0] == 9f) {
+				npc.ai[0] = 1f;
+				npc.ai[1] = 0f;
+				npc.gfxOffY = 0f;
+			}
+
+			// Let VanillaFindFrame pick walk / jump / idle from velocity (not talk pose).
+			npc.aiAction = 0;
+		}
+
 		public override bool? CanFallThroughPlatforms(NPC npc) {
 			if (!IsFollowing) {
 				return null;

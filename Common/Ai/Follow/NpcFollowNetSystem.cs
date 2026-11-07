@@ -181,6 +181,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			follow.FollowPlayerWhoAmI = playerWhoAmI;
 			modPlayer.FollowingNpcWhoAmI = best.whoAmI;
 			NpcInteractGate.DismissOpenEquip(best.whoAmI, playerWhoAmI);
+			FollowingTownNPC.ClearVanillaTownIdleForFollow(best);
 			FollowingTownNPC.ApplyFollowNetFlags(best, following: true);
 			SyncFollow(best.whoAmI, playerWhoAmI);
 			NpcFollowEvents.RaiseFollowStarted(player, best);
