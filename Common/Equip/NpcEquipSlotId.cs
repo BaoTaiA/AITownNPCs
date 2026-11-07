@@ -23,6 +23,9 @@ namespace AITownNPCs.Common.Equip
 		Heart = Slot2,
 
 		/// <summary>Default and nurse wing slot. Dryad wings use <see cref="Slot11"/> after ten buffs and the heart.</summary>
-		Wings = Slot3
+		Wings = Slot3,
+
+		/// <summary>Combat offhand. Summon and sentry staffs only. Dryad buff slot 4 is unrelated.</summary>
+		SummonStaff = Slot4
 	}
 }

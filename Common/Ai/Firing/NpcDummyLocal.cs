@@ -175,6 +175,15 @@ namespace AITownNPCs.Common.Ai.Firing
 			AimWorld.Remove(dummyWho);
 		}
 
+		/// <summary>Ceasefire: stop the held-use bit without dropping the aim used by minion AI.</summary>
+		public static void ReleaseUse(int dummyWho) {
+			if (dummyWho < 0) {
+				return;
+			}
+
+			LastWantUse[dummyWho] = false;
+		}
+
 		public static void PushForProjectile(int dummyWho) {
 			ProjFrames.Push(new ProjFrame {
 				MyPlayer = Main.myPlayer,

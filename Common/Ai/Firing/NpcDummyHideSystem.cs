@@ -42,6 +42,26 @@ namespace AITownNPCs.Common.Ai.Firing
 			Player.controlDown = false;
 		}
 
+		public override void PostUpdate() {
+			if (!NpcDummyPool.IsDummy(Player.whoAmI)) {
+				return;
+			}
+
+			if (!NpcDummyPool.TryGetNpcWho(Player.whoAmI, out int npcWho)
+				|| npcWho < 0
+				|| npcWho >= Main.maxNPCs) {
+				return;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			if (npc == null || !npc.active) {
+				return;
+			}
+
+			NpcDummyPool.LockPose(Player, npc);
+			NpcDummyActor.SyncMinionTarget(Player, npc.whoAmI);
+		}
+
 		public override bool PreItemCheck() {
 			if (!NpcDummyPool.IsDummy(Player.whoAmI)) {
 				return true;
@@ -121,8 +141,9 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
+			bool swinging = Player.itemAnimation > 0 || Player.channel || Player.heldProj >= 0;
 			foreach (PlayerDrawLayer layer in PlayerDrawLayerLoader.Layers) {
-				if (IsHeldVisual(layer)) {
+				if (swinging && IsHeldVisual(layer)) {
 					continue;
 				}
 

@@ -173,8 +173,13 @@ namespace AITownNPCs.Common.Equip
 				int x = (int)originX + col * (slotSize + gap);
 				int y = (int)originY + row * (slotSize + 22);
 				string label = def?.Label ?? $"#{i + 1}";
-				var slotId = (NpcEquipSlotId)i;
-				system.DrawLabeledSlot(label, ref equip.Slots[i], x, y, slotSize, slotId, profile, equip);
+				NpcEquipSlotId slotId = def?.SlotId ?? (NpcEquipSlotId)i;
+				int storage = (int)slotId;
+				if (storage < 0 || storage >= equip.Slots.Length) {
+					continue;
+				}
+
+				system.DrawLabeledSlot(label, ref equip.Slots[storage], x, y, slotSize, slotId, profile, equip);
 			}
 
 			Main.inventoryScale = oldScale;

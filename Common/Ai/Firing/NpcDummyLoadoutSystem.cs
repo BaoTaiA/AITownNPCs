@@ -8,14 +8,24 @@ namespace AITownNPCs.Common.Ai.Firing
 	{
 		public override void Load() {
 			EquippedTownNPC.WeaponChanged += OnWeaponChanged;
+			EquippedTownNPC.SummonStaffChanged += OnSummonStaffChanged;
 		}
 
 		public override void Unload() {
 			EquippedTownNPC.WeaponChanged -= OnWeaponChanged;
+			EquippedTownNPC.SummonStaffChanged -= OnSummonStaffChanged;
 		}
 
 		private static void OnWeaponChanged(int npcWhoAmI) {
-			NpcDummyActor.StopAndRelease(npcWhoAmI);
+			NpcDummyActor.StopAndRelease(npcWhoAmI, preserveSummons: false);
+		}
+
+		private static void OnSummonStaffChanged(int npcWhoAmI) {
+			if (npcWhoAmI >= 0 && npcWhoAmI < Terraria.Main.maxNPCs && Terraria.Main.npc[npcWhoAmI].active) {
+				Terraria.Main.npc[npcWhoAmI].GetGlobalNPC<NpcFiringState>().TrackedSummonType = -1;
+			}
+
+			NpcDummyActor.ClearSummons(npcWhoAmI);
 		}
 	}
 }

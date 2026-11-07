@@ -159,10 +159,11 @@ namespace AITownNPCs.Common.Ai.Follow
 					return;
 				}
 
-				Vector2 anchor = CombatStandAnchor(combat, equip?.Weapon, npc, foe);
+				Item stance = StanceWeapon(equip);
+				Vector2 anchor = CombatStandAnchor(combat, stance, npc, foe);
 				bool forceChase = MustForceBossChase(combat, npc, foe);
 				bool canShoot = !forceChase
-					&& NpcWeaponReach.CanUse(npc, equip?.Weapon, foe)
+					&& NpcWeaponReach.CanUse(npc, stance, foe)
 					&& NpcWeaponReach.Clear(npc.Center, foe.Center);
 				if (canShoot) {
 					Vector2 hold = new Vector2(anchor.X, npc.Center.Y);
@@ -209,11 +210,12 @@ namespace AITownNPCs.Common.Ai.Follow
 					return;
 				}
 
-				Vector2 anchor = CombatStandAnchor(combat, equip?.Weapon, npc, target);
+				Item stance = StanceWeapon(equip);
+				Vector2 anchor = CombatStandAnchor(combat, stance, npc, target);
 				StepToward(npc, follow, anchor.X, MaxSpeedX, ref stuckTimer);
 				bool forceChase = MustForceBossChase(combat, npc, target);
 				bool canShoot = !forceChase
-					&& NpcWeaponReach.CanUse(npc, equip?.Weapon, target)
+					&& NpcWeaponReach.CanUse(npc, stance, target)
 					&& NpcWeaponReach.Clear(npc.Center, target.Center);
 				if (!canShoot) {
 					TryPlatformStep(npc, follow, anchor);
@@ -571,6 +573,22 @@ namespace AITownNPCs.Common.Ai.Follow
 			&& combat.Mode == NpcCombatMode.Boss
 			&& foe != null
 			&& npc.Distance(foe.Center) > NpcBossCombat.ChaseForceDist;
+
+		static Item StanceWeapon(EquippedTownNPC equip) {
+			if (equip == null) {
+				return null;
+			}
+
+			if (!equip.Weapon.IsAir && NpcEquipHelper.IsAllowedWeapon(equip.Weapon)) {
+				return equip.Weapon;
+			}
+
+			if (NpcEquipHelper.IsSummonOrSentryStaff(equip.SummonStaff)) {
+				return equip.SummonStaff;
+			}
+
+			return equip.Weapon;
+		}
 
 		static Vector2 CombatStandAnchor(NpcCombatState combat, Item weapon, NPC npc, NPC foe) =>
 			NpcWeaponReach.Stand(weapon, npc, foe, holdInRange: !MustForceBossChase(combat, npc, foe));

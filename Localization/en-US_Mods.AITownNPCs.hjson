@@ -13,6 +13,9 @@ UI: {
 	Equip: Equip
 	WeaponSlot: Weapon
 	AmmoSlot: Ammo
+	SummonSlot: Summon
+	SummonSlotOnly: Summon or sentry staffs only
+	SummonNotMain: Put summon and sentry staffs in the summon slot
 	HeartSlot: HP
 	HeartSlotOnly: Only Reinforcement Hearts or Life Crystals (max 20)
 	WingSlot: Wings

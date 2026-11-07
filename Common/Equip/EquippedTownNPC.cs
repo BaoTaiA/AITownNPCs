@@ -19,6 +19,9 @@ namespace AITownNPCs.Common.Equip
 		/// <summary>Raised when weapon slot type/prefix changes or is cleared. Arg = npcWhoAmI.</summary>
 		public static event Action<int> WeaponChanged;
 
+		/// <summary>Raised when the summon/sentry offhand changes or is cleared. Arg = npcWhoAmI.</summary>
+		public static event Action<int> SummonStaffChanged;
+
 		public override bool InstancePerEntity => true;
 
 		public Item[] Slots { get; private set; } = CreateEmptySlots();
@@ -31,6 +34,11 @@ namespace AITownNPCs.Common.Equip
 		public Item Ammo {
 			get => Slots[1];
 			set => Slots[1] = value == null || value.IsAir ? new Item() : value.Clone();
+		}
+
+		public Item SummonStaff {
+			get => Slots[(int)NpcEquipSlotId.SummonStaff];
+			set => Slots[(int)NpcEquipSlotId.SummonStaff] = value == null || value.IsAir ? new Item() : value.Clone();
 		}
 
 		private bool _droppedOnDeath;
@@ -91,7 +99,24 @@ namespace AITownNPCs.Common.Equip
 			}
 
 			ShiftDryadHeartAndWings(npc);
+			MigrateSummonOffhand(npc);
 			SanitizeForRole(npc);
+		}
+
+		/// <summary>Old saves may have a summon staff in the main hand. Move it to the offhand.</summary>
+		private void MigrateSummonOffhand(NPC npc) {
+			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
+			if (profile.GetSlot(NpcEquipSlotId.SummonStaff) == null) {
+				return;
+			}
+
+			int summonIndex = (int)NpcEquipSlotId.SummonStaff;
+			if (!Slots[summonIndex].IsAir || !NpcEquipHelper.IsSummonOrSentryStaff(Slots[0])) {
+				return;
+			}
+
+			Slots[summonIndex] = Slots[0];
+			Slots[0] = new Item();
 		}
 
 		private void ShiftDryadHeartAndWings(NPC npc) {
@@ -146,9 +171,14 @@ namespace AITownNPCs.Common.Equip
 
 			item ??= new Item();
 			bool notifyWeapon = false;
+			bool notifySummon = false;
 			if (index == 0) {
 				bool changed = Slots[0].type != item.type || Slots[0].prefix != item.prefix;
 				notifyWeapon = changed || item.IsAir;
+			}
+			else if (index == (int)NpcEquipSlotId.SummonStaff) {
+				bool changed = Slots[index].type != item.type || Slots[index].prefix != item.prefix;
+				notifySummon = changed || item.IsAir;
 			}
 
 			// Store an independent copy so NPC gear never aliases mouse/inventory Items.
@@ -156,6 +186,10 @@ namespace AITownNPCs.Common.Equip
 
 			if (notifyWeapon && npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
 				NotifyWeaponChanged(npcWhoAmI);
+			}
+
+			if (notifySummon && npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
+				SummonStaffChanged?.Invoke(npcWhoAmI);
 			}
 
 			// Push empty loadout so clients clear ExtraAI-stale slots.

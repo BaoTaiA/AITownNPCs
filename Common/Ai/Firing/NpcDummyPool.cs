@@ -139,6 +139,9 @@ namespace AITownNPCs.Common.Ai.Firing
 			NpcToDummy.Clear();
 			DummyToNpc.Clear();
 			InitializedSlots.Clear();
+			OwnerFramePos.Clear();
+			OwnerFrameVel.Clear();
+			OwnerFrameTick.Clear();
 			_searchSuspendDepth = 0;
 			_ownsCacheTick = -1;
 			_ownsCache.Clear();
@@ -203,6 +206,24 @@ namespace AITownNPCs.Common.Ai.Firing
 		/// Never kills by owner unless the slot is a confirmed dummy (avoids player 0).
 		/// </summary>
 		public static void KillNpcOwnedProjectiles(int npcWhoAmI) {
+			KillNpcOwnedProjectiles(npcWhoAmI, preserveSummons: false);
+		}
+
+		/// <param name="preserveSummons">When true, leave minion and sentry bodies. Their shots are removed.</param>
+		public static void KillNpcOwnedProjectiles(int npcWhoAmI, bool preserveSummons) {
+			KillOwned(npcWhoAmI, preserveSummons, summonsOnly: false);
+		}
+
+		/// <summary>Kill this NPC's minions and sentries only. Other weapon projectiles stay.</summary>
+		public static void KillSummonProjectiles(int npcWhoAmI) {
+			KillOwned(npcWhoAmI, preserveSummons: false, summonsOnly: true);
+		}
+
+		public static bool OwnsSummonProjectiles(int npcWhoAmI) {
+			return AnyOwned(npcWhoAmI, summonsOnly: true);
+		}
+
+		private static void KillOwned(int npcWhoAmI, bool preserveSummons, bool summonsOnly) {
 			if (npcWhoAmI < 0) {
 				return;
 			}
@@ -210,40 +231,117 @@ namespace AITownNPCs.Common.Ai.Firing
 			bool hasDummy = TryGetDummyWho(npcWhoAmI, out int dummyWho) && IsDummy(dummyWho);
 			for (int i = 0; i < Main.maxProjectiles; i++) {
 				Projectile proj = Main.projectile[i];
-				if (proj == null || !proj.active) {
+				if (!OwnedBy(proj, npcWhoAmI, hasDummy, dummyWho)) {
 					continue;
 				}
 
-				if (hasDummy && proj.owner == dummyWho) {
-					proj.Kill();
+				if (preserveSummons && IsSummonBody(proj)) {
 					continue;
 				}
 
-				NpcWeaponProjectile tag = proj.GetGlobalProjectile<NpcWeaponProjectile>();
-				if (tag.FromNpcWeapon && tag.FollowNpcWhoAmI == npcWhoAmI) {
-					proj.Kill();
+				bool summon = IsSummonProjectile(proj);
+
+				if (summonsOnly && !summon) {
+					continue;
 				}
+
+				proj.Kill();
 			}
 
 			_ownsCacheTick = -1;
 			_ownsCache.Clear();
 		}
 
+		private static bool AnyOwned(int npcWhoAmI, bool summonsOnly) {
+			if (npcWhoAmI < 0) {
+				return false;
+			}
+
+			bool hasDummy = TryGetDummyWho(npcWhoAmI, out int dummyWho) && IsDummy(dummyWho);
+			for (int i = 0; i < Main.maxProjectiles; i++) {
+				Projectile proj = Main.projectile[i];
+				if (!OwnedBy(proj, npcWhoAmI, hasDummy, dummyWho)) {
+					continue;
+				}
+
+				if (!summonsOnly || IsSummonProjectile(proj)) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		private static bool IsSummonBody(Projectile proj) => proj.minion || proj.sentry;
+
+		private static bool IsSummonProjectile(Projectile proj) {
+			if (IsSummonBody(proj)) {
+				return true;
+			}
+
+			int type = proj.type;
+			if (type > ProjectileID.None && type < ProjectileID.Sets.MinionShot.Length && ProjectileID.Sets.MinionShot[type]) {
+				return true;
+			}
+
+			return type > ProjectileID.None && type < ProjectileID.Sets.SentryShot.Length && ProjectileID.Sets.SentryShot[type];
+		}
+
+		private static bool OwnedBy(Projectile proj, int npcWhoAmI, bool hasDummy, int dummyWho) {
+			if (proj == null || !proj.active) {
+				return false;
+			}
+
+			if (hasDummy && proj.owner == dummyWho) {
+				return true;
+			}
+
+			NpcWeaponProjectile tag = proj.GetGlobalProjectile<NpcWeaponProjectile>();
+			return tag.FromNpcWeapon && tag.FollowNpcWhoAmI == npcWhoAmI;
+		}
+
 		public static bool TryGetNpcWho(int dummyWho, out int npcWhoAmI) {
 			return DummyToNpc.TryGetValue(dummyWho, out npcWhoAmI);
 		}
 
+		private static readonly Dictionary<int, Vector2> OwnerFramePos = new();
+		private static readonly Dictionary<int, Vector2> OwnerFrameVel = new();
+		private static readonly Dictionary<int, uint> OwnerFrameTick = new();
+
+		/// <summary>
+		/// Puts the owner on the NPC. Minion and sentry placement stays vanilla projectile AI.
+		/// </summary>
 		public static void LockPose(Player dummy, NPC npc) {
 			if (dummy == null || npc == null) {
 				return;
 			}
 
-			dummy.position.X = npc.Center.X - dummy.width * 0.5f + dummy.direction * 6f;
-			dummy.position.Y = npc.position.Y + npc.height - dummy.height;
-			dummy.velocity = Vector2.Zero;
-			dummy.oldPosition = dummy.position;
-			dummy.oldVelocity = Vector2.Zero;
+			int dir = npc.direction != 0 ? npc.direction : (npc.spriteDirection < 0 ? -1 : 1);
+			dummy.direction = dir;
+			uint tick = Main.GameUpdateCount;
+			if (!OwnerFrameTick.TryGetValue(dummy.whoAmI, out uint seen) || seen != tick) {
+				OwnerFramePos[dummy.whoAmI] = dummy.position;
+				OwnerFrameVel[dummy.whoAmI] = dummy.velocity;
+				OwnerFrameTick[dummy.whoAmI] = tick;
+			}
+
+			if (OwnerFramePos.TryGetValue(dummy.whoAmI, out Vector2 frameStart)) {
+				dummy.oldPosition = frameStart;
+				dummy.oldVelocity = OwnerFrameVel.TryGetValue(dummy.whoAmI, out Vector2 frameVel)
+					? frameVel
+					: dummy.velocity;
+			}
+
+			dummy.position.X = npc.Center.X - dummy.width * 0.5f;
+			dummy.position.Y = npc.Center.Y - dummy.height * 0.5f;
+			dummy.velocity = npc.velocity;
 			dummy.gfxOffY = npc.gfxOffY;
+		}
+
+		private static void ForgetPose(int slot) {
+			OwnerFramePos.Remove(slot);
+			OwnerFrameVel.Remove(slot);
+			OwnerFrameTick.Remove(slot);
 		}
 
 		public static void LockAllToNpcs() {
@@ -270,6 +368,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				}
 
 				LockPose(dummy, npc);
+				KeepAlive(dummy);
 			}
 
 			if (stale == null) {
@@ -332,6 +431,7 @@ namespace AITownNPCs.Common.Ai.Firing
 					p.controlUseItem = false;
 					p.active = false;
 					NpcDummyLocal.Forget(slot);
+					ForgetPose(slot);
 				}
 			}
 

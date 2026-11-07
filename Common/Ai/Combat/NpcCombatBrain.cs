@@ -23,11 +23,13 @@ namespace AITownNPCs.Common.Ai.Combat
 			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
 
-			bool canFight = follow.IsFollowing
-				&& profile.CombatEnabled
-				&& !equip.Weapon.IsAir
+			bool mainReady = !equip.Weapon.IsAir
 				&& NpcEquipHelper.IsAllowedWeapon(equip.Weapon)
 				&& NpcCombatFire.CanFireWeapon(equip);
+			bool summonReady = NpcEquipHelper.IsSummonOrSentryStaff(equip.SummonStaff);
+			bool canFight = follow.IsFollowing
+				&& profile.CombatEnabled
+				&& (mainReady || summonReady);
 
 			if (!canFight) {
 				state.EnterFollowOnly();
@@ -201,8 +203,19 @@ namespace AITownNPCs.Common.Ai.Combat
 		}
 
 		private static void StopFollowOnlyIfNeeded(NPC npc, NpcCombatState state) {
-			if (NpcDummyPool.HasLiveCombatResidue(npc.whoAmI)) {
-				NpcCombatFire.Stop(npc);
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			bool following = follow.IsFollowing;
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			if (NpcSummonCombat.IsAuthority(npc)) {
+				if (following) {
+					NpcSummonCombat.MaintainWhileIdle(npc, equip);
+				}
+				else if (NpcDummyPool.HasLiveCombatResidue(npc.whoAmI)) {
+					NpcCombatFire.Stop(npc, preserveSummons: false);
+				}
+			}
+			else if (NpcDummyPool.HasLiveCombatResidue(npc.whoAmI)) {
+				NpcCombatFire.Stop(npc, preserveSummons: following);
 			}
 
 			state.HasEngagedTarget = false;
@@ -215,7 +228,8 @@ namespace AITownNPCs.Common.Ai.Combat
 			}
 
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-			if (!equip.Weapon.IsAir && NpcEquipHelper.IsAllowedWeapon(equip.Weapon)) {
+			bool mainReady = !equip.Weapon.IsAir && NpcEquipHelper.IsAllowedWeapon(equip.Weapon);
+			if (mainReady || NpcEquipHelper.IsSummonOrSentryStaff(equip.SummonStaff)) {
 				cooldown = 3600;
 				randExtraCooldown = 0;
 			}

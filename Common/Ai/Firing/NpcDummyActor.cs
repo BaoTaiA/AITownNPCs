@@ -1,5 +1,7 @@
 using System;
 using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Ai.Combat.Boss;
+using AITownNPCs.Common.Ai.Combat.Normal;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -41,7 +43,9 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		private static void RunLocal(NPC npc, EquippedTownNPC equip, NpcCombatState combat, NPC target, bool wantUse, Vector2? aimOverride) {
 			bool hasDummy = NpcDummyPool.TryGetDummy(npc.whoAmI, out Player live) && live != null;
-			bool shouldLease = wantUse
+			NpcSummonCombat.Hand hand = NpcSummonCombat.Resolve(npc, equip, hasDummy ? live : null, target, wantUse, aimOverride);
+			bool shouldLease = hand.WantUse
+				|| hand.Summon
 				|| (hasDummy && (live.itemAnimation > 0 || live.channel || live.heldProj >= 0))
 				|| (NpcDummyPool.TryGetDummyWho(npc.whoAmI, out int dummyWho) && NpcDummyPool.OwnsProjectiles(dummyWho));
 
@@ -69,11 +73,21 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			ApplyStealth(dummy);
-			Vector2 aimWorld = aimOverride ?? (target != null && target.active
-				? target.Center
-				: npc.Center + new Vector2(npc.direction * 320f, 0f));
+			Vector2 aimWorld = hand.Aim;
 			ApplyPose(dummy, npc, aimWorld);
-			InstallLoadout(dummy, equip);
+			InstallHeld(dummy, equip, hand.Item);
+			NPC focus = LiveFocus(npc, target);
+			if (focus == null && combat.CachedTargetWhoAmI >= 0 && combat.CachedTargetWhoAmI < Main.maxNPCs) {
+				NPC cached = Main.npc[combat.CachedTargetWhoAmI];
+				if (NpcNormalCombat.IsChaseable(npc, cached) && cached.life > 0) {
+					focus = cached;
+				}
+			}
+
+			dummy.MinionAttackTargetNPC = focus != null ? focus.whoAmI : -1;
+			if (hand.Summon) {
+				dummy.slotsMinions = NpcSummonCap.CountMinionSlots(dummy.whoAmI);
+			}
 			dummy.noItems = false;
 			dummy.silence = false;
 			dummy.frozen = false;
@@ -89,15 +103,23 @@ namespace AITownNPCs.Common.Ai.Firing
 
 			try {
 				NpcDummyLocal.RememberAim(dummy.whoAmI, aimWorld);
-				RunPlayerUpdate(dummy, aimWorld, wantUse);
-				LogFireProbe(npc, dummy, wantUse);
+				RunPlayerUpdate(dummy, aimWorld, hand.WantUse);
+				if (hand.Summon) {
+					dummy.slotsMinions = 0f;
+					dummy.numMinions = 0;
+					NoteSummonRetry(npc, hand, dummy);
+				}
+
+				LogFireProbe(npc, dummy, hand.WantUse);
 				ApplyAimFacing(npc, dummy, aimWorld);
 				NpcDummyPool.LockPose(dummy, npc);
 				ApplyStealth(dummy);
 
 				SyncCombatFromDummy(combat, dummy);
 				NpcWeaponProjectile.TagNewOwned(wasActive, dummy.whoAmI, npc);
-				ReadbackLoadout(dummy, equip);
+				if (!hand.Summon) {
+					ReadbackLoadout(dummy, equip);
+				}
 				if (Main.netMode == NetmodeID.MultiplayerClient && NpcFiringState.IsAuthorityClient(npc)) {
 					firing.NeedsReport = true;
 				}
@@ -122,7 +144,7 @@ namespace AITownNPCs.Common.Ai.Firing
 						|| equip.Weapon.prefix != weaponPrefixBefore);
 			}
 
-			if (equip.Weapon.IsAir) {
+			if (!hand.Summon && equip.Weapon.IsAir) {
 				dummy.controlUseItem = false;
 				FlushPendingEquipSync(npc, equip, firing);
 				NpcDummyPool.ReleaseWhenIdle(npc.whoAmI);
@@ -139,6 +161,11 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		public static void StopAndRelease(int npcWhoAmI) {
+			StopAndRelease(npcWhoAmI, preserveSummons: false);
+		}
+
+		/// <param name="preserveSummons">Ceasefire keeps minions and sentries and the dummy that owns them.</param>
+		public static void StopAndRelease(int npcWhoAmI, bool preserveSummons) {
 			if (npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
 				NPC npc = Main.npc[npcWhoAmI];
 				if (npc.active) {
@@ -173,8 +200,123 @@ namespace AITownNPCs.Common.Ai.Firing
 				dummy.heldProj = -1;
 			}
 
-			NpcDummyPool.KillNpcOwnedProjectiles(npcWhoAmI);
+			NpcDummyPool.KillNpcOwnedProjectiles(npcWhoAmI, preserveSummons);
+			if (preserveSummons && NpcDummyPool.OwnsSummonProjectiles(npcWhoAmI)) {
+				if (NpcDummyPool.TryGetDummy(npcWhoAmI, out Player owner) && owner != null) {
+					NpcDummyPool.KeepAlive(owner);
+					NpcDummyLocal.ReleaseUse(owner.whoAmI);
+				}
+
+				return;
+			}
+
+			if (npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
+				NPC tracked = Main.npc[npcWhoAmI];
+				if (tracked.active) {
+					tracked.GetGlobalNPC<NpcFiringState>().SummonRetryUntil = 0;
+					tracked.GetGlobalNPC<NpcFiringState>().TrackedSummonType = -1;
+				}
+			}
+
 			NpcDummyPool.ForceRelease(npcWhoAmI);
+		}
+
+		/// <summary>Stop firing without deleting minions or sentries. Drops the dummy when none remain.</summary>
+		public static void CeasePreserve(int npcWhoAmI) {
+			if (npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
+				NPC npc = Main.npc[npcWhoAmI];
+				if (npc.active) {
+					NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+					NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
+					combat.ResetUse();
+					combat.IsChanneling = false;
+					firing.ResetUseCycle();
+					firing.ClientHoldingUse = false;
+				}
+			}
+
+			if (NpcDummyPool.TryGetDummy(npcWhoAmI, out Player dummy) && dummy != null) {
+				dummy.controlUseItem = false;
+				dummy.channel = false;
+				dummy.itemAnimation = 0;
+				dummy.itemTime = 0;
+				dummy.heldProj = -1;
+				Player.CompositeArmData front = dummy.compositeFrontArm;
+				front.enabled = false;
+				dummy.compositeFrontArm = front;
+				Player.CompositeArmData back = dummy.compositeBackArm;
+				back.enabled = false;
+				dummy.compositeBackArm = back;
+				NpcDummyPool.KeepAlive(dummy);
+				NpcDummyLocal.ReleaseUse(dummy.whoAmI);
+				SyncMinionTarget(dummy, npcWhoAmI);
+			}
+
+			NpcDummyPool.KillNpcOwnedProjectiles(npcWhoAmI, preserveSummons: true);
+			if (!NpcDummyPool.OwnsSummonProjectiles(npcWhoAmI)) {
+				NpcDummyPool.ForceRelease(npcWhoAmI);
+			}
+		}
+
+		/// <summary>Weapon swap: delete minions and sentries. Leave the dummy if another weapon is still out.</summary>
+		public static void ClearSummons(int npcWhoAmI) {
+			NpcDummyPool.KillSummonProjectiles(npcWhoAmI);
+			if (npcWhoAmI < 0 || npcWhoAmI >= Main.maxNPCs) {
+				return;
+			}
+
+			NPC npc = Main.npc[npcWhoAmI];
+			if (!npc.active) {
+				NpcDummyPool.ForceRelease(npcWhoAmI);
+				return;
+			}
+
+			npc.GetGlobalNPC<NpcFiringState>().SummonRetryUntil = 0;
+			if (npc.GetGlobalNPC<NpcCombatState>().Mode == NpcCombatMode.FollowOnly
+				&& !NpcDummyPool.OwnsProjectiles(NpcDummyPool.TryGetDummyWho(npcWhoAmI, out int dummyWho) ? dummyWho : -1)) {
+				NpcDummyPool.ForceRelease(npcWhoAmI);
+			}
+		}
+
+		/// <summary>Minions only chase the NPC's current hostile target. No target means idle.</summary>
+		public static void SyncMinionTarget(Player dummy, int npcWhoAmI) {
+			if (dummy == null) {
+				return;
+			}
+
+			int target = -1;
+			if (npcWhoAmI >= 0 && npcWhoAmI < Main.maxNPCs) {
+				NPC npc = Main.npc[npcWhoAmI];
+				if (npc != null && npc.active) {
+					NpcCombatState state = npc.GetGlobalNPC<NpcCombatState>();
+					if (state.Mode == NpcCombatMode.Boss) {
+						NPC boss = NpcBossCombat.GetLockedBoss(state);
+						if (boss != null && boss.active && !boss.friendly && boss.life > 0) {
+							target = boss.whoAmI;
+						}
+					}
+					else if (state.Mode == NpcCombatMode.Normal && state.HasEngagedTarget) {
+						NPC foe = NpcNormalCombat.GetCachedIfValid(npc, state);
+						if (foe != null && foe.life > 0) {
+							target = foe.whoAmI;
+						}
+					}
+				}
+			}
+
+			dummy.MinionAttackTargetNPC = target;
+		}
+
+		private static NPC LiveFocus(NPC npc, NPC target) {
+			if (target == null || !target.active || target.friendly || target.life <= 0) {
+				return null;
+			}
+
+			if (target.boss || NpcBossCombat.IsBossEncounterNpc(target)) {
+				return target;
+			}
+
+			return NpcNormalCombat.IsChaseable(npc, target) ? target : null;
 		}
 
 		private static void ApplyStealth(Player dummy) {
@@ -189,7 +331,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			dummy.gravDir = 1f;
 			dummy.gravity = 0f;
 			dummy.maxFallSpeed = 0f;
-			dummy.velocity = Vector2.Zero;
 
 			ApplyAimFacing(npc, dummy, aimWorld);
 			NpcDummyPool.LockPose(dummy, npc);
@@ -213,13 +354,25 @@ namespace AITownNPCs.Common.Ai.Firing
 			npc.spriteDirection = dir;
 		}
 
-		private static void InstallLoadout(Player dummy, EquippedTownNPC equip) {
-			Item current = dummy.inventory[dummy.selectedItem];
+		private static void NoteSummonRetry(NPC npc, NpcSummonCombat.Hand hand, Player dummy) {
+			if (!hand.WantUse || hand.Item == null) {
+				return;
+			}
+
+			int wait = dummy.itemAnimation > 0
+				? (NpcEquipHelper.IsSentryStaff(hand.Item) ? 120 : System.Math.Max(6, hand.Item.useAnimation))
+				: 60;
+			npc.GetGlobalNPC<NpcFiringState>().SummonRetryUntil = Main.GameUpdateCount + (uint)wait;
+		}
+
+		private static void InstallHeld(Player dummy, EquippedTownNPC equip, Item held) {
+			dummy.selectedItem = 0;
+			Item current = dummy.inventory[0];
 			bool weaponChanged = current == null || current.IsAir
-				|| equip.Weapon.IsAir
-				|| current.type != equip.Weapon.type
-				|| current.prefix != equip.Weapon.prefix;
-			CopySlot(ref dummy.inventory[dummy.selectedItem], equip.Weapon);
+				|| held == null || held.IsAir
+				|| current.type != held.type
+				|| current.prefix != held.prefix;
+			CopySlot(ref dummy.inventory[0], held);
 			if (weaponChanged) {
 				dummy.channel = false;
 				dummy.heldProj = -1;
@@ -227,6 +380,15 @@ namespace AITownNPCs.Common.Ai.Firing
 				dummy.itemAnimation = 0;
 				NpcDummyLocal.Forget(dummy.whoAmI);
 			}
+
+			InstallAmmo(dummy, equip);
+		}
+
+		private static void InstallLoadout(Player dummy, EquippedTownNPC equip) {
+			InstallHeld(dummy, equip, equip.Weapon);
+		}
+
+		private static void InstallAmmo(Player dummy, EquippedTownNPC equip) {
 			for (int s = 0; s < 4; s++) {
 				int slot = TempAmmoSlot + s;
 				if (s == 0 && !equip.Ammo.IsAir) {

@@ -13,6 +13,9 @@ UI: {
 	Equip: 装备
 	WeaponSlot: 武器
 	AmmoSlot: 弹药
+	SummonSlot: 召唤
+	SummonSlotOnly: 只能放入召唤杖或哨兵杖
+	SummonNotMain: 召唤杖和哨兵杖请放入召唤槽
 	HeartSlot: 血量
 	HeartSlotOnly: 只能放入强化之心或生命水晶（最多 20 个）
 	WingSlot: 翅膀

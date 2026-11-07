@@ -63,6 +63,12 @@ namespace AITownNPCs.Common.Equip
 						RejectMessage = NpcEquipHelper.GetWeaponRejectedMessage
 					},
 					new NpcEquipSlotDef {
+						SlotId = NpcEquipSlotId.SummonStaff,
+						LabelKey = "Mods.AITownNPCs.UI.SummonSlot",
+						IsAllowed = (item, _) => NpcEquipHelper.IsAllowedSummonOrSentry(item),
+						RejectMessage = _ => Language.GetTextValue("Mods.AITownNPCs.UI.SummonSlotOnly")
+					},
+					new NpcEquipSlotDef {
 						SlotId = NpcEquipSlotId.Ammo,
 						LabelKey = "Mods.AITownNPCs.UI.AmmoSlot",
 						IsAllowed = (item, slots) => NpcEquipHelper.IsAllowedAmmo(item, slots.Length > 0 ? slots[0] : new Item()),

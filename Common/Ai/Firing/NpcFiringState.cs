@@ -55,6 +55,14 @@ namespace AITownNPCs.Common.Ai.Firing
 		public byte LastIntentAmmoPrefix;
 		public short LastIntentAmmoStack = -1;
 
+		/// <summary>Do not start another summon or sentry cast before this tick.</summary>
+		public uint SummonRetryUntil;
+
+		/// <summary>Last offhand summon/sentry type. -1 means none observed yet.</summary>
+		public int TrackedSummonType = -1;
+
+		public int TrackedSummonPrefix;
+
 		/// <summary>Equip slot stack sync throttle while firing.</summary>
 		public uint LastAmmoSyncTick;
 		public uint LastWeaponSyncTick;

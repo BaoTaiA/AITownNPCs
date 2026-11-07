@@ -40,7 +40,7 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 		static bool Summoning(Item item) =>
 			item.shoot > ProjectileID.None
 			&& ContentSamples.ProjectilesByType.TryGetValue(item.shoot, out Projectile p)
-			&& p.minion;
+			&& (p.minion || p.sentry);
 
 		public static float Range(Item item) {
 			if (item == null || item.IsAir) {

@@ -39,6 +39,15 @@ namespace AITownNPCs.Common.Ai.Combat
 		public static void Tick(NPC npc, EquippedTownNPC equip, NPC target, bool allowFire) {
 			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
 			if (equip.Weapon.IsAir || !NpcEquipHelper.IsAllowedWeapon(equip.Weapon)) {
+				if (NpcEquipHelper.IsSummonOrSentryStaff(equip.SummonStaff)) {
+					if (target != null && target.active) {
+						ApplyFacing(npc, target.Center);
+					}
+
+					NpcDummyActor.Tick(npc, equip, combat, target, wantUse: false);
+					return;
+				}
+
 				if (NpcDummyPool.TryGetDummyWho(npc.whoAmI, out int dummyWho) && NpcDummyPool.OwnsProjectiles(dummyWho)) {
 					NpcDummyActor.Tick(npc, equip, combat, target: null, wantUse: false);
 					return;
@@ -62,15 +71,15 @@ namespace AITownNPCs.Common.Ai.Combat
 
 			// Dedicated server only says whether combat may fire. The follower client
 			// applies the press rhythm against its own dummy, same as single player.
-			if (Main.netMode != NetmodeID.Server) {
+			if (Main.netMode != NetmodeID.Server && !NpcSummonCombat.BlocksMainHand(npc, equip, target)) {
 				allow = NpcWeaponChannel.Apply(npc, equip, allow);
 			}
 
 			NpcDummyActor.Tick(npc, equip, combat, target, allow);
 		}
 
-		public static void Stop(NPC npc) {
-			NpcDummyActor.StopAndRelease(npc.whoAmI);
+		public static void Stop(NPC npc, bool preserveSummons = false) {
+			NpcDummyActor.StopAndRelease(npc.whoAmI, preserveSummons);
 		}
 
 		private static void AimAtTarget(NPC npc, NpcCombatState combat, EquippedTownNPC equip, NPC target) {
