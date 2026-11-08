@@ -82,14 +82,26 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		public override void ModifyHitNPCWithItem(Item item, NPC npc, ref NPC.HitModifiers modifiers) {
-			if (!IsSpectatorDummy(Player.whoAmI)) {
+			if (!NpcDummyPool.IsDummy(Player.whoAmI)) {
 				return;
 			}
 
-			// Numbers/life sync come from server SendStrikeNPC; do not invent local CombatText.
-			modifiers.FinalDamage *= 0f;
-			modifiers.Knockback *= 0f;
-			modifiers.DisableCrit();
+			if (IsSpectatorDummy(Player.whoAmI)) {
+				// Numbers/life sync come from server SendStrikeNPC; do not invent local CombatText.
+				modifiers.FinalDamage *= 0f;
+				modifiers.Knockback *= 0f;
+				modifiers.DisableCrit();
+				return;
+			}
+
+			if (NpcDummyPool.TryGetNpcWho(Player.whoAmI, out int npcWho)
+				&& npcWho >= 0
+				&& npcWho < Main.maxNPCs) {
+				NPC town = Main.npc[npcWho];
+				if (town != null && town.active) {
+					NpcDamageMods.ApplyToHitModifiers(town, ref modifiers);
+				}
+			}
 		}
 
 		public override void ModifyHitNPCWithProj(Projectile proj, NPC npc, ref NPC.HitModifiers modifiers) {

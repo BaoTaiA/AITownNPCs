@@ -57,6 +57,10 @@ namespace AITownNPCs.Common.Ai.Firing
 
 			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
 			NpcDummyPool.TryGetDummy(npc.whoAmI, out Player dummy);
+			if (dummy != null) {
+				NpcSummonCap.CullExcessForNpc(npc, dummy);
+			}
+
 			Hand hand = Resolve(npc, equip, dummy, target: null, mainWant: false, aimOverride: null);
 			if (hand.Summon) {
 				NpcDummyActor.Tick(npc, equip, combat, target: null, wantUse: false);
@@ -68,6 +72,10 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		public static Hand Resolve(NPC npc, EquippedTownNPC equip, Player dummy, NPC target, bool mainWant, Vector2? aimOverride) {
 			Reconcile(npc, equip);
+			if (dummy != null) {
+				NpcSummonCap.CullExcessForNpc(npc, dummy);
+			}
+
 			NPC foe = LiveTarget(npc, target);
 			Vector2 mainAim = aimOverride ?? (foe != null ? foe.Center : npc.Center + new Vector2(npc.direction * 320f, 0f));
 			Item weapon = equip.Weapon;
@@ -129,7 +137,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			if (NpcEquipHelper.IsMinionStaff(staff)) {
-				if (!NpcSummonCap.NeedsMinion(dummy, staff)) {
+				if (!NpcSummonCap.NeedsMinion(npc, dummy, staff)) {
 					return false;
 				}
 

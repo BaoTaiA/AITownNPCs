@@ -11,6 +11,20 @@ Items: {
 
 UI: {
 	Equip: Equip
+	Stats: Stats
+	StatsTitle: "{0} - Stats"
+	StatsLife: Life
+	StatsRegen: Regen
+	StatsDefense: Defense
+	StatsAttack: Attack
+	StatsCrit: Crit
+	StatsMinions: Minions
+	StatsSentries: Sentries
+	StatsBuffs: Buffs
+	StatsBuffsNone: None
+	StatsOverheadBuffsOn: Click to hide overhead buff icons
+	StatsOverheadBuffsOff: Click to show overhead buff icons
+	StatsAttackPotionHint: Potion bonuses apply on the combat dummy (while fighting)
 	WeaponSlot: Weapon
 	AmmoSlot: Ammo
 	SummonSlot: Summon

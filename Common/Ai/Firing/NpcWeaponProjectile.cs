@@ -161,11 +161,8 @@ namespace AITownNPCs.Common.Ai.Firing
 				}
 
 				Tag(proj, npc.whoAmI);
+				// Growth-table flat only; potion damage/crit/archery come from the dummy's vanilla buffs.
 				proj.damage = NpcDamageMods.ApplyOutgoing(npc, proj.damage);
-				float archerySpeed = NpcDamageMods.GetArcherySpeedMult(npc);
-				if (archerySpeed > 1f) {
-					proj.velocity *= archerySpeed;
-				}
 
 				if (spectator) {
 					global.SpectatorVisual = true;

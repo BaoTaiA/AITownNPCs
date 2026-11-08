@@ -1,5 +1,6 @@
 using AITownNPCs.Common.Ai.Firing;
 using AITownNPCs.Common.Host;
+using AITownNPCs.Common.UI;
 using Terraria;
 using Terraria.ID;
 using Terraria.Localization;
@@ -74,6 +75,7 @@ namespace AITownNPCs.Common.Equip
 				return;
 			}
 
+			Player.GetModPlayer<NpcStatsPlayer>().CloseStatsQuiet();
 			EditingNpcWhoAmI = npcWhoAmI;
 			Main.playerInventory = true;
 			Player.chest = -1;

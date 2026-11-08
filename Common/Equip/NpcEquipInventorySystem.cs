@@ -1,5 +1,6 @@
 using System.Reflection;
 using AITownNPCs.Common.Host;
+using AITownNPCs.Common.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
@@ -21,6 +22,7 @@ namespace AITownNPCs.Common.Equip
 		private int _syncNpcWhoAmI = -1;
 
 		private static bool _equipButtonHovered;
+		private static bool _statsButtonHovered;
 		private bool _wroteHoverLastDraw;
 
 		public Item PendingHoverItem = new();
@@ -55,18 +57,14 @@ namespace AITownNPCs.Common.Equip
 			Player player = Main.LocalPlayer;
 			if (player.talkNPC < 0) {
 				_equipButtonHovered = false;
-				return;
-			}
-
-			NpcEquipPlayer modPlayer = player.GetModPlayer<NpcEquipPlayer>();
-			if (modPlayer.IsEditing && modPlayer.EditingNpcWhoAmI == player.talkNPC) {
-				_equipButtonHovered = false;
+				_statsButtonHovered = false;
 				return;
 			}
 
 			NPC npc = Main.npc[player.talkNPC];
 			if (!NpcHostRules.IsManagedTownNpc(npc)) {
 				_equipButtonHovered = false;
+				_statsButtonHovered = false;
 				return;
 			}
 
@@ -86,10 +84,51 @@ namespace AITownNPCs.Common.Equip
 				x = AdvancePastButton(x, Language.GetTextValue("UI.NPCCheckHappiness"), font, scale);
 			}
 
-			string text = NpcEquipHelper.EquipButtonText;
+			NpcEquipPlayer equipPlayer = player.GetModPlayer<NpcEquipPlayer>();
+			NpcStatsPlayer statsPlayer = player.GetModPlayer<NpcStatsPlayer>();
+			bool hideEquip = equipPlayer.IsEditing && equipPlayer.EditingNpcWhoAmI == player.talkNPC;
+			bool hideStats = statsPlayer.PanelOpen && statsPlayer.ViewingNpcWhoAmI == player.talkNPC;
+
+			string equipText = NpcEquipHelper.EquipButtonText;
+			if (!hideEquip) {
+				x = DrawChatActionButton(
+					chatColor, font, scale, x, y, equipText,
+					ref _equipButtonHovered,
+					() => {
+						SoundEngine.PlaySound(SoundID.MenuOpen);
+						equipPlayer.RequestOpenEquip(npc.whoAmI);
+					});
+			}
+			else {
+				x = AdvancePastButton(x, equipText, font, scale);
+				_equipButtonHovered = false;
+			}
+
+			string statsText = NpcEquipHelper.StatsButtonText;
+			if (!hideStats) {
+				DrawChatActionButton(
+					chatColor, font, scale, x, y, statsText,
+					ref _statsButtonHovered,
+					() => statsPlayer.RequestOpenStats(npc.whoAmI));
+			}
+			else {
+				_statsButtonHovered = false;
+			}
+		}
+
+		private static float DrawChatActionButton(
+			Color chatColor,
+			DynamicSpriteFont font,
+			Vector2 scale,
+			float x,
+			float y,
+			string text,
+			ref bool hoveredFlag,
+			System.Action onClick) {
 			Vector2 stringSize = ChatManager.GetStringSize(font, text, scale);
 			Vector2 drawPos = new(x, y);
 			Vector2 mouse = new(Main.mouseX, Main.mouseY);
+			Player player = Main.LocalPlayer;
 
 			bool hovered = !PlayerInput.IgnoreMouseInterface
 				&& mouse.X >= drawPos.X
@@ -102,23 +141,22 @@ namespace AITownNPCs.Common.Equip
 				player.mouseInterface = true;
 				player.releaseUseItem = false;
 				drawScale *= 1.2f;
-				if (!_equipButtonHovered) {
+				if (!hoveredFlag) {
 					SoundEngine.PlaySound(SoundID.MenuTick);
 				}
 
-				_equipButtonHovered = true;
+				hoveredFlag = true;
 
 				if (Main.mouseLeft && Main.mouseLeftRelease) {
-					SoundEngine.PlaySound(SoundID.MenuOpen);
-					player.GetModPlayer<NpcEquipPlayer>().RequestOpenEquip(npc.whoAmI);
+					onClick?.Invoke();
 				}
 			}
 			else {
-				if (_equipButtonHovered) {
+				if (hoveredFlag) {
 					SoundEngine.PlaySound(SoundID.MenuTick);
 				}
 
-				_equipButtonHovered = false;
+				hoveredFlag = false;
 			}
 
 			Color shadow = hovered ? Color.Brown : Color.Black;
@@ -132,6 +170,8 @@ namespace AITownNPCs.Common.Equip
 				0f,
 				stringSize * 0.5f,
 				drawScale);
+
+			return AdvancePastButton(x, text, font, scale);
 		}
 
 		private static void TryDrawEquipSlotsUnderChat(int numLines) {

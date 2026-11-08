@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -15,8 +17,9 @@ namespace AITownNPCs.Common.Ai.Firing
 		internal const int DummyManaCap = 400;
 		internal const int DummyLifeCap = 100;
 		internal const int DummyImmuneTime = 60;
-		internal const int DummyMaxMinions = 8;
-		internal const int DummyMaxTurrets = 4;
+		/// <summary>KeepAlive fallback only when dummy has no bound NPC (summon checks refuse instead).</summary>
+		internal const int DummyMaxMinions = NpcLifeStatScale.MinMinions;
+		internal const int DummyMaxTurrets = NpcLifeStatScale.MinTurrets;
 
 		private static readonly HashSet<int> DummyWho = new();
 		private static readonly HashSet<int> InitializedSlots = new();
@@ -53,8 +56,42 @@ namespace AITownNPCs.Common.Ai.Firing
 			p.statLifeMax = DummyLifeCap;
 			p.statLifeMax2 = DummyLifeCap;
 			p.statLife = DummyLifeCap;
-			p.maxMinions = DummyMaxMinions;
-			p.maxTurrets = DummyMaxTurrets;
+
+			int maxMinions = DummyMaxMinions;
+			int maxTurrets = DummyMaxTurrets;
+			if (TryGetNpcWho(p.whoAmI, out int npcWho)
+				&& npcWho >= 0
+				&& npcWho < Main.maxNPCs) {
+				NPC npc = Main.npc[npcWho];
+				if (npc != null && npc.active) {
+					maxMinions = NpcLifeStatScale.GetMaxMinions(npc) + TownNpcAuraBuffs.GetMinionSlotBonus(npc);
+					maxTurrets = NpcLifeStatScale.GetMaxTurrets(npc);
+					SyncAuraBuffsToDummy(p, npc);
+				}
+			}
+
+			p.maxMinions = System.Math.Max(NpcLifeStatScale.MinMinions, maxMinions);
+			p.maxTurrets = maxTurrets;
+		}
+
+		/// <summary>
+		/// Mirror Dryad-aura buffs onto the dummy so vanilla Player.UpdateBuffs applies them.
+		/// Always clears the synced set first so switching NPCs cannot leave sticky effects.
+		/// </summary>
+		public static void SyncAuraBuffsToDummy(Player dummy, NPC npc) {
+			if (dummy == null) {
+				return;
+			}
+
+			foreach (int type in PotionBuffNpcEffectTable.DummySyncedBuffTypes) {
+				dummy.ClearBuff(type);
+			}
+
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return;
+			}
+
+			npc.GetGlobalNPC<TownNpcAuraBuffs>().SyncBuffsToDummy(dummy);
 		}
 
 		public static bool TryGetDummyWho(int npcWhoAmI, out int dummyWho) {

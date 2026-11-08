@@ -74,6 +74,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			Vector2 aimWorld = hand.Aim;
 			ApplyPose(dummy, npc, aimWorld);
 			InstallHeld(dummy, equip, hand.Item);
+			NpcDummyPool.SyncAuraBuffsToDummy(dummy, npc);
 			if (hand.Summon) {
 				dummy.slotsMinions = NpcSummonCap.CountMinionSlots(dummy.whoAmI);
 			}

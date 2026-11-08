@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.IO;
-using AITownNPCs.Common.Ai.Combat;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -35,46 +34,11 @@ namespace AITownNPCs.Common.Roles.Dryad
 		private bool _hasBaseOnFireImmune;
 		private int _syncTimer;
 
-		/// <summary>Wrath (and other generic) outgoing mult — all weapons.</summary>
-		public float OutgoingDamageMult { get; private set; } = 1f;
-
-		/// <summary>Magic Power — applied only to magic weapons in NpcDamageMods.</summary>
-		public float MagicPowerMult { get; private set; } = 1f;
-
-		/// <summary>Archery — applied only to ranged weapons / arrow speed.</summary>
-		public float ArcheryMult { get; private set; } = 1f;
-
 		/// <summary>Swiftness move-speed scale for follow/combat desired speeds (not velocity multiply).</summary>
 		public float MoveSpeedMult { get; private set; } = 1f;
 
-		/// <summary>Aggregated crit chance add (Rage).</summary>
-		public float CritChanceAdd { get; private set; }
-
-		public override void Load() {
-			NpcCombatHooks.RegisterOutgoingDamageMult(ReadOutgoingMult);
-			NpcCombatHooks.RegisterCritChanceAdd(ReadCritChanceAdd);
-		}
-
-		public override void Unload() {
-			NpcCombatHooks.UnregisterOutgoingDamageMult(ReadOutgoingMult);
-			NpcCombatHooks.UnregisterCritChanceAdd(ReadCritChanceAdd);
-		}
-
-		private static float ReadOutgoingMult(NPC npc) {
-			if (npc == null || !npc.active || !npc.townNPC) {
-				return 1f;
-			}
-
-			return npc.GetGlobalNPC<TownNpcAuraBuffs>().OutgoingDamageMult;
-		}
-
-		private static float ReadCritChanceAdd(NPC npc) {
-			if (npc == null || !npc.active || !npc.townNPC) {
-				return 0f;
-			}
-
-			return npc.GetGlobalNPC<TownNpcAuraBuffs>().CritChanceAdd;
-		}
+		/// <summary>Local UI: draw overhead aura buff icons for this NPC. Not saved.</summary>
+		public bool ShowOverheadIcons = true;
 
 		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) {
 			return entity.townNPC;
@@ -146,20 +110,75 @@ namespace AITownNPCs.Common.Roles.Dryad
 			ApplyUnifiedEffects(npc);
 		}
 
-		public override void ResetEffects(NPC npc) {
-			// NPC.defense is persistent (unlike Player.statDefense); always rebuild from defDefense.
-			int bonus = 0;
+		/// <summary>Read-only snapshot of tracked aura buffs for the stats panel.</summary>
+		public void CopyBuffs(List<(int type, int time)> dest) {
+			dest?.Clear();
+			if (dest == null || _buffTime.Count == 0) {
+				return;
+			}
+
 			foreach (var kv in _buffTime) {
+				dest.Add((kv.Key, kv.Value));
+			}
+		}
+
+		public static int GetMinionSlotBonus(NPC npc) {
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return 0;
+			}
+
+			int add = 0;
+			foreach (var kv in npc.GetGlobalNPC<TownNpcAuraBuffs>()._buffTime) {
 				if (PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
-					bonus += fx.DefenseAdd;
+					add += fx.MinionSlotAdd;
 				}
 			}
 
-			npc.defense = npc.defDefense + bonus;
+			return add;
+		}
+
+		/// <summary>Ironskin etc. defense from tracked aura buffs (does not write npc.defense).</summary>
+		public static int GetPotionDefenseAdd(NPC npc) {
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return 0;
+			}
+
+			int add = 0;
+			foreach (var kv in npc.GetGlobalNPC<TownNpcAuraBuffs>()._buffTime) {
+				if (PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
+					add += fx.DefenseAdd;
+				}
+			}
+
+			return add;
+		}
+
+		/// <summary>Vanilla npc.defense + potion defense + lifeMax growth defense.</summary>
+		public static int GetEffectiveDefense(NPC npc) {
+			if (npc == null || !npc.active) {
+				return 0;
+			}
+
+			return npc.defense + GetPotionDefenseAdd(npc) + NpcLifeStatScale.GetDefenseBonus(npc);
+		}
+
+		/// <summary>Add synced aura buffs onto the dummy (caller clears DummySyncedBuffTypes first).</summary>
+		public void SyncBuffsToDummy(Player dummy) {
+			if (dummy == null) {
+				return;
+			}
+
+			foreach (var kv in _buffTime) {
+				if (!PotionBuffNpcEffectTable.ShouldSyncToDummy(kv.Key)) {
+					continue;
+				}
+
+				dummy.AddBuff(kv.Key, System.Math.Max(2, kv.Value), quiet: true);
+			}
 		}
 
 		public override void UpdateLifeRegen(NPC npc, ref int damage) {
-			int regen = 0;
+			int regen = NpcLifeStatScale.GetLifeRegenBonus(npc);
 			foreach (var kv in _buffTime) {
 				if (PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
 					regen += fx.LifeRegenAdd;
@@ -177,6 +196,11 @@ namespace AITownNPCs.Common.Roles.Dryad
 		}
 
 		public override void ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers) {
+			int defenseAdd = GetPotionDefenseAdd(npc) + NpcLifeStatScale.GetDefenseBonus(npc);
+			if (defenseAdd != 0) {
+				modifiers.Defense.Flat += defenseAdd;
+			}
+
 			float taken = 1f;
 			foreach (var kv in _buffTime) {
 				if (!PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
@@ -241,6 +265,10 @@ namespace AITownNPCs.Common.Roles.Dryad
 
 		public override void PostDraw(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
 			if (_buffTime.Count == 0) {
+				return;
+			}
+
+			if (!ShowOverheadIcons) {
 				return;
 			}
 
@@ -340,11 +368,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 		}
 
 		private void ResetCombatAggregates() {
-			OutgoingDamageMult = 1f;
-			MagicPowerMult = 1f;
-			ArcheryMult = 1f;
 			MoveSpeedMult = 1f;
-			CritChanceAdd = 0f;
 			ThornsFraction = 0f;
 		}
 
@@ -367,18 +391,6 @@ namespace AITownNPCs.Common.Roles.Dryad
 					light += fx.LightRgb;
 				}
 
-				// Split class potions; Wrath (and any future generic) stay on OutgoingDamageMult.
-				if (kv.Key == BuffID.MagicPower && fx.OutgoingDamageMult > 1f) {
-					MagicPowerMult *= fx.OutgoingDamageMult;
-				}
-				else if (kv.Key == BuffID.Archery && fx.OutgoingDamageMult > 1f) {
-					ArcheryMult *= fx.OutgoingDamageMult;
-				}
-				else if (fx.OutgoingDamageMult > 1f) {
-					OutgoingDamageMult *= fx.OutgoingDamageMult;
-				}
-
-				CritChanceAdd += fx.CritChanceAdd;
 				if (fx.ThornsFraction > ThornsFraction) {
 					ThornsFraction = fx.ThornsFraction;
 				}

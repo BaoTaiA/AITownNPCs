@@ -80,6 +80,8 @@ namespace AITownNPCs.Common.Equip
 
 		public static string EquipButtonText => Language.GetTextValue("Mods.AITownNPCs.UI.Equip");
 
+		public static string StatsButtonText => Language.GetTextValue("Mods.AITownNPCs.UI.Stats");
+
 		public static bool IsPlayerNearNpc(Player player, NPC npc) {
 			return player != null && NpcHostRules.IsManagedTownNpc(npc)
 				&& player.Distance(npc.Center) <= InteractDistance * 1.5f;

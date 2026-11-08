@@ -11,6 +11,20 @@ Items: {
 
 UI: {
 	Equip: 装备
+	Stats: 属性
+	StatsTitle: "{0} - 属性"
+	StatsLife: 生命
+	StatsRegen: 恢复
+	StatsDefense: 防御
+	StatsAttack: 攻击
+	StatsCrit: 暴击
+	StatsMinions: 仆从
+	StatsSentries: 哨兵
+	StatsBuffs: BUFF
+	StatsBuffsNone: 无
+	StatsOverheadBuffsOn: 点击隐藏头顶增益图标
+	StatsOverheadBuffsOff: 点击显示头顶增益图标
+	StatsAttackPotionHint: 药水加成在战斗假人上结算（开战后生效）
 	WeaponSlot: 武器
 	AmmoSlot: 弹药
 	SummonSlot: 召唤

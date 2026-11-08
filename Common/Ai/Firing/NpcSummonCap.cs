@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -29,6 +31,92 @@ namespace AITownNPCs.Common.Ai.Firing
 			return slots;
 		}
 
+		public static int CountSentries(int dummyWho) {
+			if (!NpcDummyPool.IsDummy(dummyWho)) {
+				return 0;
+			}
+
+			int count = 0;
+			for (int i = 0; i < Main.maxProjectiles; i++) {
+				Projectile proj = Main.projectile[i];
+				if (proj != null && proj.active && proj.owner == dummyWho && proj.sentry) {
+					count++;
+				}
+			}
+
+			return count;
+		}
+
+		/// <summary>
+		/// When lifeMax (and thus caps) drop, kill excess minions/sentries until within limits.
+		/// </summary>
+		public static void CullExcess(Player dummy, int maxMinions, int maxTurrets) {
+			if (dummy == null || !NpcDummyPool.IsDummy(dummy.whoAmI)) {
+				return;
+			}
+
+			int dummyWho = dummy.whoAmI;
+			maxMinions = System.Math.Max(1, maxMinions);
+			maxTurrets = System.Math.Max(1, maxTurrets);
+
+			var minions = new List<Projectile>();
+			var sentries = new List<Projectile>();
+			for (int i = 0; i < Main.maxProjectiles; i++) {
+				Projectile proj = Main.projectile[i];
+				if (proj == null || !proj.active || proj.owner != dummyWho) {
+					continue;
+				}
+
+				if (proj.minion) {
+					minions.Add(proj);
+				}
+				else if (proj.sentry) {
+					sentries.Add(proj);
+				}
+			}
+
+			// Newest first (higher index) so older summons are kept when possible.
+			minions.Sort((a, b) => b.whoAmI.CompareTo(a.whoAmI));
+			sentries.Sort((a, b) => b.whoAmI.CompareTo(a.whoAmI));
+
+			float used = 0f;
+			foreach (Projectile proj in minions) {
+				used += proj.minionSlots;
+			}
+
+			foreach (Projectile proj in minions) {
+				if (used <= maxMinions + 0.001f) {
+					break;
+				}
+
+				used -= proj.minionSlots;
+				proj.Kill();
+			}
+
+			int sentryCount = sentries.Count;
+			foreach (Projectile proj in sentries) {
+				if (sentryCount <= maxTurrets) {
+					break;
+				}
+
+				proj.Kill();
+				sentryCount--;
+			}
+
+			dummy.slotsMinions = CountMinionSlots(dummyWho);
+			dummy.maxMinions = maxMinions;
+			dummy.maxTurrets = maxTurrets;
+		}
+
+		public static void CullExcessForNpc(NPC npc, Player dummy) {
+			if (npc == null || !npc.active || dummy == null) {
+				return;
+			}
+
+			int maxMinions = NpcLifeStatScale.GetMaxMinions(npc) + TownNpcAuraBuffs.GetMinionSlotBonus(npc);
+			CullExcess(dummy, maxMinions, NpcLifeStatScale.GetMaxTurrets(npc));
+		}
+
 		public static int CountUsefulSentries(int dummyWho, NPC target) {
 			if (!NpcDummyPool.IsDummy(dummyWho) || target == null || !target.active) {
 				return 0;
@@ -51,18 +139,17 @@ namespace AITownNPCs.Common.Ai.Firing
 			return useful;
 		}
 
-		public static bool NeedsMinion(Player dummy, Item staff) {
+		public static bool NeedsMinion(NPC npc, Player dummy, Item staff) {
 			if (!NpcEquipHelper.IsMinionStaff(staff)) {
+				return false;
+			}
+
+			if (!TryResolveMaxMinions(npc, dummy, out int max) || max < 1) {
 				return false;
 			}
 
 			int dummyWho = dummy?.whoAmI ?? -1;
 			float used = CountMinionSlots(dummyWho);
-			int max = dummy != null ? dummy.maxMinions : NpcDummyPool.DummyMaxMinions;
-			if (max < 1) {
-				max = NpcDummyPool.DummyMaxMinions;
-			}
-
 			return used + MinionCost(staff) <= max;
 		}
 
@@ -73,9 +160,8 @@ namespace AITownNPCs.Common.Ai.Firing
 				return false;
 			}
 
-			int max = dummy != null ? dummy.maxTurrets : NpcDummyPool.DummyMaxTurrets;
-			if (max < 1) {
-				max = NpcDummyPool.DummyMaxTurrets;
+			if (!TryResolveMaxTurrets(npc, dummy, out int max) || max < 1) {
+				return false;
 			}
 
 			int useful = dummy != null ? CountUsefulSentries(dummy.whoAmI, target) : 0;
@@ -101,6 +187,49 @@ namespace AITownNPCs.Common.Ai.Firing
 
 				aim = point;
 				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>No NPC context → fail (do not summon with a guessed cap).</summary>
+		private static bool TryResolveMaxMinions(NPC npc, Player dummy, out int max) {
+			max = 0;
+			if (npc != null && npc.active) {
+				max = System.Math.Max(
+					NpcLifeStatScale.MinMinions,
+					NpcLifeStatScale.GetMaxMinions(npc) + TownNpcAuraBuffs.GetMinionSlotBonus(npc));
+				return true;
+			}
+
+			if (dummy != null && NpcDummyPool.TryGetNpcWho(dummy.whoAmI, out int npcWho)
+				&& npcWho >= 0 && npcWho < Main.maxNPCs) {
+				NPC bound = Main.npc[npcWho];
+				if (bound != null && bound.active) {
+					max = System.Math.Max(
+						NpcLifeStatScale.MinMinions,
+						NpcLifeStatScale.GetMaxMinions(bound) + TownNpcAuraBuffs.GetMinionSlotBonus(bound));
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		private static bool TryResolveMaxTurrets(NPC npc, Player dummy, out int max) {
+			max = 0;
+			if (npc != null && npc.active) {
+				max = NpcLifeStatScale.GetMaxTurrets(npc);
+				return true;
+			}
+
+			if (dummy != null && NpcDummyPool.TryGetNpcWho(dummy.whoAmI, out int npcWho)
+				&& npcWho >= 0 && npcWho < Main.maxNPCs) {
+				NPC bound = Main.npc[npcWho];
+				if (bound != null && bound.active) {
+					max = NpcLifeStatScale.GetMaxTurrets(bound);
+					return true;
+				}
 			}
 
 			return false;
