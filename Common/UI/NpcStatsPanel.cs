@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using AITownNPCs.Common.Ai.Combat;
 using AITownNPCs.Common.Ai.Firing;
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Roles.Dryad;
@@ -21,7 +20,9 @@ namespace AITownNPCs.Common.UI
 		public const int Width = 300;
 		public const int BodyTop = 52;
 		private const float Scale = 0.85f;
+		private const float NoteScale = 0.7f;
 		private const int RowH = 26;
+		private const int NoteH = 22;
 		private const int BuffIcon = 32;
 		private const int BuffGap = 6;
 		private const int MaxBuffIcons = 20;
@@ -37,7 +38,7 @@ namespace AITownNPCs.Common.UI
 			int perRow = Math.Max(1, (Width - 32) / (BuffIcon + BuffGap));
 			buffRows = count <= 0 ? 1 : (count + perRow - 1) / perRow;
 
-			return BodyTop + 8 + rows * RowH + 28 + buffRows * (BuffIcon + 18) + 16;
+			return BodyTop + 8 + rows * RowH + NoteH + 28 + buffRows * (BuffIcon + 18) + 16;
 		}
 
 		public static void Draw(SpriteBatch batch, NPC npc, Rectangle area, Point mouse, bool clicked) {
@@ -49,14 +50,14 @@ namespace AITownNPCs.Common.UI
 			float valueX = area.X + labelW + 16f;
 			int y = area.Y;
 
-			void Row(string key, string value, string scaleHint = null) {
+			void Row(string key, string value, string breakdown = null) {
 				Utils.DrawBorderString(batch, L(key), new Vector2(area.X, y), Color.LightSteelBlue, Scale);
 				Utils.DrawBorderString(batch, value, new Vector2(valueX, y), Color.White, Scale);
-				if (!string.IsNullOrEmpty(scaleHint)) {
+				if (!string.IsNullOrEmpty(breakdown)) {
 					var hit = new Rectangle(area.X, y - 2, area.Width, RowH);
 					if (hit.Contains(mouse)) {
 						Main.LocalPlayer.mouseInterface = true;
-						Main.instance.MouseText(scaleHint);
+						Main.instance.MouseText(breakdown);
 					}
 				}
 
@@ -65,39 +66,59 @@ namespace AITownNPCs.Common.UI
 
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
 			Item weapon = equip?.Weapon;
-			int flat = NpcLifeStatScale.GetAttackBonus(npc);
-			bool hasWeapon = weapon != null && !weapon.IsAir;
-			int attack = flat;
-			float crit = NpcLifeStatScale.GetCritChanceAdd(npc);
+			int growthAtk = NpcLifeStatScale.GetAttackBonus(npc);
+			int growthDef = NpcLifeStatScale.GetDefenseBonus(npc);
+			float growthCrit = NpcLifeStatScale.GetCritChanceAdd(npc);
+			int growthRegenUnits = NpcLifeStatScale.GetLifeRegenBonus(npc);
+			int potionDef = TownNpcAuraBuffs.GetPotionDefenseAdd(npc);
+			int potionRegenUnits = TownNpcAuraBuffs.GetPotionLifeRegenAdd(npc);
+			int potionMinions = TownNpcAuraBuffs.GetMinionSlotBonus(npc);
+			int growthMinions = NpcLifeStatScale.GetMaxMinions(npc);
+			int growthSentries = NpcLifeStatScale.GetMaxTurrets(npc);
 
+			bool hasWeapon = weapon != null && !weapon.IsAir;
+			int weaponDamage = 0;
+			float weaponCrit = 0f;
 			if (hasWeapon && NpcDummyPool.TryGetDummy(npc.whoAmI, out Player dummy) && dummy != null && dummy.active) {
 				Item held = dummy.inventory[dummy.selectedItem];
 				Item sample = held != null && !held.IsAir ? held : weapon;
-				attack = dummy.GetWeaponDamage(sample) + flat;
-				crit = dummy.GetWeaponCrit(sample) + NpcLifeStatScale.GetCritChanceAdd(npc);
+				weaponDamage = dummy.GetWeaponDamage(sample);
+				weaponCrit = dummy.GetWeaponCrit(sample);
 			}
 			else if (hasWeapon) {
-				attack = weapon.damage + flat;
+				weaponDamage = weapon.damage;
+				weaponCrit = weapon.crit;
 			}
 
+			int attack = hasWeapon ? weaponDamage + growthAtk : growthAtk;
+			float crit = weaponCrit + growthCrit;
+
+			float growthRegenPerSec = growthRegenUnits / 2f;
+			float potionRegenPerSec = potionRegenUnits / 2f;
+			float vanillaRegenPerSec = Math.Max(0f, npc.lifeRegen / 2f - growthRegenPerSec - potionRegenPerSec);
 			float regenPerSec = npc.lifeRegen / 2f;
-			int maxRegenPerSec = NpcLifeStatScale.MaxLifeRegenBonus / 2;
 
 			Row("Life", $"{npc.life} / {npc.lifeMax}");
+
+			Utils.DrawBorderString(
+				batch,
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleNote"),
+				new Vector2(area.X, y),
+				Color.Gray,
+				NoteScale);
+			y += NoteH;
+
 			Row("Regen", $"{regenPerSec:0.##} / s",
-				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintRegen", maxRegenPerSec));
+				BreakdownPerSec(vanillaRegenPerSec, growthRegenPerSec, potionRegenPerSec));
 			Row("Defense", $"{TownNpcAuraBuffs.GetEffectiveDefense(npc)}",
-				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintDefense", NpcLifeStatScale.MaxDefenseBonus));
-			string attackText = hasWeapon ? $"{attack}" : (flat > 0 ? $"+{flat}" : "—");
-			Row("Attack", attackText,
-				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintAttack", NpcLifeStatScale.MaxAttackBonus));
-			Row("Crit", $"{crit:0.#}%",
-				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintCrit", NpcLifeStatScale.MaxCritChanceAdd));
-			int minions = NpcLifeStatScale.GetMaxMinions(npc) + TownNpcAuraBuffs.GetMinionSlotBonus(npc);
-			Row("Minions", $"{minions}",
-				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintMinions", NpcLifeStatScale.MaxMinions));
-			Row("Sentries", $"{NpcLifeStatScale.GetMaxTurrets(npc)}",
-				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintSentries", NpcLifeStatScale.MaxTurrets));
+				Breakdown(npc.defense, growthDef, potionDef));
+
+			string attackText = hasWeapon ? $"{attack}" : (growthAtk > 0 ? $"+{growthAtk}" : "—");
+			Row("Attack", attackText, Breakdown(weaponDamage, growthAtk, 0));
+			Row("Crit", $"{crit:0.#}%", BreakdownPercent(weaponCrit, growthCrit, 0f));
+			Row("Minions", $"{growthMinions + potionMinions}",
+				Breakdown(0, growthMinions, potionMinions));
+			Row("Sentries", $"{growthSentries}", Breakdown(0, growthSentries, 0));
 
 			y += 6;
 			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();
@@ -150,6 +171,34 @@ namespace AITownNPCs.Common.UI
 				x += BuffIcon + BuffGap;
 				drawn++;
 			}
+		}
+
+		private static string Breakdown(int vanilla, int growth, int buff) {
+			return Language.GetTextValue("Mods.AITownNPCs.UI.StatsBreakdown", vanilla, growth, buff);
+		}
+
+		private static string BreakdownPerSec(float vanilla, float growth, float buff) {
+			return Language.GetTextValue(
+				"Mods.AITownNPCs.UI.StatsBreakdownPerSec",
+				FormatNum(vanilla),
+				FormatNum(growth),
+				FormatNum(buff));
+		}
+
+		private static string BreakdownPercent(float vanilla, float growth, float buff) {
+			return Language.GetTextValue(
+				"Mods.AITownNPCs.UI.StatsBreakdownPercent",
+				FormatNum(vanilla),
+				FormatNum(growth),
+				FormatNum(buff));
+		}
+
+		private static string FormatNum(float v) {
+			if (Math.Abs(v - MathF.Round(v)) < 0.05f) {
+				return ((int)MathF.Round(v)).ToString();
+			}
+
+			return v.ToString("0.#");
 		}
 
 		/// <summary>Dryad aura buffs plus minion icons from the NPC combat dummy.</summary>

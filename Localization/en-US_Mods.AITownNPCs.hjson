@@ -24,12 +24,10 @@ UI: {
 	StatsBuffsNone: None
 	StatsOverheadBuffsOn: Click to hide overhead buff icons
 	StatsOverheadBuffsOff: Click to show overhead buff icons
-	StatsScaleHintRegen: Scales with max life, up to +{0}/s
-	StatsScaleHintDefense: Scales with max life, up to +{0}
-	StatsScaleHintAttack: Scales with max life, up to +{0}
-	StatsScaleHintCrit: Scales with max life, up to +{0}%
-	StatsScaleHintMinions: Scales with max life, up to {0}
-	StatsScaleHintSentries: Scales with max life, up to {0}
+	StatsScaleNote: Stats below scale with max life
+	StatsBreakdown: Base {0} + Scale {1} + Buff {2}
+	StatsBreakdownPerSec: Base {0}/s + Scale {1}/s + Buff {2}/s
+	StatsBreakdownPercent: Base {0}% + Scale {1}% + Buff {2}%
 	WeaponSlot: Weapon
 	AmmoSlot: Ammo
 	SummonSlot: Summon

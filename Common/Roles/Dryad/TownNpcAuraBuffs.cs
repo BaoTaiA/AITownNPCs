@@ -153,6 +153,22 @@ namespace AITownNPCs.Common.Roles.Dryad
 			return add;
 		}
 
+		/// <summary>Regeneration potion lifeRegen units from tracked aura buffs.</summary>
+		public static int GetPotionLifeRegenAdd(NPC npc) {
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return 0;
+			}
+
+			int add = 0;
+			foreach (var kv in npc.GetGlobalNPC<TownNpcAuraBuffs>()._buffTime) {
+				if (PotionBuffNpcEffectTable.TryGet(kv.Key, out PotionBuffNpcEffect fx)) {
+					add += fx.LifeRegenAdd;
+				}
+			}
+
+			return add;
+		}
+
 		/// <summary>Vanilla npc.defense + potion defense + lifeMax growth defense.</summary>
 		public static int GetEffectiveDefense(NPC npc) {
 			if (npc == null || !npc.active) {

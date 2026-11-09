@@ -24,12 +24,10 @@ UI: {
 	StatsBuffsNone: 无
 	StatsOverheadBuffsOn: 点击隐藏头顶增益图标
 	StatsOverheadBuffsOff: 点击显示头顶增益图标
-	StatsScaleHintRegen: 依据最大生命值提升，最高 +{0}/s
-	StatsScaleHintDefense: 依据最大生命值提升，最高 +{0}
-	StatsScaleHintAttack: 依据最大生命值提升，最高 +{0}
-	StatsScaleHintCrit: 依据最大生命值提升，最高 +{0}%
-	StatsScaleHintMinions: 依据最大生命值提升，最高 {0}
-	StatsScaleHintSentries: 依据最大生命值提升，最高 {0}
+	StatsScaleNote: 以下属性依据最大生命值动态提升
+	StatsBreakdown: 原版 {0} + 成长 {1} + 增益 {2}
+	StatsBreakdownPerSec: 原版 {0}/s + 成长 {1}/s + 增益 {2}/s
+	StatsBreakdownPercent: 原版 {0}% + 成长 {1}% + 增益 {2}%
 	WeaponSlot: 武器
 	AmmoSlot: 弹药
 	SummonSlot: 召唤
