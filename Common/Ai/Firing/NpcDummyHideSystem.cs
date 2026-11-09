@@ -22,6 +22,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			Player.gravity = 0f;
 			Player.maxFallSpeed = 0f;
 			NpcDummyPool.FillMana(Player);
+			NpcDummyPool.FillModCombatResources(Player);
 			NpcDummyPool.KeepAlive(Player);
 		}
 
@@ -70,6 +71,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			Player.lavaWet = false;
 			Player.honeyWet = false;
 			Player.shimmerWet = false;
+			NpcDummyPool.FillModCombatResources(Player);
 			return true;
 		}
 

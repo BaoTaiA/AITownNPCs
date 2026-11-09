@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
@@ -41,6 +42,43 @@ namespace AITownNPCs.Common.Ai.Firing
 			p.statManaMax = DummyManaCap;
 			p.statManaMax2 = DummyManaCap;
 			p.statMana = DummyManaCap;
+		}
+
+		/// <summary>Top off soft-mod resources (Thorium inspiration / SOTS void) like mana.</summary>
+		public static void FillModCombatResources(Player p) {
+			NpcDummyModResources.Fill(p);
+		}
+
+		/// <summary>
+		/// Mirror follow-owner team/hostile onto the dummy (Thorium ally / PvP gates).
+		/// Unbound dummies stay peaceful on team 0.
+		/// </summary>
+		public static void SyncTeamFromFollowOwner(Player dummy) {
+			if (dummy == null) {
+				return;
+			}
+
+			if (TryGetNpcWho(dummy.whoAmI, out int npcWho)
+				&& npcWho >= 0
+				&& npcWho < Main.maxNPCs) {
+				NPC npc = Main.npc[npcWho];
+				if (npc != null && npc.active) {
+					FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+					if (follow.IsFollowing
+						&& follow.FollowPlayerWhoAmI >= 0
+						&& follow.FollowPlayerWhoAmI < Main.maxPlayers) {
+						Player owner = Main.player[follow.FollowPlayerWhoAmI];
+						if (owner != null && owner.active) {
+							dummy.team = owner.team;
+							dummy.hostile = owner.hostile;
+							return;
+						}
+					}
+				}
+			}
+
+			dummy.team = 0;
+			dummy.hostile = false;
 		}
 
 		public static void KeepAlive(Player p) {
@@ -309,7 +347,8 @@ namespace AITownNPCs.Common.Ai.Firing
 			return false;
 		}
 
-		private static bool IsSummonBody(Projectile proj) => proj.minion || proj.sentry;
+		private static bool IsSummonBody(Projectile proj) =>
+			proj.minion || proj.sentry || NpcDummyModResources.IsVoidCapacityMinion(proj);
 
 		private static bool IsSummonProjectile(Projectile proj) {
 			if (IsSummonBody(proj)) {
@@ -495,8 +534,6 @@ namespace AITownNPCs.Common.Ai.Firing
 			p.whoAmI = slot;
 			p.active = true;
 			p.name = string.Empty;
-			p.hostile = false;
-			p.team = 0;
 			p.aggro = -1000;
 			p.gravDir = 1f;
 			p.selectedItem = 0;
@@ -505,7 +542,9 @@ namespace AITownNPCs.Common.Ai.Firing
 			p.statLife = DummyLifeCap;
 
 			KeepAlive(p);
+			SyncTeamFromFollowOwner(p);
 			FillMana(p);
+			FillModCombatResources(p);
 
 			if (firstBind) {
 				p.itemAnimation = 0;

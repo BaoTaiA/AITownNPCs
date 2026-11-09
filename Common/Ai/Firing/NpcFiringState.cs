@@ -58,6 +58,9 @@ namespace AITownNPCs.Common.Ai.Firing
 		/// <summary>Do not start another summon or sentry cast before this tick.</summary>
 		public uint SummonRetryUntil;
 
+		/// <summary>Proactive Thorium support (shield/buff): do not re-cast before this tick.</summary>
+		public uint SupportRetryUntil;
+
 		/// <summary>Last offhand summon/sentry type. -1 means none observed yet.</summary>
 		public int TrackedSummonType = -1;
 

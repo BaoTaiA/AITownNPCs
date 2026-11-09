@@ -29,6 +29,20 @@ namespace AITownNPCs.Common.Ai.Firing
 			RunLocal(npc, equip, combat, target, wantUse, aimOverride: null);
 		}
 
+		/// <summary>Fire with an explicit aim (healer support / non-NPC patients).</summary>
+		public static void TickAimed(NPC npc, EquippedTownNPC equip, NpcCombatState combat, Vector2 aimWorld, bool wantUse) {
+			if (npc == null || !npc.active || combat == null || equip == null) {
+				return;
+			}
+
+			if (Main.netMode == NetmodeID.Server) {
+				NpcClientUseNet.SendIntent(npc, equip, combat, aimWorld, wantUse);
+				return;
+			}
+
+			RunLocal(npc, equip, combat, target: null, wantUse, aimWorld);
+		}
+
 		/// <summary>Follower client: run the player weapon pipeline from a server intent.</summary>
 		public static void RunFromIntent(NPC npc, EquippedTownNPC equip, Vector2 aimWorld, bool wantUse) {
 			if (npc == null || !npc.active || equip == null) {
@@ -91,16 +105,24 @@ namespace AITownNPCs.Common.Ai.Firing
 			int weaponStackBefore = equip.Weapon.IsAir ? 0 : equip.Weapon.stack;
 			bool[] wasActive = NpcWeaponProjectile.RentSnapshot();
 
+			// Palico ResourceReady: void meter / inspiration wait / Thorium drum PlanUse.
+			bool press = hand.WantUse;
+			if (press && !NpcDummyModResources.IsVoidReady(dummy)) {
+				press = false;
+			}
+
+			press = NpcThoriumWeaponBridge.BeforeUse(dummy, npc, press);
+
 			try {
 				NpcDummyLocal.RememberAim(dummy.whoAmI, aimWorld);
-				RunPlayerUpdate(dummy, aimWorld, hand.WantUse);
+				RunPlayerUpdate(dummy, aimWorld, press);
 				if (hand.Summon) {
 					dummy.slotsMinions = 0f;
 					dummy.numMinions = 0;
 					NoteSummonRetry(npc, hand, dummy);
 				}
 
-				LogFireProbe(npc, dummy, hand.WantUse);
+				LogFireProbe(npc, dummy, press);
 				ApplyAimFacing(npc, dummy, aimWorld);
 				NpcDummyPool.LockPose(dummy, npc);
 				ApplyStealth(dummy);
@@ -270,7 +292,8 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static void ApplyStealth(Player dummy) {
 			NpcDummyPool.KeepAlive(dummy);
 			dummy.aggro = -1000;
-			dummy.hostile = false;
+			// Thorium ally checks use team/hostile; mirror the follow owner (Palico).
+			NpcDummyPool.SyncTeamFromFollowOwner(dummy);
 			dummy.controlUseTile = false;
 			dummy.releaseUseTile = false;
 		}

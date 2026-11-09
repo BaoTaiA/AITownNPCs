@@ -5,6 +5,7 @@ using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Host;
 using Terraria;
+using Terraria.ID;
 
 namespace AITownNPCs.Common.Ai.Combat
 {
@@ -23,15 +24,22 @@ namespace AITownNPCs.Common.Ai.Combat
 			NpcEquipProfile profile = NpcEquipProfileRegistry.Get(npc.type);
 			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
 
+			bool healerTool = NpcHealerSupport.IsTool(equip.Weapon);
 			bool mainReady = !equip.Weapon.IsAir
 				&& NpcEquipHelper.IsAllowedWeapon(equip.Weapon)
-				&& NpcCombatFire.CanFireWeapon(equip);
+				&& (healerTool || NpcCombatFire.CanFireWeapon(equip));
 			bool summonReady = NpcEquipHelper.IsSummonOrSentryStaff(equip.SummonStaff);
 			bool canFight = follow.IsFollowing
 				&& profile.CombatEnabled
 				&& (mainReady || summonReady);
 
 			if (!canFight) {
+				state.EnterFollowOnly();
+				return;
+			}
+
+			// Healer main-hand: stay on follow locomotion; support fire runs in Tick(FollowOnly).
+			if (healerTool) {
 				state.EnterFollowOnly();
 				return;
 			}
@@ -163,7 +171,7 @@ namespace AITownNPCs.Common.Ai.Combat
 
 			// Clients do not drive combat fire (intents do). They still must Stop on
 			// FollowOnly when residue remains so summons / dummy arms unbind.
-			if (Main.netMode == Terraria.ID.NetmodeID.MultiplayerClient) {
+			if (Main.netMode == NetmodeID.MultiplayerClient) {
 				if (state.Mode == NpcCombatMode.FollowOnly) {
 					StopFollowOnlyIfNeeded(npc, state);
 				}
@@ -197,9 +205,22 @@ namespace AITownNPCs.Common.Ai.Combat
 					break;
 				}
 				default:
-					StopFollowOnlyIfNeeded(npc, state);
+					TickFollowOnly(npc, equip, state);
 					break;
 			}
+		}
+
+		private static void TickFollowOnly(NPC npc, EquippedTownNPC equip, NpcCombatState state) {
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			if (follow.IsFollowing && NpcHealerSupport.IsTool(equip.Weapon)) {
+				// Do not call MaintainWhileIdle here: it CeasePreserve/ForceRelease and
+				// cancels the healer use started in the same tick.
+				NpcHealerSupport.Tick(npc, equip);
+				state.HasEngagedTarget = false;
+				return;
+			}
+
+			StopFollowOnlyIfNeeded(npc, state);
 		}
 
 		private static void StopFollowOnlyIfNeeded(NPC npc, NpcCombatState state) {

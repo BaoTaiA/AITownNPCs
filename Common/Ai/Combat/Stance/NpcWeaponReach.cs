@@ -1,4 +1,5 @@
 using System;
+using AITownNPCs.Common.Ai.Firing;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -47,7 +48,11 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 				return RangedRange;
 			}
 
-			if (item.consumable && SafeThrow(item)) {
+			if (NpcThoriumWeaponBridge.ReachOverride?.Invoke(item) is float thoriumReach) {
+				return thoriumReach;
+			}
+
+			if (item.consumable && (SafeThrow(item) || NpcThoriumWeaponBridge.IsSafeThrow(item))) {
 				return Math.Clamp(item.shootSpeed * 18f, 100f, 240f);
 			}
 

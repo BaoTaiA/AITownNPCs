@@ -27,6 +27,17 @@ namespace AITownNPCs.Common.Ai.Firing
 				return false;
 			}
 
+			// SOTS void charge (e.g. Incinerator Glove) before HeldProjectile blacklist:
+			// charge holdouts look like "always hold" but must release to fire.
+			if (IsSotsVoidCharge(weapon)) {
+				return true;
+			}
+
+			// Thorium support charge (Granite Ion Staff): hold to charge, release to fire.
+			if (IsThoriumHealerCharge(weapon)) {
+				return true;
+			}
+
 			if (IsAlwaysHoldBlacklisted(weapon)) {
 				return false;
 			}
@@ -42,6 +53,14 @@ namespace AITownNPCs.Common.Ai.Firing
 		public static int GetHoldFrames(Item weapon) {
 			if (weapon == null || weapon.IsAir) {
 				return ClampHold(60);
+			}
+
+			if (IsSotsVoidCharge(weapon)) {
+				return ClampHold(SotsVoidChargeHoldFrames);
+			}
+
+			if (IsThoriumHealerCharge(weapon)) {
+				return ClampHold(ThoriumHealerChargeHoldFrames);
 			}
 
 			if (IsVanillaFlail(weapon)) {
@@ -143,6 +162,63 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		// ========== 白名单簇：只负责认武器；节奏统一；每簇一个 HoldFrames ==========
+
+		// ----- SOTS 虚空蓄力（白名单）-----
+		// 仅「蓄满再放」：焚化手套 / Crushers / 臂丛长矛 / 玫瑰弓 / 梦境灯。
+		// 岩浆聚合炮、腐蚀之眼、像素爆破枪等按住持续 → 默认一直按，勿进此簇。
+
+		/// <summary>按住多少帧再松手（约 90 帧 ≈ 1.5 秒；不追求满层蓄力）。</summary>
+		public static int SotsVoidChargeHoldFrames = 90;
+
+		/// <summary>ModItem 名子串；仅真蓄力虚空武器。</summary>
+		public static readonly string[] SotsVoidChargeItemNameContains = {
+			"IncineratorGlove",
+			"Incinerator",
+			"BrachialLance",
+			"RoseBow",
+			"DreamingLamp",
+			// Crushers
+			"CrabClaw",
+			"CardiacCollapse",
+			"SoulEater",
+			"MantisGrip",
+			"Hellbreaker",
+			"GoopwoodCollapse",
+			"BoneClapper",
+			"FlyCatcher",
+			"Eclipse",
+			"Pulverizer",
+			"IrradiatedChain",
+			"DuneSplicer",
+			"SpiritScissors",
+		};
+
+		public static bool IsSotsVoidCharge(Item weapon) {
+			if (weapon == null || weapon.IsAir || !weapon.channel || weapon.shoot <= ProjectileID.None) {
+				return false;
+			}
+
+			if (!NpcDummyModResources.IsVoidItem(weapon)) {
+				return false;
+			}
+
+			string name = weapon.ModItem?.Name;
+			return NameContainsAny(name, SotsVoidChargeItemNameContains);
+		}
+
+		// ----- 瑟银支援蓄力 -----
+		// 条件：channel + shoot + IsProactiveSupport。典型：花岗岩离子法杖。
+
+		/// <summary>按住多少帧再松手（约 90 帧 ≈ 满层前释放）。</summary>
+		public static int ThoriumHealerChargeHoldFrames = 90;
+
+		public static bool IsThoriumHealerCharge(Item weapon) {
+			if (weapon == null || weapon.IsAir || !weapon.channel || weapon.shoot <= ProjectileID.None) {
+				return false;
+			}
+
+			return NpcHealerSupport.IsProactiveSupport(weapon);
+		}
 
 		// ----- 原版连枷 -----
 		// 条件：弹体 aiStyle == Flail。典型：链球、陨石连枷。

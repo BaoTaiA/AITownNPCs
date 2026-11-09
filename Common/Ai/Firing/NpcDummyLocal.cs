@@ -75,6 +75,10 @@ namespace AITownNPCs.Common.Ai.Firing
 			AimWorld[dummyWho] = aimWorld;
 		}
 
+		public static bool TryGetAim(int dummyWho, out Vector2 aimWorld) {
+			return AimWorld.TryGetValue(dummyWho, out aimWorld);
+		}
+
 		public static void Enter(Player dummy, Vector2 aimWorld, bool wantUse) {
 			if (_active) {
 				Leave(dummy, wantUse: false);

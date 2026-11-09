@@ -92,6 +92,15 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		public static void SendIntent(NPC npc, EquippedTownNPC equip, NpcCombatState combat, NPC target, bool allowFire) {
+			Vector2 aim = target != null && target.active
+				? target.Center
+				: npc != null
+					? npc.Center + new Vector2(npc.direction * 320f, 0f)
+					: Vector2.Zero;
+			SendIntent(npc, equip, combat, aim, allowFire);
+		}
+
+		public static void SendIntent(NPC npc, EquippedTownNPC equip, NpcCombatState combat, Vector2 aim, bool allowFire) {
 			if (Main.netMode != NetmodeID.Server || npc == null || !npc.active || equip == null || combat == null) {
 				return;
 			}
@@ -126,10 +135,6 @@ namespace AITownNPCs.Common.Ai.Firing
 				firing.IntentOpen = true;
 				edgeOpen = true;
 			}
-
-			Vector2 aim = target != null && target.active
-				? target.Center
-				: npc.Center + new Vector2(npc.direction * 320f, 0f);
 
 			if (!edgeClose && !edgeOpen && !ShouldRefreshHoldIntent(firing, equip, aim)) {
 				return;

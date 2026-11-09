@@ -5,6 +5,7 @@ using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
+using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Ai.Firing
 {
@@ -23,9 +24,15 @@ namespace AITownNPCs.Common.Ai.Firing
 			float slots = 0f;
 			for (int i = 0; i < Main.maxProjectiles; i++) {
 				Projectile proj = Main.projectile[i];
-				if (proj != null && proj.active && proj.owner == dummyWho && proj.minion) {
-					slots += proj.minionSlots;
+				if (proj == null || !proj.active || proj.owner != dummyWho || !proj.minion) {
+					continue;
 				}
+
+				if (NpcDummyModResources.IsVoidCapacityMinion(proj)) {
+					continue;
+				}
+
+				slots += proj.minionSlots;
 			}
 
 			return slots;
@@ -68,6 +75,11 @@ namespace AITownNPCs.Common.Ai.Firing
 				}
 
 				if (proj.minion) {
+					// SOTS void spirits reserve void capacity — never cull by vanilla slots.
+					if (NpcDummyModResources.IsVoidCapacityMinion(proj)) {
+						continue;
+					}
+
 					minions.Add(proj);
 				}
 				else if (proj.sentry) {
@@ -144,13 +156,51 @@ namespace AITownNPCs.Common.Ai.Firing
 				return false;
 			}
 
+			// SOTS void spirits: gate only on native CanUseItem (void capacity).
+			if (NpcDummyModResources.IsVoidSummon(staff)) {
+				return dummy == null || CanDummyUse(dummy, staff);
+			}
+
 			if (!TryResolveMaxMinions(npc, dummy, out int max) || max < 1) {
 				return false;
 			}
 
 			int dummyWho = dummy?.whoAmI ?? -1;
 			float used = CountMinionSlots(dummyWho);
-			return used + MinionCost(staff) <= max;
+			if (used + MinionCost(staff) > max) {
+				return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>Soft CanUseItem probe with the staff temporarily in hand (Palico CanEquipSummon).</summary>
+		private static bool CanDummyUse(Player dummy, Item staff) {
+			if (dummy == null || staff == null || staff.IsAir) {
+				// No dummy yet — allow the attempt; native use pays / refuses.
+				return true;
+			}
+
+			int selected = dummy.selectedItem;
+			Item held = dummy.inventory[selected];
+			try {
+				dummy.inventory[selected] = staff;
+				// Palico: Fill/Resources then CanUseItem under actor Scope; fail → 60 tick retry.
+				bool allowed = NpcDummyModResources.ProbeCanUseItem(dummy, staff);
+				if (!allowed
+					&& NpcDummyPool.TryGetNpcWho(dummy.whoAmI, out int npcWho)
+					&& npcWho >= 0
+					&& npcWho < Main.maxNPCs
+					&& Main.npc[npcWho].active) {
+					Main.npc[npcWho].GetGlobalNPC<NpcFiringState>().SummonRetryUntil =
+						Main.GameUpdateCount + 60;
+				}
+
+				return allowed;
+			}
+			finally {
+				dummy.inventory[selected] = held;
+			}
 		}
 
 		/// <summary>True when another sentry should be placed, and writes a spread aim near the target.</summary>

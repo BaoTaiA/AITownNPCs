@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Ai.Firing;
 using AITownNPCs.Common.Host;
 using Terraria;
 using Terraria.ID;
@@ -12,8 +13,27 @@ namespace AITownNPCs.Common.Equip
 		public const float FacingDeadzone = 16f;
 
 		public static bool IsAllowedWeapon(Item item) {
-			return item != null && !item.IsAir && item.damage > 0 && !IsSummonOrSentryStaff(item);
+			if (item == null || item.IsAir || IsSummonOrSentryStaff(item)) {
+				return false;
+			}
+
+			if (item.damage > 0) {
+				// Consumable throwers: vanilla list or Thorium SafeThrow (Palico).
+				if (item.consumable && item.shoot > ProjectileID.None) {
+					return IsVanillaSafeThrow(item) || NpcThoriumWeaponBridge.IsSafeThrow(item);
+				}
+
+				return true;
+			}
+
+			return NpcHealerSupport.IsTool(item);
 		}
+
+		private static bool IsVanillaSafeThrow(Item i) =>
+			i.type is ItemID.Shuriken or ItemID.ThrowingKnife or ItemID.PoisonedKnife or ItemID.Snowball
+				or ItemID.SpikyBall or ItemID.Grenade or ItemID.StickyGrenade or ItemID.BouncyGrenade
+				or ItemID.Beenade or ItemID.FrostDaggerfish or ItemID.Javelin or ItemID.BoneJavelin
+				or ItemID.MolotovCocktail or ItemID.RottenEgg or ItemID.Bone;
 
 		/// <summary>Summon staff (minion projectile) or sentry staff. Whips stay main-hand weapons.</summary>
 		public static bool IsSummonOrSentryStaff(Item item) {
@@ -21,6 +41,16 @@ namespace AITownNPCs.Common.Equip
 		}
 
 		public static bool IsMinionStaff(Item item) {
+			if (item == null || item.IsAir) {
+				return false;
+			}
+
+			// SOTS void summons (Nature Spirit etc.) may use void capacity instead of
+			// (or in addition to) minion slots — still belong in the summon slot.
+			if (NpcDummyModResources.IsVoidSummon(item)) {
+				return true;
+			}
+
 			Projectile shot = SampleShot(item);
 			return shot != null && shot.minion && !shot.sentry;
 		}
