@@ -24,7 +24,12 @@ UI: {
 	StatsBuffsNone: None
 	StatsOverheadBuffsOn: Click to hide overhead buff icons
 	StatsOverheadBuffsOff: Click to show overhead buff icons
-	StatsAttackPotionHint: Potion bonuses apply on the combat dummy (while fighting)
+	StatsScaleHintRegen: Scales with max life, up to +{0}/s
+	StatsScaleHintDefense: Scales with max life, up to +{0}
+	StatsScaleHintAttack: Scales with max life, up to +{0}
+	StatsScaleHintCrit: Scales with max life, up to +{0}%
+	StatsScaleHintMinions: Scales with max life, up to {0}
+	StatsScaleHintSentries: Scales with max life, up to {0}
 	WeaponSlot: Weapon
 	AmmoSlot: Ammo
 	SummonSlot: Summon

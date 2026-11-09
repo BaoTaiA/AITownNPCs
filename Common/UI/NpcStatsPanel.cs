@@ -18,7 +18,7 @@ namespace AITownNPCs.Common.UI
 	/// <summary>Read-only stats rows + vanilla-style buff icons for a town NPC.</summary>
 	public static class NpcStatsPanel
 	{
-		public const int Width = 380;
+		public const int Width = 300;
 		public const int BodyTop = 52;
 		private const float Scale = 0.85f;
 		private const int RowH = 26;
@@ -49,9 +49,17 @@ namespace AITownNPCs.Common.UI
 			float valueX = area.X + labelW + 16f;
 			int y = area.Y;
 
-			void Row(string key, string value) {
+			void Row(string key, string value, string scaleHint = null) {
 				Utils.DrawBorderString(batch, L(key), new Vector2(area.X, y), Color.LightSteelBlue, Scale);
 				Utils.DrawBorderString(batch, value, new Vector2(valueX, y), Color.White, Scale);
+				if (!string.IsNullOrEmpty(scaleHint)) {
+					var hit = new Rectangle(area.X, y - 2, area.Width, RowH);
+					if (hit.Contains(mouse)) {
+						Main.LocalPlayer.mouseInterface = true;
+						Main.instance.MouseText(scaleHint);
+					}
+				}
+
 				y += RowH;
 			}
 
@@ -59,7 +67,6 @@ namespace AITownNPCs.Common.UI
 			Item weapon = equip?.Weapon;
 			int flat = NpcLifeStatScale.GetAttackBonus(npc);
 			bool hasWeapon = weapon != null && !weapon.IsAir;
-			bool usedDummyPreview = false;
 			int attack = flat;
 			float crit = NpcLifeStatScale.GetCritChanceAdd(npc);
 
@@ -68,32 +75,29 @@ namespace AITownNPCs.Common.UI
 				Item sample = held != null && !held.IsAir ? held : weapon;
 				attack = dummy.GetWeaponDamage(sample) + flat;
 				crit = dummy.GetWeaponCrit(sample) + NpcLifeStatScale.GetCritChanceAdd(npc);
-				usedDummyPreview = true;
 			}
 			else if (hasWeapon) {
 				attack = weapon.damage + flat;
 			}
 
 			float regenPerSec = npc.lifeRegen / 2f;
+			int maxRegenPerSec = NpcLifeStatScale.MaxLifeRegenBonus / 2;
 
 			Row("Life", $"{npc.life} / {npc.lifeMax}");
-			Row("Regen", $"{regenPerSec:0.##} / s");
-			Row("Defense", $"{TownNpcAuraBuffs.GetEffectiveDefense(npc)}");
+			Row("Regen", $"{regenPerSec:0.##} / s",
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintRegen", maxRegenPerSec));
+			Row("Defense", $"{TownNpcAuraBuffs.GetEffectiveDefense(npc)}",
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintDefense", NpcLifeStatScale.MaxDefenseBonus));
 			string attackText = hasWeapon ? $"{attack}" : (flat > 0 ? $"+{flat}" : "—");
-			int attackRowY = y;
-			Row("Attack", attackText);
-			if (!usedDummyPreview && hasWeapon) {
-				var tipRect = new Rectangle(area.X, attackRowY - 2, area.Width, RowH);
-				if (tipRect.Contains(mouse)) {
-					Main.LocalPlayer.mouseInterface = true;
-					Main.instance.MouseText(Language.GetTextValue("Mods.AITownNPCs.UI.StatsAttackPotionHint"));
-				}
-			}
-
-			Row("Crit", $"{crit:0.#}%");
+			Row("Attack", attackText,
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintAttack", NpcLifeStatScale.MaxAttackBonus));
+			Row("Crit", $"{crit:0.#}%",
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintCrit", NpcLifeStatScale.MaxCritChanceAdd));
 			int minions = NpcLifeStatScale.GetMaxMinions(npc) + TownNpcAuraBuffs.GetMinionSlotBonus(npc);
-			Row("Minions", $"{minions}");
-			Row("Sentries", $"{NpcLifeStatScale.GetMaxTurrets(npc)}");
+			Row("Minions", $"{minions}",
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintMinions", NpcLifeStatScale.MaxMinions));
+			Row("Sentries", $"{NpcLifeStatScale.GetMaxTurrets(npc)}",
+				Language.GetTextValue("Mods.AITownNPCs.UI.StatsScaleHintSentries", NpcLifeStatScale.MaxTurrets));
 
 			y += 6;
 			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();

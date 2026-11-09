@@ -24,7 +24,12 @@ UI: {
 	StatsBuffsNone: 无
 	StatsOverheadBuffsOn: 点击隐藏头顶增益图标
 	StatsOverheadBuffsOff: 点击显示头顶增益图标
-	StatsAttackPotionHint: 药水加成在战斗假人上结算（开战后生效）
+	StatsScaleHintRegen: 依据最大生命值提升，最高 +{0}/s
+	StatsScaleHintDefense: 依据最大生命值提升，最高 +{0}
+	StatsScaleHintAttack: 依据最大生命值提升，最高 +{0}
+	StatsScaleHintCrit: 依据最大生命值提升，最高 +{0}%
+	StatsScaleHintMinions: 依据最大生命值提升，最高 {0}
+	StatsScaleHintSentries: 依据最大生命值提升，最高 {0}
 	WeaponSlot: 武器
 	AmmoSlot: 弹药
 	SummonSlot: 召唤
