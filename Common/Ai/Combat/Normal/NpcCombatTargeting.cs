@@ -80,17 +80,21 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 		public static bool Valid(Player owner, Vector2 cat, NPC npc, float range) =>
 			InReach(owner, cat, npc, range) && NpcWeaponReach.Clear(cat, npc.Center);
 
-		public static NPC Marked(Player owner, Vector2 cat) {
+		public static NPC Marked(Player owner, Vector2 cat, bool throughWalls = false) {
 			int id = owner.MinionAttackTargetNPC;
 			return id >= 0 && id < Main.maxNPCs
-				&& Valid(owner, cat, Main.npc[id], NpcWeaponReach.TrackingRange)
+				&& Attackable(owner, cat, Main.npc[id], NpcWeaponReach.TrackingRange, throughWalls)
 					? Main.npc[id]
 					: null;
 		}
 
+		static bool Attackable(Player owner, Vector2 cat, NPC npc, float range, bool throughWalls) =>
+			InReach(owner, cat, npc, range)
+			&& (NpcWeaponReach.Clear(cat, npc.Center) || throughWalls);
+
 		/// <summary>Active combat select (Palico non-passive, non-cooperative). working=false.</summary>
-		public NPC Select(Player owner, Vector2 cat) {
-			if (Marked(owner, cat) is { } marked) {
+		public NPC Select(Player owner, Vector2 cat, bool throughWalls = false) {
+			if (Marked(owner, cat, throughWalls) is { } marked) {
 				return Remember(marked);
 			}
 
@@ -99,7 +103,7 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 			bool Intercept(NPC n) => Incoming(n, owner.Center) || Incoming(n, cat);
 
 			bool Eligible(NPC n) =>
-				Valid(owner, cat, n, retained && n == current ? NpcWeaponReach.TrackingRange : NpcWeaponReach.SearchRange);
+				Attackable(owner, cat, n, retained && n == current ? NpcWeaponReach.TrackingRange : NpcWeaponReach.SearchRange, throughWalls);
 
 			bool Protect(NPC n) =>
 				Vector2.DistanceSquared(n.Center, owner.Center) < 160 * 160

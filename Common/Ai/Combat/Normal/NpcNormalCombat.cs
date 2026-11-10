@@ -1,4 +1,5 @@
 using AITownNPCs.Common.Ai.Combat.Boss;
+using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
 using Terraria;
 
@@ -11,7 +12,9 @@ namespace AITownNPCs.Common.Ai.Combat.Normal
 		public const float LeashDist = 640f;
 
 		public static NPC ResolveTarget(NPC npc, Player player, NpcCombatState combat) {
-			NPC selected = combat.Targeting.Select(player, npc.Center);
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			bool throughWalls = NpcAttackPath.ThroughWalls(equip.Weapon, equip.Ammo);
+			NPC selected = combat.Targeting.Select(player, npc.Center, throughWalls);
 			combat.CachedTargetWhoAmI = selected?.whoAmI ?? -1;
 			return selected;
 		}

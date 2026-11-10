@@ -195,6 +195,10 @@ namespace AITownNPCs.Common.Ai.Firing
 			On_AchievementsHelper.HandleRunning += HandleRunning_SkipDedServ;
 		}
 
+		public override void PreUpdateProjectiles() {
+			NpcDummyPool.ResetMinionCensus();
+		}
+
 		public override void PostUpdateEverything() {
 			NpcDummyPool.LockAllToNpcs();
 			NpcDummyLocal.DrainProjFrames();

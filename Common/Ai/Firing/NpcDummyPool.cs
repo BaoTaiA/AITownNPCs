@@ -420,6 +420,27 @@ namespace AITownNPCs.Common.Ai.Firing
 			OwnerFrameTick.Remove(slot);
 		}
 
+		/// <summary>
+		/// Dummy <see cref="Player.Update"/> is skipped, so the vanilla per-frame minion census never clears.
+		/// Zero it before projectile AI. Minions then re-slot around the NPC instead of walking the index outward.
+		/// </summary>
+		public static void ResetMinionCensus() {
+			foreach (KeyValuePair<int, int> pair in NpcToDummy) {
+				int dummyWho = pair.Value;
+				if (dummyWho < 0 || dummyWho >= Main.maxPlayers) {
+					continue;
+				}
+
+				Player dummy = Main.player[dummyWho];
+				if (dummy == null) {
+					continue;
+				}
+
+				dummy.slotsMinions = 0f;
+				dummy.numMinions = 0;
+			}
+		}
+
 		public static void LockAllToNpcs() {
 			List<int> stale = null;
 			foreach (KeyValuePair<int, int> pair in NpcToDummy) {

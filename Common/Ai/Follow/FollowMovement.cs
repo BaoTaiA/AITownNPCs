@@ -164,7 +164,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				bool forceChase = MustForceBossChase(combat, npc, foe);
 				bool canShoot = !forceChase
 					&& NpcWeaponReach.CanUse(npc, stance, foe)
-					&& NpcWeaponReach.Clear(npc.Center, foe.Center);
+					&& NpcAttackPath.Allows(stance, equip.Ammo, npc.Center, foe.Center);
 				if (canShoot) {
 					Vector2 hold = new Vector2(anchor.X, npc.Center.Y);
 					if (Math.Abs(npc.Center.X - hold.X) <= TileSize) {
@@ -216,7 +216,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				bool forceChase = MustForceBossChase(combat, npc, target);
 				bool canShoot = !forceChase
 					&& NpcWeaponReach.CanUse(npc, stance, target)
-					&& NpcWeaponReach.Clear(npc.Center, target.Center);
+					&& NpcAttackPath.Allows(stance, equip.Ammo, npc.Center, target.Center);
 				if (!canShoot) {
 					TryPlatformStep(npc, follow, anchor);
 					FaceTowardX(npc, anchor.X);

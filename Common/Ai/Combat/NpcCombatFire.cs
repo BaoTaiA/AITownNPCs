@@ -67,7 +67,7 @@ namespace AITownNPCs.Common.Ai.Combat
 				&& target.active
 				&& CanFireWeapon(equip)
 				&& NpcWeaponReach.CanUse(npc, equip.Weapon, target)
-				&& NpcWeaponReach.Clear(npc.Center, target.Center);
+				&& NpcAttackPath.Allows(equip.Weapon, equip.Ammo, npc.Center, target.Center);
 
 			// Dedicated server only says whether combat may fire. The follower client
 			// applies the press rhythm against its own dummy, same as single player.

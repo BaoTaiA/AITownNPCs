@@ -208,6 +208,8 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 		private static NPC ResolveWormFireTarget(NPC attacker, NPC locked, Item weapon) {
 			Vector2 from = attacker != null ? attacker.Center : locked.Center;
 			bool hasWeapon = weapon != null && !weapon.IsAir;
+			Item ammo = attacker?.GetGlobalNPC<EquippedTownNPC>()?.Ammo;
+			bool throughWalls = hasWeapon && NpcAttackPath.ThroughWalls(weapon, ammo);
 			float range = hasWeapon ? NpcWeaponReach.EffectiveRange(weapon) : 0f;
 
 			NPC bestShoot = null;
@@ -239,7 +241,7 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 					bestAny = other;
 				}
 
-				if (!NpcWeaponReach.Clear(from, other.Center)) {
+				if (!NpcWeaponReach.Clear(from, other.Center) && !throughWalls) {
 					continue;
 				}
 
