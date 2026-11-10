@@ -169,10 +169,21 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
-			// Clients do not drive combat fire (intents do). They still must Stop on
-			// FollowOnly when residue remains so summons / dummy arms unbind.
+			// Combat weapons: clients follow server intents.
+			// Thorium healer/support: follow-owner client decides + fires locally
+			// (sees real life/buffs); CeasePreserve must not wipe that use each tick.
 			if (Main.netMode == NetmodeID.MultiplayerClient) {
-				if (state.Mode == NpcCombatMode.FollowOnly) {
+				FollowingTownNPC followClient = npc.GetGlobalNPC<FollowingTownNPC>();
+				if (followClient.IsFollowing
+					&& followClient.FollowPlayerWhoAmI == Main.myPlayer
+					&& NpcHealerSupport.IsTool(equip.Weapon)) {
+					NpcHealerSupport.Tick(npc, equip);
+					state.HasEngagedTarget = false;
+					return;
+				}
+
+				if (state.Mode == NpcCombatMode.FollowOnly
+					&& !(followClient.IsFollowing && NpcHealerSupport.IsTool(equip.Weapon))) {
 					StopFollowOnlyIfNeeded(npc, state);
 				}
 
@@ -213,6 +224,18 @@ namespace AITownNPCs.Common.Ai.Combat
 		private static void TickFollowOnly(NPC npc, EquippedTownNPC equip, NpcCombatState state) {
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 			if (follow.IsFollowing && NpcHealerSupport.IsTool(equip.Weapon)) {
+				// Dedicated: follow-owner client owns healer AI (local life/status).
+				// Listen host only ticks when they are the follow owner.
+				if (Main.netMode == NetmodeID.Server && Main.dedServ) {
+					state.HasEngagedTarget = false;
+					return;
+				}
+
+				if (Main.netMode == NetmodeID.Server && follow.FollowPlayerWhoAmI != Main.myPlayer) {
+					state.HasEngagedTarget = false;
+					return;
+				}
+
 				// Do not call MaintainWhileIdle here: it CeasePreserve/ForceRelease and
 				// cancels the healer use started in the same tick.
 				NpcHealerSupport.Tick(npc, equip);

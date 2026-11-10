@@ -22,6 +22,8 @@ namespace AITownNPCs.Common.Ai.Firing
 		private const byte Report = 2;
 		private const byte NpcHit = 4;
 		private const byte HitVisual = 5;
+		/// <summary>Follow-owner client → server: rebroadcast healer aim/use to spectators.</summary>
+		private const byte HealerRelay = 6;
 		private const uint StackBroadcastInterval = 10;
 		private const uint IntentHoldInterval = 8;
 		private const float IntentAimDeltaPixels = 24f;
@@ -162,6 +164,88 @@ namespace AITownNPCs.Common.Ai.Firing
 				// Legacy sub-packet: older clients may still send; drain only — HP uses SendStrikeNPC.
 				HandleHitVisual(reader);
 			}
+			else if (sub == HealerRelay) {
+				HandleHealerRelay(reader, fromWho);
+			}
+		}
+
+		/// <summary>
+		/// Follow-owner client already RunLocal'd the healer; ask the server to fan out
+		/// presentation intents to everyone else (ignore the owner to avoid double fire).
+		/// </summary>
+		public static void RelayHealerIntent(NPC npc, EquippedTownNPC equip, Vector2 aim, bool wantUse) {
+			if (Main.netMode != NetmodeID.MultiplayerClient || npc == null || !npc.active || equip == null) {
+				return;
+			}
+
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			if (!follow.IsFollowing || follow.FollowPlayerWhoAmI != Main.myPlayer) {
+				return;
+			}
+
+			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
+			bool edgeClose = false;
+			bool edgeOpen = false;
+			if (!wantUse) {
+				if (!firing.IntentOpen) {
+					return;
+				}
+
+				firing.IntentOpen = false;
+				edgeClose = true;
+			}
+			else if (!firing.IntentOpen) {
+				firing.IntentOpen = true;
+				edgeOpen = true;
+			}
+
+			if (!edgeClose && !edgeOpen && !ShouldRefreshHoldIntent(firing, equip, aim)) {
+				return;
+			}
+
+			ModPacket packet = ModContent.GetInstance<AITownNPCs>().GetPacket();
+			packet.Write((byte)NpcFiringMessageType.ClientUse);
+			packet.Write(HealerRelay);
+			packet.Write(npc.whoAmI);
+			packet.Write(wantUse);
+			packet.WriteVector2(aim);
+			WriteItem(packet, equip.Weapon);
+			WriteItem(packet, equip.Ammo);
+			packet.Send();
+			RememberIntent(firing, equip, aim);
+			if (edgeClose) {
+				firing.ResetIntentThrottle();
+			}
+		}
+
+		private static void HandleHealerRelay(BinaryReader reader, int fromWho) {
+			int npcWho = reader.ReadInt32();
+			bool wantUse = reader.ReadBoolean();
+			Vector2 aim = reader.ReadVector2();
+			int weaponType = reader.ReadInt32();
+			byte weaponPrefix = reader.ReadByte();
+			short weaponStack = reader.ReadInt16();
+			int ammoType = reader.ReadInt32();
+			byte ammoPrefix = reader.ReadByte();
+			short ammoStack = reader.ReadInt16();
+
+			if (Main.netMode != NetmodeID.Server
+				|| npcWho < 0
+				|| npcWho >= Main.maxNPCs
+				|| !Main.npc[npcWho].active) {
+				return;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			if (!follow.IsFollowing || follow.FollowPlayerWhoAmI != fromWho) {
+				return;
+			}
+
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			ApplyStack(equip.Weapon, weaponType, weaponPrefix, weaponStack);
+			ApplyStack(equip.Ammo, ammoType, ammoPrefix, ammoStack);
+			BroadcastIntent(npcWho, wantUse, aim, equip, ignoreClient: fromWho);
 		}
 
 		public static void ApplyPending() {
@@ -324,7 +408,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				: (short)System.Math.Clamp(ammo.stack, 0, short.MaxValue);
 		}
 
-		private static void BroadcastIntent(int npcWho, bool allowFire, Vector2 aim, EquippedTownNPC equip) {
+		private static void BroadcastIntent(int npcWho, bool allowFire, Vector2 aim, EquippedTownNPC equip, int ignoreClient = -1) {
 			ModPacket packet = ModContent.GetInstance<AITownNPCs>().GetPacket();
 			packet.Write((byte)NpcFiringMessageType.ClientUse);
 			packet.Write(Intent);
@@ -333,7 +417,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			packet.WriteVector2(aim);
 			WriteItem(packet, equip.Weapon);
 			WriteItem(packet, equip.Ammo);
-			packet.Send(-1);
+			packet.Send(ignoreClient: ignoreClient);
 		}
 
 		private static void HandleIntent(BinaryReader reader) {

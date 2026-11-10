@@ -1,5 +1,6 @@
 using System;
 using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -35,12 +36,26 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
+			bool healerTool = NpcHealerSupport.IsTool(equip.Weapon);
 			if (Main.netMode == NetmodeID.Server) {
+				// Spectators still need aim/pose intents.
 				NpcClientUseNet.SendIntent(npc, equip, combat, aimWorld, wantUse);
+				// Listen-server follow owner: no MultiplayerClient ApplyPending — RunLocal here.
+				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+				if (healerTool
+					&& !Main.dedServ
+					&& follow.IsFollowing
+					&& follow.FollowPlayerWhoAmI == Main.myPlayer) {
+					RunLocal(npc, equip, combat, target: null, wantUse, aimWorld);
+				}
+
 				return;
 			}
 
 			RunLocal(npc, equip, combat, target: null, wantUse, aimWorld);
+			if (healerTool && Main.netMode == NetmodeID.MultiplayerClient) {
+				NpcClientUseNet.RelayHealerIntent(npc, equip, aimWorld, wantUse);
+			}
 		}
 
 		/// <summary>Follower client: run the player weapon pipeline from a server intent.</summary>
