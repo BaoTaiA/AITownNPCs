@@ -43,7 +43,7 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 			&& ContentSamples.ProjectilesByType.TryGetValue(item.shoot, out Projectile p)
 			&& (p.minion || p.sentry);
 
-		public static float Range(Item item) {
+		public static float Range(Item item, NPC follower = null) {
 			if (item == null || item.IsAir) {
 				return RangedRange;
 			}
@@ -75,13 +75,12 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 				});
 			}
 
-			// Palico: cat==null → 100
 			if (shot.aiStyle == ProjAIStyleID.Flail) {
-				return 100f;
+				return VanillaFlailReach(shot, follower);
 			}
 
 			if (shot.aiStyle == ProjAIStyleID.Yoyo) {
-				return Math.Clamp(ProjectileID.Sets.YoyosMaximumRange[shot.type] * 0.85f, 80f, 700f);
+				return YoyoRope(shot);
 			}
 
 			if (ProjectileID.Sets.IsAWhip[shot.type]) {
@@ -110,10 +109,13 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 					: 260f;
 			}
 
-			if (shot.aiStyle == ProjAIStyleID.Boomerang) {
-				return item.type == ItemID.PaladinsHammer
-					? 150f
-					: Math.Clamp(item.shootSpeed * 24f, 120f, 600f);
+			// 附魔斧会一直追踪，没有固定折返，不在这里估算。
+			if (shot.aiStyle == ProjAIStyleID.Boomerang && TryBoomerangReach(item, shot, follower, out float boomerang)) {
+				return boomerang;
+			}
+
+			if (TryBaseFlailThrow(item, shot, out float thrown)) {
+				return thrown;
 			}
 
 			if (item.type == ItemID.IceSickle) {
@@ -140,6 +142,14 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 				return ContactRange(item) + 24f;
 			}
 
+			if (TryAnchoredMelee(item, shot, out float swing)) {
+				return swing;
+			}
+
+			if (TryShortMeleeShot(item, shot, out float meleeShot)) {
+				return meleeShot;
+			}
+
 			return RangedRange;
 		}
 
@@ -154,8 +164,8 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 				|| Summoning(item);
 		}
 
-		public static float EffectiveRange(Item item, NPC target = null) {
-			float range = Range(item); // ReachFactor = 1
+		public static float EffectiveRange(Item item, NPC target = null, NPC follower = null) {
+			float range = Range(item, follower); // ReachFactor = 1
 			if (target != null && Sample(item)?.aiStyle == ProjAIStyleID.BloodThorn && !TearSurface(target.Center)) {
 				range = Math.Min(range, 96f);
 			}
@@ -187,12 +197,12 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 		}
 
 		/// <param name="holdInRange">
-		/// When true (Palico / normal), ranged stays put once CanUse. Boss pass false to always get the approach point.
+		/// When true, do not back away once the weapon can hit. A body-to-body enemy is sidestepped. Boss chase passes false.
 		/// </param>
 		public static Vector2 Stand(Item item, NPC follower, NPC target, bool cautious = false, bool holdInRange = true) {
 			Vector2 cat = follower.Center;
 			float edge = Vector2.Distance(cat, target.Hitbox.ClosestPointInRect(cat));
-			float range = EffectiveRange(item, target);
+			float range = EffectiveRange(item, target, follower);
 			float gap = IsRangedStance(item)
 				? Math.Clamp(range * 0.5f, 24f, 100f)
 				: Math.Clamp(ContactRange(item) * 0.3f, 8f, 18f);
@@ -203,23 +213,30 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 
 			if (cautious) {
 				gap = Math.Max(gap, 80f);
-				if (holdInRange && edge >= gap + follower.width / 2f) {
-					return cat;
-				}
-			}
-
-			if (holdInRange
-				&& IsRangedStance(item)
-				&& edge >= gap + follower.width / 2f
-				&& CanUse(follower, item, target)) {
-				return cat;
 			}
 
 			float side = cat.X < target.Center.X ? -1f : 1f;
+			if (Math.Abs(cat.X - target.Center.X) < 1f) {
+				side = follower.direction != 0 ? follower.direction : -1f;
+			}
+
 			float y = Math.Clamp(
 				cat.Y,
 				target.Top.Y + Math.Min(8, target.height / 2f),
 				target.Bottom.Y - Math.Min(8, target.height / 2f));
+
+			// Weapon already reaches: stay and shoot. Only slide aside when the enemy is inside the body.
+			if (holdInRange && CanUse(follower, item, target)) {
+				float crowd = follower.width * 0.5f + 12f;
+				if (edge > crowd) {
+					return cat;
+				}
+
+				return new Vector2(
+					(side < 0 ? target.Left.X : target.Right.X) + side * crowd,
+					y);
+			}
+
 			if (IsRangedStance(item) && edge > range * 0.8f) {
 				gap = range * 0.65f;
 			}
@@ -245,8 +262,233 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 
 			Vector2 hand = HandPoint(follower);
 			Vector2 hit = target.Hitbox.ClosestPointInRect(hand);
-			float range = EffectiveRange(item, target);
+			float range = EffectiveRange(item, target, follower);
 			return Vector2.DistanceSquared(hand, hit) <= range * range;
+		}
+
+		/// <summary>表内用绳长本身。0 或越出 80–800 时按 160，不当成远程。</summary>
+		static float YoyoRope(Projectile shot) {
+			float rope = 0f;
+			if ((uint)shot.type < (uint)ProjectileID.Sets.YoyosMaximumRange.Length) {
+				rope = ProjectileID.Sets.YoyosMaximumRange[shot.type];
+			}
+
+			return rope >= 80f && rope <= 800f ? rope : 160f;
+		}
+
+		/// <summary>
+		/// 原版链枷出手前的长度：min(出手速度 × 收回时限, 链长上限)。
+		/// 速度先套上模组的 FlailStats，再乘假人近战攻速。
+		/// </summary>
+		static float VanillaFlailReach(Projectile shot, NPC follower) {
+			int launchTime = 10;
+			float launchSpeed = 24f;
+			float maxLaunch = 800f;
+			switch (shot.type) {
+				case ProjectileID.BallOHurt:
+					launchTime = 15;
+					launchSpeed = 14f;
+					break;
+				case ProjectileID.BlueMoon:
+					launchTime = 15;
+					launchSpeed = 16f;
+					break;
+				case ProjectileID.Sunfury:
+					launchTime = 15;
+					launchSpeed = 17f;
+					break;
+				case ProjectileID.TheDaoofPow:
+					launchTime = 13;
+					launchSpeed = 21f;
+					break;
+				case ProjectileID.TheMeatball:
+					launchTime = 15;
+					launchSpeed = 15f;
+					break;
+				case ProjectileID.FlowerPow:
+					launchTime = 13;
+					launchSpeed = 23f;
+					break;
+				case ProjectileID.DripplerFlail:
+					launchTime = 13;
+					launchSpeed = 22f;
+					break;
+				case ProjectileID.Mace:
+				case ProjectileID.FlamingMace:
+					launchTime = 13;
+					launchSpeed = 12f;
+					break;
+			}
+
+			float retractAcceleration = 3f;
+			float maxRetractSpeed = 16f;
+			float forcedRetractAcceleration = 6f;
+			float maxForcedRetractSpeed = 48f;
+			int ricochetTime = 15;
+			float spinDistance = 30f;
+			ProjectileLoader.FlailStats(
+				shot,
+				ref launchTime,
+				ref launchSpeed,
+				ref maxLaunch,
+				ref retractAcceleration,
+				ref maxRetractSpeed,
+				ref forcedRetractAcceleration,
+				ref maxForcedRetractSpeed,
+				ref ricochetTime,
+				ref spinDistance);
+			launchSpeed *= MeleeSpeed(follower);
+			if (launchTime < 1) {
+				launchTime = 1;
+			}
+
+			return Math.Min(launchSpeed * launchTime, Math.Max(1f, maxLaunch));
+		}
+
+		/// <summary>
+		/// 折返计数每更新一次加一，extraUpdates 会让一帧更新多次，所以次数本身已经含进去。
+		/// 圣骑士锤 20 次，光辉飞盘 45 次，其余固定折返的是 30 次。
+		/// </summary>
+		static bool TryBoomerangReach(Item item, Projectile shot, NPC follower, out float reach) {
+			reach = 0f;
+			if (shot.type == ProjectileID.PossessedHatchet || item.shootSpeed <= 0f) {
+				return false;
+			}
+
+			float speed = item.shootSpeed * MeleeSpeed(item, shot, follower);
+			if (shot.type == ProjectileID.Anchor) {
+				reach = 800f;
+				return true;
+			}
+
+			if (shot.type == ProjectileID.BloodyMachete) {
+				// 前 10 次原速，之后水平速度每次乘 0.95，直到停住。
+				reach = speed * 29f;
+				return true;
+			}
+
+			int steps = shot.type switch {
+				ProjectileID.LightDisc => 45,
+				ProjectileID.PaladinsHammerFriendly => 20,
+				_ => 30
+			};
+			reach = speed * steps;
+			return reach > 0f;
+		}
+
+		/// <summary>暗影奥秘 BaseFlailProj：满蓄甩出，不拿身边的旋转半径当距离。</summary>
+		static bool TryBaseFlailThrow(Item item, Projectile shot, out float reach) {
+			reach = 0f;
+			if (!IsBaseFlailProj(shot) || shot.ModProjectile == null) {
+				return false;
+			}
+
+			object mod = shot.ModProjectile;
+			float speedMultY = 1f;
+			for (Type type = mod.GetType(); type != null; type = type.BaseType) {
+				if (type.Name != "BaseFlailProj") {
+					continue;
+				}
+
+				if (type.GetField("SpeedMult")?.GetValue(mod) is Vector2 speed) {
+					speedMultY = speed.Y;
+				}
+
+				break;
+			}
+
+			if (speedMultY <= 0f) {
+				speedMultY = 1f;
+			}
+
+			float shootSpeed = item.shootSpeed > 0f ? item.shootSpeed : 12f;
+			// 满蓄飞行不超过 30 帧。阿托恩、北极星松手再乘 0.85，粉碎之光乘 1.2。
+			reach = shootSpeed * speedMultY * 30f * BaseFlailLaunchScale(mod.GetType().Name);
+			return reach > 0f;
+		}
+
+		static float BaseFlailLaunchScale(string typeName) => typeName switch {
+			"Aten" or "NorthStar" => 0.85f,
+			"Shattershine" => 1.2f,
+			_ => 1f
+		};
+
+		static bool IsBaseFlailProj(Projectile shot) {
+			if (shot?.ModProjectile == null) {
+				return false;
+			}
+
+			for (Type type = shot.ModProjectile.GetType(); type != null; type = type.BaseType) {
+				if (type.Name == "BaseFlailProj") {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>贴在身上、自己不位移的近战弹幕。距离用武器和弹幕尺寸，不按飞行时间。</summary>
+		static bool TryAnchoredMelee(Item item, Projectile shot, out float reach) {
+			reach = 0f;
+			if (item == null || shot?.ModProjectile == null || shot.ModProjectile.ShouldUpdatePosition()) {
+				return false;
+			}
+
+			bool melee = item.CountsAsClass(DamageClass.Melee) || item.CountsAsClass(DamageClass.MeleeNoSpeed);
+			if (!melee && shot.DamageType != null) {
+				melee = shot.DamageType.CountsAsClass(DamageClass.Melee)
+					|| shot.DamageType.CountsAsClass(DamageClass.MeleeNoSpeed);
+			}
+
+			if (!melee) {
+				return false;
+			}
+
+			float itemSize = Math.Max(item.width, item.height) * item.scale;
+			float shotSize = Math.Max(shot.width, shot.height) * shot.scale;
+			reach = Math.Clamp(Math.Max(itemSize, shotSize) + 24f, 48f, 160f);
+			return true;
+		}
+
+		/// <summary>只收现在会落到 1600、近战、会撞方块、估算在 16–200 的弹幕。</summary>
+		static bool TryShortMeleeShot(Item item, Projectile shot, out float reach) {
+			reach = 0f;
+			if (item == null || shot == null || !shot.tileCollide || !item.CountsAsClass(DamageClass.Melee)) {
+				return false;
+			}
+
+			int updates = shot.extraUpdates + 1;
+			if (updates < 1 || item.shootSpeed <= 0f || shot.timeLeft <= 0) {
+				return false;
+			}
+
+			reach = item.shootSpeed * shot.timeLeft / updates;
+			return reach >= 16f && reach <= 200f;
+		}
+
+		static float MeleeSpeed(NPC follower) {
+			if (follower != null
+				&& NpcDummyPool.TryGetDummy(follower.whoAmI, out Player dummy)
+				&& dummy != null) {
+				float speed = dummy.GetTotalAttackSpeed(DamageClass.Melee);
+				if (speed > 0.01f) {
+					return speed;
+				}
+			}
+
+			return 1f;
+		}
+
+		/// <summary>和出手时一样：近战且这发弹幕吃攻速，才把射速乘上去。</summary>
+		static float MeleeSpeed(Item item, Projectile shot, NPC follower) {
+			if (item != null
+				&& item.CountsAsClass(DamageClass.Melee)
+				&& (uint)shot.type < (uint)ProjectileID.Sets.NoMeleeSpeedVelocityScaling.Length
+				&& !ProjectileID.Sets.NoMeleeSpeedVelocityScaling[shot.type]) {
+				return MeleeSpeed(follower);
+			}
+
+			return 1f;
 		}
 	}
 }

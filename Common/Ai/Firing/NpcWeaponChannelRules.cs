@@ -38,6 +38,11 @@ namespace AITownNPCs.Common.Ai.Firing
 				return true;
 			}
 
+			// SOTS Aten / North Star / Shattershine: spinning while held, thrown only on release.
+			if (IsSotsBaseFlail(weapon)) {
+				return true;
+			}
+
 			if (IsAlwaysHoldBlacklisted(weapon)) {
 				return false;
 			}
@@ -61,6 +66,10 @@ namespace AITownNPCs.Common.Ai.Firing
 
 			if (IsThoriumHealerCharge(weapon)) {
 				return ClampHold(ThoriumHealerChargeHoldFrames);
+			}
+
+			if (IsSotsBaseFlail(weapon)) {
+				return ClampHold(SotsBaseFlailHoldFrames(weapon));
 			}
 
 			if (IsVanillaFlail(weapon)) {
@@ -218,6 +227,43 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			return NpcHealerSupport.IsProactiveSupport(weapon);
+		}
+
+		// ----- 暗影奥秘 BaseFlailProj -----
+		// 按住时锤头只在身边转。松手且物品动画结束才甩出。蓄满要 MaxChargeTime × 60 帧。
+
+		public static bool IsSotsBaseFlail(Item weapon) {
+			if (weapon == null || weapon.IsAir || !weapon.channel || weapon.shoot <= ProjectileID.None) {
+				return false;
+			}
+
+			return ContentSamples.ProjectilesByType.TryGetValue(weapon.shoot, out Projectile sample)
+				&& BaseFlailType(sample) != null;
+		}
+
+		static int SotsBaseFlailHoldFrames(Item weapon) {
+			if (ContentSamples.ProjectilesByType.TryGetValue(weapon.shoot, out Projectile sample)) {
+				System.Reflection.FieldInfo field = BaseFlailType(sample)?.GetField("MaxChargeTime");
+				if (field?.GetValue(sample.ModProjectile) is float charge && charge > 0f) {
+					return (int)System.Math.Round(charge * 60f);
+				}
+			}
+
+			return 90;
+		}
+
+		static System.Type BaseFlailType(Projectile sample) {
+			if (sample?.ModProjectile == null) {
+				return null;
+			}
+
+			for (System.Type type = sample.ModProjectile.GetType(); type != null; type = type.BaseType) {
+				if (type.Name == "BaseFlailProj") {
+					return type;
+				}
+			}
+
+			return null;
 		}
 
 		// ----- 原版连枷 -----
