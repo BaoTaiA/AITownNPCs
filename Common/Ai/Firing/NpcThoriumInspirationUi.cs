@@ -22,6 +22,7 @@ namespace AITownNPCs.Common.Ai.Firing
 		private const uint CeasefireSuppressFrames = 90;
 
 		private static Type _bardItemType;
+		private static PropertyInfo _bardWheelFadeTime;
 		private static Hook _layerDrawHook;
 		private static bool _drawing;
 		private static bool _thoriumPresent;
@@ -46,6 +47,15 @@ namespace AITownNPCs.Common.Ai.Firing
 
 			_bardItemType = thorium.Code.GetType("ThoriumMod.Items.BardItems.BardItem")
 				?? FindTypeByName(thorium.Code, "BardItem");
+
+			// BardWheel only lights when LocalPlayer inspiration is below max. NPC spend
+			// used to trip that by accident via the stuck LocalPlayer Thorium cache; after
+			// the cache fix we must raise FadeTime ourselves when redirecting onto a dummy.
+			Type bardWheel = thorium.Code.GetType("ThoriumMod.UI.ResourceBars.BardWheel")
+				?? FindTypeByName(thorium.Code, "BardWheel");
+			_bardWheelFadeTime = bardWheel?.GetProperty(
+				"BardWheelFadeTime",
+				BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
 
 			MethodInfo draw = typeof(GameInterfaceLayer).GetMethod(
 				"Draw",
@@ -77,6 +87,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			_layerDrawHook?.Dispose();
 			_layerDrawHook = null;
 			_bardItemType = null;
+			_bardWheelFadeTime = null;
 			_thoriumPresent = false;
 			_drawing = false;
 			_suppressUntil = 0;
@@ -103,12 +114,27 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			if (mode == DrawMode.RedirectDummy && dummy != null) {
+				PulseBardWheelFade();
 				using (new MyPlayerScope(dummy.whoAmI)) {
 					return orig(self);
 				}
 			}
 
 			return orig(self);
+		}
+
+		/// <summary>Thorium skips DrawSelf when BardWheelFadeTime is 0.</summary>
+		private static void PulseBardWheelFade() {
+			if (_bardWheelFadeTime == null || !_bardWheelFadeTime.CanWrite) {
+				return;
+			}
+
+			try {
+				_bardWheelFadeTime.SetValue(null, 40);
+			}
+			catch {
+				// ignore
+			}
 		}
 
 		private static bool IsInspirationLayerName(string name) {
