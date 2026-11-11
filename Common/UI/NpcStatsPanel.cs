@@ -77,21 +77,28 @@ namespace AITownNPCs.Common.UI
 			int growthSentries = NpcLifeStatScale.GetMaxTurrets(npc);
 
 			bool hasWeapon = weapon != null && !weapon.IsAir;
-			int weaponDamage = 0;
-			float weaponCrit = 0f;
+			int listedDamage = hasWeapon ? weapon.damage : 0;
+			float listedCrit = hasWeapon ? weapon.crit : 0f;
+			int measuredDamage = listedDamage;
+			float measuredCrit = listedCrit;
 			if (hasWeapon && NpcDummyPool.TryGetDummy(npc.whoAmI, out Player dummy) && dummy != null && dummy.active) {
-				Item held = dummy.inventory[dummy.selectedItem];
-				Item sample = held != null && !held.IsAir ? held : weapon;
-				weaponDamage = dummy.GetWeaponDamage(sample);
-				weaponCrit = dummy.GetWeaponCrit(sample);
-			}
-			else if (hasWeapon) {
-				weaponDamage = weapon.damage;
-				weaponCrit = weapon.crit;
+				measuredDamage = dummy.GetWeaponDamage(weapon);
+				measuredCrit = dummy.GetWeaponCrit(weapon);
 			}
 
-			int attack = hasWeapon ? weaponDamage + growthAtk : growthAtk;
-			float crit = weaponCrit + growthCrit;
+			TownNpcAuraBuffs.GetCombatBuff(npc, weapon, listedDamage, out int buffDamage, out float buffCrit);
+			int vanillaDamage = measuredDamage;
+			if (buffDamage > 0 && measuredDamage >= listedDamage + buffDamage) {
+				vanillaDamage = measuredDamage - buffDamage;
+			}
+
+			float vanillaCrit = measuredCrit;
+			if (buffCrit > 0f && measuredCrit + 0.01f >= listedCrit + buffCrit) {
+				vanillaCrit = measuredCrit - buffCrit;
+			}
+
+			int attack = hasWeapon ? vanillaDamage + growthAtk + buffDamage : growthAtk;
+			float crit = vanillaCrit + growthCrit + buffCrit;
 
 			float growthRegenPerSec = growthRegenUnits / 2f;
 			float potionRegenPerSec = potionRegenUnits / 2f;
@@ -114,8 +121,8 @@ namespace AITownNPCs.Common.UI
 				Breakdown(npc.defense, growthDef, potionDef));
 
 			string attackText = hasWeapon ? $"{attack}" : (growthAtk > 0 ? $"+{growthAtk}" : "—");
-			Row("Attack", attackText, Breakdown(weaponDamage, growthAtk, 0));
-			Row("Crit", $"{crit:0.#}%", BreakdownPercent(weaponCrit, growthCrit, 0f));
+			Row("Attack", attackText, Breakdown(vanillaDamage, growthAtk, buffDamage));
+			Row("Crit", $"{crit:0.#}%", BreakdownPercent(vanillaCrit, growthCrit, buffCrit));
 			Row("Minions", $"{growthMinions + potionMinions}",
 				Breakdown(0, growthMinions, potionMinions));
 			Row("Sentries", $"{growthSentries}", Breakdown(0, growthSentries, 0));
@@ -123,7 +130,7 @@ namespace AITownNPCs.Common.UI
 			y += 6;
 			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();
 			Utils.DrawBorderString(batch, L("Buffs"), new Vector2(area.X, y), Color.Gold, Scale);
-			DrawOverheadEyeToggle(batch, area, y, mouse, clicked, aura);
+			DrawOverheadEyeToggle(batch, area, y, mouse, clicked, npc);
 			y += 24;
 
 			CollectBuffs(npc, BuffScratch);
@@ -245,7 +252,8 @@ namespace AITownNPCs.Common.UI
 			int titleY,
 			Point mouse,
 			bool clicked,
-			TownNpcAuraBuffs aura) {
+			NPC npc) {
+			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();
 			var eye = new Rectangle(area.Right - EyeSize, titleY - 2, EyeSize, EyeSize);
 			bool on = aura.ShowOverheadIcons;
 			Texture2D tex = (on ? TextureAssets.InventoryTickOn : TextureAssets.InventoryTickOff).Value;
@@ -259,7 +267,7 @@ namespace AITownNPCs.Common.UI
 			Main.instance.MouseText(Language.GetTextValue(
 				on ? "Mods.AITownNPCs.UI.StatsOverheadBuffsOn" : "Mods.AITownNPCs.UI.StatsOverheadBuffsOff"));
 			if (clicked) {
-				aura.ShowOverheadIcons = !on;
+				TownNpcAuraBuffs.RequestToggleOverheadIcons(npc);
 				SoundEngine.PlaySound(SoundID.MenuTick);
 			}
 		}

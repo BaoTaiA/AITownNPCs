@@ -21,22 +21,16 @@ namespace AITownNPCs.Common.Ai.Firing
 			public Vector2 Aim;
 		}
 
-		/// <summary>Follower client (or single player) that is allowed to spawn this NPC's summons.</summary>
+		/// <summary>
+		/// Any following client (or single player) may spawn this NPC's summons locally.
+		/// Dedicated server never does. Other clients are visual-only via SpectatorClient.
+		/// </summary>
 		public static bool IsAuthority(NPC npc) {
 			if (npc == null || !npc.active || Main.netMode == NetmodeID.Server) {
 				return false;
 			}
 
-			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-			if (!follow.IsFollowing) {
-				return false;
-			}
-
-			if (Main.netMode == NetmodeID.MultiplayerClient && follow.FollowPlayerWhoAmI != Main.myPlayer) {
-				return false;
-			}
-
-			return true;
+			return npc.GetGlobalNPC<FollowingTownNPC>().IsFollowing;
 		}
 
 		public static bool BlocksMainHand(NPC npc, EquippedTownNPC equip, NPC target) {
@@ -52,6 +46,12 @@ namespace AITownNPCs.Common.Ai.Firing
 		/// <summary>Out of combat, while still following: summon minions or keep the owner shell.</summary>
 		public static void MaintainWhileIdle(NPC npc, EquippedTownNPC equip) {
 			if (!IsAuthority(npc) || equip == null) {
+				return;
+			}
+
+			// Healer/support never shares this swing with a summon staff.
+			// CeasePreserve here would also cancel a shield or channel that is already out.
+			if (NpcHealerSupport.IsTool(equip.Weapon)) {
 				return;
 			}
 
@@ -83,6 +83,12 @@ namespace AITownNPCs.Common.Ai.Firing
 			Item held = dummy != null ? dummy.inventory[dummy.selectedItem] : null;
 			bool heldSummon = NpcEquipHelper.IsSummonOrSentryStaff(held);
 
+			// Healer/support (bubble shield, ion staff, and the same class) stays on this weapon.
+			// A summon staff in the same swing turns the body and drops channel.
+			if (NpcHealerSupport.IsTool(weapon)) {
+				return new Hand { Item = weapon, WantUse = mainWant, Summon = false, Aim = mainAim };
+			}
+
 			if (busy && heldSummon) {
 				return new Hand { Item = held, WantUse = false, Summon = true, Aim = mainAim };
 			}
@@ -101,13 +107,6 @@ namespace AITownNPCs.Common.Ai.Firing
 		public static void Reconcile(NPC npc, EquippedTownNPC equip) {
 			if (npc == null || equip == null || Main.netMode == NetmodeID.Server) {
 				return;
-			}
-
-			if (Main.netMode == NetmodeID.MultiplayerClient) {
-				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-				if (!follow.IsFollowing || follow.FollowPlayerWhoAmI != Main.myPlayer) {
-					return;
-				}
 			}
 
 			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();

@@ -33,6 +33,7 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static MethodInfo _onPlayInstrument;
 		private static MethodInfo _getInspirationCost;
 		private static MethodInfo _findAlly;
+		private static MethodInfo _setLocalThoriumPlayer;
 		private static Hook _getThoriumPlayer;
 		private static Hook _tryGetMouse;
 		private static Hook _useItemInner;
@@ -134,6 +135,13 @@ namespace AITownNPCs.Common.Ai.Firing
 				_getThoriumPlayer = new Hook(getTp, OnGetThoriumPlayer);
 			}
 
+			_setLocalThoriumPlayer = helper?.GetMethod(
+				"SetLocalThoriumPlayer",
+				staticFlags,
+				binder: null,
+				types: new[] { _thoriumPlayerType },
+				modifiers: null);
+
 			MethodInfo tryMouse = _mousePlayerType?.GetMethod(
 				"TryGetMousePosition",
 				flags,
@@ -156,6 +164,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			_thoriumPlayerType = _bardItemType = _thoriumItemType = _mousePlayerType = null;
 			_isHealer = _isThrower = _empowerOnUse = _playOnUse = _netInfo = _playedSound = null;
 			_applyEmpowerments = _playSound = _onPlayInstrument = _getInspirationCost = _findAlly = null;
+			_setLocalThoriumPlayer = null;
 		}
 
 		private static void UnloadHooks() {
@@ -165,6 +174,38 @@ namespace AITownNPCs.Common.Ai.Firing
 			_playInstrument?.Dispose();
 			_netEmpower?.Dispose();
 			_getThoriumPlayer = _tryGetMouse = _useItemInner = _playInstrument = _netEmpower = null;
+		}
+
+		/// <summary>
+		/// Dummy Update calls Thorium SetLocalThoriumPlayer. Leave restores myPlayer but
+		/// Thorium keeps serving the dummy's ModPlayer to the real local player until the
+		/// next human ResetEffects — bubble/shield body visuals read that stale cache.
+		/// </summary>
+		public static void RestoreLocalPlayerCache(int playerWho) {
+			if (!_ready
+				|| _setLocalThoriumPlayer == null
+				|| _thoriumPlayerType == null
+				|| playerWho < 0
+				|| playerWho >= Main.maxPlayers) {
+				return;
+			}
+
+			Player player = Main.player[playerWho];
+			if (player == null || !player.active) {
+				return;
+			}
+
+			ModPlayer tp = GetModPlayer(player, _thoriumPlayerType);
+			if (tp == null) {
+				return;
+			}
+
+			try {
+				_setLocalThoriumPlayer.Invoke(null, new object[] { tp });
+			}
+			catch {
+				// ignore
+			}
 		}
 
 		/// <summary>Thorium thrower consumables allowed as main-hand weapons (Palico SafeThrow).</summary>
@@ -305,7 +346,11 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		private static object OnGetThoriumPlayer(GetThoriumPlayerOrig orig, Player player) {
-			if (player != null && NpcDummyPool.IsDummy(player.whoAmI) && _thoriumPlayerType != null) {
+			// Thorium caches LocalPlayer in PlayerHelper. Dummy Update rewrites that cache;
+			// after Leave, myPlayer is human again but the cache can still be the dummy.
+			// Always return the argument player's own ThoriumPlayer so buff/shield visuals
+			// and mitigate flags stay on the right body.
+			if (player != null && _thoriumPlayerType != null) {
 				ModPlayer mp = GetModPlayer(player, _thoriumPlayerType);
 				if (mp != null) {
 					return mp;
@@ -351,6 +396,16 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
+			if (IsSpectatorDummy(player)) {
+				if (ReadBoolNamed(bardItem, "PlayOnUse")
+					&& bardItem is ModItem spectatorItem
+					&& ItemID.Sets.SkipsInitialUseSound[spectatorItem.Type]) {
+					OnPlayInstrumentHook(null, bardItem, player, 0f);
+				}
+
+				return;
+			}
+
 			ApplyBardEffects(bardItem, player, empower: ReadBoolNamed(bardItem, "EmpowerOnUse"), play: true);
 			if (ReadBoolNamed(bardItem, "PlayOnUse")
 				&& bardItem is ModItem modItem
@@ -374,6 +429,10 @@ namespace AITownNPCs.Common.Ai.Firing
 				return;
 			}
 
+			if (IsSpectatorDummy(player)) {
+				return;
+			}
+
 			object previous = _netInfo?.GetValue(bardItem);
 			try {
 				_netInfo?.SetValue(bardItem, info);
@@ -394,6 +453,10 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 
 			NPC npc = Main.npc[npcWho];
+			if (NpcFiringState.IsSpectatorClient(npc)) {
+				return;
+			}
+
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 			Player target = null;
 			if (follow.IsFollowing
@@ -402,8 +465,8 @@ namespace AITownNPCs.Common.Ai.Firing
 				target = Main.player[follow.FollowPlayerWhoAmI];
 			}
 
-			if (target == null || !target.active) {
-				target = Main.LocalPlayer;
+			if (target == null || !target.active || NpcDummyPool.IsDummy(target.whoAmI)) {
+				return;
 			}
 
 			NpcDummyPool.SyncTeamFromFollowOwner(dummy);
@@ -442,6 +505,18 @@ namespace AITownNPCs.Common.Ai.Firing
 			catch {
 				// ignore
 			}
+		}
+
+		private static bool IsSpectatorDummy(Player dummy) {
+			if (dummy == null
+				|| !NpcDummyPool.TryGetNpcWho(dummy.whoAmI, out int npcWho)
+				|| npcWho < 0
+				|| npcWho >= Main.maxNPCs) {
+				return false;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			return npc != null && NpcFiringState.IsSpectatorClient(npc);
 		}
 
 		private static bool IsInstrument(object bardItem) {

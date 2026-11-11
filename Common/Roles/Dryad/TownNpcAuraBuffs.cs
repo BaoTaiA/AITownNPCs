@@ -37,7 +37,7 @@ namespace AITownNPCs.Common.Roles.Dryad
 		/// <summary>Swiftness move-speed scale for follow/combat desired speeds (not velocity multiply).</summary>
 		public float MoveSpeedMult { get; private set; } = 1f;
 
-		/// <summary>Local UI: draw overhead aura buff icons for this NPC. Not saved.</summary>
+		/// <summary>Draw overhead aura buff icons. Synced in ExtraAI; clients request toggles.</summary>
 		public bool ShowOverheadIcons = true;
 
 		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) {
@@ -120,6 +120,47 @@ namespace AITownNPCs.Common.Roles.Dryad
 			foreach (var kv in _buffTime) {
 				dest.Add((kv.Key, kv.Value));
 			}
+		}
+
+		/// <summary>
+		/// Attack and crit added by aura buffs that only land on the combat dummy.
+		/// Wrath 10% all damage, Magic Power 20% magic, Archery 20% ranged, Rage +10 crit.
+		/// </summary>
+		public static void GetCombatBuff(NPC npc, Item weapon, int baseDamage, out int damage, out float crit) {
+			damage = 0;
+			crit = 0f;
+			if (npc == null || !npc.active || weapon == null || weapon.IsAir) {
+				return;
+			}
+
+			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();
+			if (aura.Has(BuffID.Rage)) {
+				crit = 10f;
+			}
+
+			if (baseDamage <= 0) {
+				return;
+			}
+
+			float mult = 1f;
+			if (aura.Has(BuffID.Wrath)) {
+				mult += 0.1f;
+			}
+
+			if (aura.Has(BuffID.MagicPower) && weapon.CountsAsClass(DamageClass.Magic)) {
+				mult += 0.2f;
+			}
+
+			if (aura.Has(BuffID.Archery) && weapon.CountsAsClass(DamageClass.Ranged)) {
+				mult += 0.2f;
+			}
+
+			if (mult <= 1f) {
+				return;
+			}
+
+			int boosted = (int)System.Math.Round(baseDamage * mult);
+			damage = System.Math.Max(0, boosted - baseDamage);
 		}
 
 		public static int GetMinionSlotBonus(NPC npc) {
@@ -330,6 +371,8 @@ namespace AITownNPCs.Common.Roles.Dryad
 			if (_hasBaseLifeMax) {
 				binaryWriter.Write(_baseLifeMax);
 			}
+
+			binaryWriter.Write(ShowOverheadIcons);
 		}
 
 		public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
@@ -345,6 +388,45 @@ namespace AITownNPCs.Common.Roles.Dryad
 
 			_hasBaseLifeMax = binaryReader.ReadBoolean();
 			_baseLifeMax = _hasBaseLifeMax ? binaryReader.ReadInt32() : 0;
+			ShowOverheadIcons = binaryReader.ReadBoolean();
+		}
+
+		public const byte OverheadIconsPacket = 23;
+
+		public static void RequestToggleOverheadIcons(NPC npc) {
+			if (npc == null || !npc.active) {
+				return;
+			}
+
+			if (Main.netMode == NetmodeID.MultiplayerClient) {
+				ModPacket packet = ModContent.GetInstance<AITownNPCs>().GetPacket();
+				packet.Write(OverheadIconsPacket);
+				packet.Write(npc.whoAmI);
+				packet.Send();
+				return;
+			}
+
+			ApplyOverheadIconsToggle(npc);
+		}
+
+		public static void HandleOverheadIconsPacket(BinaryReader reader) {
+			int npcWho = reader.ReadInt32();
+			if (Main.netMode != NetmodeID.Server || npcWho < 0 || npcWho >= Main.maxNPCs) {
+				return;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			if (npc == null || !npc.active || !npc.townNPC) {
+				return;
+			}
+
+			ApplyOverheadIconsToggle(npc);
+		}
+
+		private static void ApplyOverheadIconsToggle(NPC npc) {
+			TownNpcAuraBuffs aura = npc.GetGlobalNPC<TownNpcAuraBuffs>();
+			aura.ShowOverheadIcons = !aura.ShowOverheadIcons;
+			npc.netUpdate = true;
 		}
 
 		private void TickTimers(NPC npc) {

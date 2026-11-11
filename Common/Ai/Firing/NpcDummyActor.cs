@@ -70,14 +70,21 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		private static void RunLocal(NPC npc, EquippedTownNPC equip, NpcCombatState combat, NPC target, bool wantUse, Vector2? aimOverride) {
 			bool hasDummy = NpcDummyPool.TryGetDummy(npc.whoAmI, out Player live) && live != null;
+			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
+			if (Main.netMode != NetmodeID.Server) {
+				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+				firing.SpectatorClient = Main.netMode == NetmodeID.MultiplayerClient
+					&& follow.IsFollowing
+					&& follow.FollowPlayerWhoAmI != Main.myPlayer;
+			}
+
 			NpcSummonCombat.Hand hand = NpcSummonCombat.Resolve(npc, equip, hasDummy ? live : null, target, wantUse, aimOverride);
 			bool shouldLease = hand.WantUse
 				|| hand.Summon
 				|| (hasDummy && (live.itemAnimation > 0 || live.channel || live.heldProj >= 0))
 				|| (NpcDummyPool.TryGetDummyWho(npc.whoAmI, out int dummyWho) && NpcDummyPool.OwnsProjectiles(dummyWho));
 
-			NpcFiringState firing = npc.GetGlobalNPC<NpcFiringState>();
-				if (!shouldLease) {
+			if (!shouldLease) {
 				FlushPendingEquipSync(npc, equip, firing);
 				NpcDummyPool.ReleaseWhenIdle(npc.whoAmI);
 				combat.ItemAnimation = 0;

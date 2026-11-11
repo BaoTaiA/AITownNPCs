@@ -182,9 +182,14 @@ namespace AITownNPCs.Common.Ai.Combat
 					return;
 				}
 
-				if (state.Mode == NpcCombatMode.FollowOnly
-					&& !(followClient.IsFollowing && NpcHealerSupport.IsTool(equip.Weapon))) {
-					StopFollowOnlyIfNeeded(npc, state);
+				if (state.Mode == NpcCombatMode.FollowOnly) {
+					bool healerMain = followClient.IsFollowing && NpcHealerSupport.IsTool(equip.Weapon);
+					if (healerMain && followClient.FollowPlayerWhoAmI != Main.myPlayer) {
+						NpcSummonCombat.MaintainWhileIdle(npc, equip);
+					}
+					else if (!healerMain) {
+						StopFollowOnlyIfNeeded(npc, state);
+					}
 				}
 
 				return;

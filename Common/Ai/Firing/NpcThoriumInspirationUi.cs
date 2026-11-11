@@ -26,6 +26,7 @@ namespace AITownNPCs.Common.Ai.Firing
 		private static bool _drawing;
 		private static bool _thoriumPresent;
 		private static uint _suppressUntil;
+		private static int _fadeNpcWho = -1;
 
 		private delegate bool LayerDrawOrig(GameInterfaceLayer self);
 
@@ -79,6 +80,7 @@ namespace AITownNPCs.Common.Ai.Firing
 			_thoriumPresent = false;
 			_drawing = false;
 			_suppressUntil = 0;
+			_fadeNpcWho = -1;
 		}
 
 		private static bool OnLayerDraw(LayerDrawOrig orig, GameInterfaceLayer self) {
@@ -141,11 +143,12 @@ namespace AITownNPCs.Common.Ai.Firing
 			dummy = null;
 			if (IsBardUser(local)) {
 				_suppressUntil = 0;
+				_fadeNpcWho = -1;
 				return DrawMode.Normal;
 			}
 
-			bool followedBardWithoutDummy = false;
-			Player bestDummy = null;
+			Player spending = null;
+			int spendingNpc = -1;
 			float bestDist = float.MaxValue;
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
@@ -164,29 +167,74 @@ namespace AITownNPCs.Common.Ai.Firing
 				}
 
 				if (!NpcDummyPool.TryGetDummy(npc.whoAmI, out Player found) || found == null || !found.active) {
-					followedBardWithoutDummy = true;
+					continue;
+				}
+
+				if (!IsSpendingInspiration(found)) {
 					continue;
 				}
 
 				float dist = Vector2.DistanceSquared(local.Center, npc.Center);
 				if (dist < bestDist) {
 					bestDist = dist;
-					bestDummy = found;
+					spending = found;
+					spendingNpc = npc.whoAmI;
 				}
 			}
 
-			if (bestDummy != null) {
-				dummy = bestDummy;
+			if (spending != null) {
+				dummy = spending;
+				_fadeNpcWho = spendingNpc;
 				_suppressUntil = Main.GameUpdateCount + CeasefireSuppressFrames;
 				return DrawMode.RedirectDummy;
 			}
 
-			// Ceasefire: dummy already released, Thorium Fade would paint LocalPlayer — hide it.
-			if (followedBardWithoutDummy || Main.GameUpdateCount < _suppressUntil) {
-				return DrawMode.Suppress;
+			// Thorium's fade is one global layer. Keep it on the NPC that just spent, then hide it.
+			// Another followed bard NPC must not steal the layer, and it must not fall back onto this player.
+			if (TryFadeDummy(local, out Player fadeDummy)) {
+				dummy = fadeDummy;
+				return DrawMode.RedirectDummy;
 			}
 
-			return DrawMode.Normal;
+			_fadeNpcWho = -1;
+			return DrawMode.Suppress;
+		}
+
+		private static bool IsSpendingInspiration(Player dummy) {
+			return dummy.itemAnimation > 0 || dummy.itemTime > 0 || dummy.channel;
+		}
+
+		private static bool TryFadeDummy(Player local, out Player dummy) {
+			dummy = null;
+			if (_fadeNpcWho < 0 || Main.GameUpdateCount >= _suppressUntil) {
+				return false;
+			}
+
+			if (_fadeNpcWho >= Main.maxNPCs) {
+				return false;
+			}
+
+			NPC npc = Main.npc[_fadeNpcWho];
+			if (!NpcHostRules.IsManagedTownNpc(npc)) {
+				return false;
+			}
+
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			if (!follow.IsFollowing || follow.FollowPlayerWhoAmI != local.whoAmI) {
+				return false;
+			}
+
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			if (!IsBardItem(equip.Weapon)) {
+				return false;
+			}
+
+			if (!NpcDummyPool.TryGetDummy(npc.whoAmI, out Player found) || found == null || !found.active) {
+				return false;
+			}
+
+			dummy = found;
+			return true;
 		}
 
 		private static bool IsBardUser(Player player) {

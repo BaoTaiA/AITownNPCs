@@ -550,7 +550,8 @@ namespace AITownNPCs.Common.Ai.Firing
 			return player != null
 				&& player.active
 				&& !player.dead
-				&& !player.ghost;
+				&& !player.ghost
+				&& !NpcDummyPool.IsDummy(player.whoAmI);
 		}
 
 		private static bool IsHurtAlly(Player player) {

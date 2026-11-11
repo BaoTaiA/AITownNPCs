@@ -4,6 +4,7 @@ using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Ai.Firing;
 using AITownNPCs.Common.ChatLog;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Roles.Dryad;
 using AITownNPCs.Common.Superpower;
 using Terraria.ModLoader;
 
@@ -39,6 +40,9 @@ namespace AITownNPCs.Common.Net
 				}
 				else if (type == (byte)NpcFiringMessageType.ClientUse) {
 					NpcClientUseNet.Handle(reader, whoAmI);
+				}
+				else if (type == TownNpcAuraBuffs.OverheadIconsPacket) {
+					TownNpcAuraBuffs.HandleOverheadIconsPacket(reader);
 				}
 			}
 			else if (type >= PacketRanges.FollowMin) {

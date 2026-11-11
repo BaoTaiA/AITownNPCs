@@ -171,6 +171,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				Main.myPlayer = _savedMyPlayer;
 				_activeDummyWho = -1;
 				_active = false;
+				NpcThoriumWeaponBridge.RestoreLocalPlayerCache(_savedMyPlayer);
 			}
 		}
 

@@ -197,7 +197,7 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 		}
 
 		/// <param name="holdInRange">
-		/// When true, do not back away once the weapon can hit. A body-to-body enemy is sidestepped. Boss chase passes false.
+		/// When true, ranged stays once already outside the stand gap and the weapon can hit. Closer than that gap, step out to it. Boss chase passes false.
 		/// </param>
 		public static Vector2 Stand(Item item, NPC follower, NPC target, bool cautious = false, bool holdInRange = true) {
 			Vector2 cat = follower.Center;
@@ -213,6 +213,17 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 
 			if (cautious) {
 				gap = Math.Max(gap, 80f);
+				if (holdInRange && edge >= gap + follower.width / 2f) {
+					return cat;
+				}
+			}
+
+			// Ranged already outside the stand gap: stay and shoot. Inside it, walk back out to the gap.
+			if (holdInRange
+				&& IsRangedStance(item)
+				&& edge >= gap + follower.width / 2f
+				&& CanUse(follower, item, target)) {
+				return cat;
 			}
 
 			float side = cat.X < target.Center.X ? -1f : 1f;
@@ -224,18 +235,6 @@ namespace AITownNPCs.Common.Ai.Combat.Stance
 				cat.Y,
 				target.Top.Y + Math.Min(8, target.height / 2f),
 				target.Bottom.Y - Math.Min(8, target.height / 2f));
-
-			// Weapon already reaches: stay and shoot. Only slide aside when the enemy is inside the body.
-			if (holdInRange && CanUse(follower, item, target)) {
-				float crowd = follower.width * 0.5f + 12f;
-				if (edge > crowd) {
-					return cat;
-				}
-
-				return new Vector2(
-					(side < 0 ? target.Left.X : target.Right.X) + side * crowd,
-					y);
-			}
 
 			if (IsRangedStance(item) && edge > range * 0.8f) {
 				gap = range * 0.65f;

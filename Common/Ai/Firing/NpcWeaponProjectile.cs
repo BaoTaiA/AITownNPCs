@@ -80,17 +80,20 @@ namespace AITownNPCs.Common.Ai.Firing
 						NpcDummyPool.TryGetNpcWho(projectile.owner, out npcWho);
 					}
 
-					if (npcWho >= 0) {
+					if (npcWho >= 0 && npcWho < Main.maxNPCs) {
 						NPC npc = Main.npc[npcWho];
-						if (npc.active) {
+						if (npc != null && npc.active) {
 							TagNewOwned(_activeBeforeAi, projectile.owner, npc);
 						}
 					}
 				}
 			}
 			finally {
-				ReturnSnapshot(_activeBeforeAi);
-				_activeBeforeAi = null;
+				if (_activeBeforeAi != null) {
+					ReturnSnapshot(_activeBeforeAi);
+					_activeBeforeAi = null;
+				}
+
 				if (_localSwap) {
 					NpcDummyLocal.PopForProjectile();
 					_localSwap = false;
@@ -98,44 +101,23 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 		}
 
-		public override bool? CanHitNPC(Projectile projectile, NPC target) {
-			if (!IsDummyOwned(projectile)) {
-				return null;
-			}
-
-			if (target == null || !target.active || target.friendly || target.townNPC || target.dontTakeDamage) {
-				return false;
-			}
-
-			if (!target.CanBeChasedBy()) {
-				return false;
-			}
-
-			return null;
-		}
-
 		public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers) {
 			if (!IsSpectatorVisual(projectile)) {
 				return;
 			}
 
-			// Visual-only sim: allow AI collision, never change HP. Numbers sync via SendStrikeNPC (HitVisual is legacy).
 			modifiers.FinalDamage *= 0f;
 			modifiers.Knockback *= 0f;
 			modifiers.DisableCrit();
 		}
 
 		internal static bool[] RentSnapshot() {
-			bool[] active = SnapshotPool.Count > 0 ? SnapshotPool.Pop() : null;
-			if (active == null || active.Length < Main.maxProjectiles) {
-				active = new bool[Main.maxProjectiles];
-			}
-
+			bool[] buffer = SnapshotPool.Count > 0 ? SnapshotPool.Pop() : new bool[Main.maxProjectiles];
 			for (int i = 0; i < Main.maxProjectiles; i++) {
-				active[i] = Main.projectile[i].active;
+				buffer[i] = Main.projectile[i].active;
 			}
 
-			return active;
+			return buffer;
 		}
 
 		internal static void ReturnSnapshot(bool[] buffer) {

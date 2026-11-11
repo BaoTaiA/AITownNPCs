@@ -336,6 +336,18 @@ namespace AITownNPCs.Common.Ai.Firing
 			}
 		}
 
+		private static bool IsSpectatorDummy(Player dummy) {
+			if (dummy == null
+				|| !NpcDummyPool.TryGetNpcWho(dummy.whoAmI, out int npcWho)
+				|| npcWho < 0
+				|| npcWho >= Main.maxNPCs) {
+				return false;
+			}
+
+			NPC npc = Main.npc[npcWho];
+			return npc != null && NpcFiringState.IsSpectatorClient(npc);
+		}
+
 		private static bool TryGetFollowOwner(Player dummy, out Player owner) {
 			owner = null;
 			if (dummy == null
@@ -362,6 +374,10 @@ namespace AITownNPCs.Common.Ai.Firing
 		}
 
 		private static void FillSots(Player dummy) {
+			if (IsSpectatorDummy(dummy)) {
+				return;
+			}
+
 			ModPlayer mp = GetModPlayer(dummy, _voidPlayerType);
 			if (mp == null) {
 				return;
@@ -499,6 +515,11 @@ namespace AITownNPCs.Common.Ai.Firing
 		/// <summary>Palico Scope-style probe: Fill then native CanUseItem as local player.</summary>
 		public static bool ProbeCanUseItem(Player dummy, Item item) {
 			if (dummy == null || item == null || item.IsAir) {
+				return true;
+			}
+
+			// Swapping myPlayer makes SOTS record the void cost on whoever is watching.
+			if (IsSpectatorDummy(dummy)) {
 				return true;
 			}
 
