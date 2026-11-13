@@ -14,7 +14,10 @@ namespace AITownNPCs.Common.Net
 	{
 		public static void Handle(BinaryReader reader, int whoAmI) {
 			byte type = reader.ReadByte();
-			if (type >= PacketRanges.PlayerStateMin) {
+			if (type >= PacketRanges.LatencyMin) {
+				LatencyNet.HandlePacket(type, reader, whoAmI);
+			}
+			else if (type >= PacketRanges.PlayerStateMin) {
 				ServerPlayerNet.HandlePacket(type, reader);
 			}
 			else if (type >= PacketRanges.SuperpowerMin) {

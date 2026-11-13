@@ -83,6 +83,12 @@ Config: {
 		Follow: 对话跟随
 		Ai: AI 对话
 		Superpower: NPC 超能力
+		Hud: 界面
+	}
+
+	ShowLatencyHud: {
+		Label: 显示网络延迟
+		Tooltip: 联机时在小地图下方显示实时延迟（ms）；单机不显示
 	}
 
 	FollowEnabled: {
@@ -189,6 +195,15 @@ Buffs: {
 }
 
 Configs: {
+	AinpcClientConfig: {
+		DisplayName: AI Town NPCs 客户端配置
+
+		ShowLatencyHud: {
+			Label: 显示网络延迟
+			Tooltip: 联机时在小地图下方显示实时延迟（ms）；单机不显示
+		}
+	}
+
 	AinpcServerConfig: {
 		DisplayName: AI Town NPCs 服务器配置
 

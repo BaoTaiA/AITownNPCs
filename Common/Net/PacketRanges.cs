@@ -16,5 +16,9 @@ namespace AITownNPCs.Common.Net
 		/// <summary>Server→client player state: 40–49.</summary>
 		public const byte PlayerStateMin = 40;
 		public const byte PlayerStateMax = 49;
+		/// <summary>Client↔server latency echo: 50–51.</summary>
+		public const byte LatencyMin = 50;
+		public const byte LatencyMax = 51;
 	}
 }
+

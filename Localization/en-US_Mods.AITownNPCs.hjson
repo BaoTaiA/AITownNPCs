@@ -83,6 +83,12 @@ Config: {
 		Follow: Dialogue Follow
 		Ai: AI Chat
 		Superpower: NPC Superpowers
+		Hud: HUD
+	}
+
+	ShowLatencyHud: {
+		Label: Show network latency
+		Tooltip: In multiplayer, show live ping (ms) under the minimap. Hidden in single player
 	}
 
 	FollowEnabled: {
@@ -189,6 +195,15 @@ Buffs: {
 }
 
 Configs: {
+	AinpcClientConfig: {
+		DisplayName: AI Town NPCs Client Config
+
+		ShowLatencyHud: {
+			Label: Show network latency
+			Tooltip: In multiplayer, show live ping (ms) under the minimap. Hidden in single player
+		}
+	}
+
 	AinpcServerConfig: {
 		DisplayName: AI Town NPCs Server Config
 
