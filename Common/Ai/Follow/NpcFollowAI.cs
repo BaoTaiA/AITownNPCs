@@ -8,7 +8,7 @@ namespace AITownNPCs.Common.Ai.Follow
 	{
 		public static void Update(NPC npc) {
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-			if (!follow.IsFollowing) {
+			if (!follow.HasFollowOwner) {
 				follow.ResetTimers();
 				follow.ResetFlightState(npc);
 				FollowingTownNPC.ApplyFollowNetFlags(npc, following: false);
@@ -16,9 +16,17 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			Player player = Main.player[follow.FollowPlayerWhoAmI];
-			if (!player.active || player.dead) {
+			if (!player.active) {
+				// Brief inactive: PostUpdateNPCs grace drops follow. Do not StopFollow here.
+				FollowingTownNPC.ApplyFollowNetFlags(npc, following: false);
+				return;
+			}
+
+			follow.OwnerInactiveGrace = 0;
+
+			if (player.dead) {
 				if (Main.netMode != NetmodeID.MultiplayerClient) {
-					NpcFollowNetSystem.StopFollow(npc, announce: true);
+					NpcFollowNetSystem.StopFollow(npc, announce: true, reason: "owner_dead");
 				}
 
 				return;
@@ -42,6 +50,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			follow.FarTimer = far;
 
 			FollowingTownNPC.ApplyFollowNetFlags(npc, following: true);
+			FollowingTownNPC.TickFollowPositionSync(npc);
 		}
 	}
 }

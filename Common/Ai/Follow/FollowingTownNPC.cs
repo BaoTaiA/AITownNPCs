@@ -4,6 +4,7 @@ using AITownNPCs.Common.Ai.Combat;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -11,6 +12,7 @@ namespace AITownNPCs.Common.Ai.Follow
 {
 	/// <summary>
 	/// Follow state only. Movement runs in <see cref="Ai.Follow.NpcFollowAI"/>.
+	/// Ownership syncs via ModPacket only — ExtraAI must never clear FollowPlayerWhoAmI.
 	/// </summary>
 	public class FollowingTownNPC : GlobalNPC
 	{
@@ -30,10 +32,17 @@ namespace AITownNPCs.Common.Ai.Follow
 		/// <summary>Last travel direction used for the behind slot. +1 right, -1 left. 0 until set.</summary>
 		public int BehindSign;
 
+		/// <summary>Server: ticks the follow owner has been inactive while FollowPlayerWhoAmI is still set.</summary>
+		public int OwnerInactiveGrace;
+
 		public bool IsFollowing =>
 			FollowPlayerWhoAmI >= 0
 			&& FollowPlayerWhoAmI < Main.maxPlayers
 			&& Main.player[FollowPlayerWhoAmI].active;
+
+		/// <summary>True when this NPC has a follow owner index (even if owner is briefly inactive).</summary>
+		public bool HasFollowOwner =>
+			FollowPlayerWhoAmI >= 0 && FollowPlayerWhoAmI < Main.maxPlayers;
 
 		public void ResetTimers() {
 			StuckTimer = 0;
@@ -104,40 +113,21 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 		}
 
+		/// <summary>
+		/// Flight visuals only. Ownership is ModPacket SyncFollow / SyncAll — never clear FollowPlayerWhoAmI here.
+		/// </summary>
 		public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
-			bitWriter.WriteBit(IsFollowing);
-			if (IsFollowing) {
-				binaryWriter.Write((byte)FollowPlayerWhoAmI);
-				bitWriter.WriteBit(UseFlyingFollow);
-				binaryWriter.Write((byte)(WingFrame & 0xFF));
-				binaryWriter.Write((byte)(WingFrameCounter & 0xFF));
-				binaryWriter.Write((byte)Math.Clamp(WingLandTimer, 0, 255));
-			}
+			bitWriter.WriteBit(UseFlyingFollow);
+			binaryWriter.Write((byte)Math.Clamp(WingLandTimer, 0, 255));
 		}
 
 		public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
-			int previousFollow = FollowPlayerWhoAmI;
-			if (!bitReader.ReadBit()) {
-				ClearReverseFollowLink(npc, previousFollow);
-				FollowPlayerWhoAmI = -1;
-				UseFlyingFollow = false;
-				WingLandTimer = 0;
-				ResetWings();
-				ApplyFollowNetFlags(npc, following: false);
-				return;
-			}
-
-			FollowPlayerWhoAmI = binaryReader.ReadByte();
 			UseFlyingFollow = bitReader.ReadBit();
-			binaryReader.ReadByte();
-			binaryReader.ReadByte();
 			WingLandTimer = binaryReader.ReadByte();
-			npc.noGravity = UseFlyingFollow;
-			ApplyFollowNetFlags(npc, following: true);
-			MaintainReverseFollowLink(npc, previousFollow, FollowPlayerWhoAmI);
+			npc.noGravity = UseFlyingFollow && HasFollowOwner;
 		}
 
-		private static void ClearReverseFollowLink(NPC npc, int playerWhoAmI) {
+		public static void ClearReverseFollowLink(NPC npc, int playerWhoAmI) {
 			if (playerWhoAmI < 0 || playerWhoAmI >= Main.maxPlayers) {
 				return;
 			}
@@ -148,7 +138,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 		}
 
-		private static void MaintainReverseFollowLink(NPC npc, int previousPlayer, int newPlayer) {
+		public static void MaintainReverseFollowLink(NPC npc, int previousPlayer, int newPlayer) {
 			if (previousPlayer != newPlayer) {
 				ClearReverseFollowLink(npc, previousPlayer);
 			}
@@ -161,17 +151,54 @@ namespace AITownNPCs.Common.Ai.Follow
 		}
 
 		/// <summary>
-		/// Force high-rate NPC sync while following. netUpdate alone is dropped by netSpam.
+		/// Follow ownership uses ModPacket. Position uses throttled <see cref="TickFollowPositionSync"/> —
+		/// never netAlways (SyncNPC+ExtraAI flood + ExtraAI ownership clear caused silent unfollow on connect).
 		/// </summary>
+		public const int FollowSyncInterval = 4;
+
+		/// <summary>Server: wait this many ticks of owner inactive before dropping follow.</summary>
+		public const int OwnerInactiveGraceTicks = 60;
+
 		public static void ApplyFollowNetFlags(NPC npc, bool following) {
 			if (npc == null) {
 				return;
 			}
 
-			npc.netAlways = following;
-			if (following) {
-				npc.netUpdate = true;
+			// Never enable netAlways; following only documents call-site intent.
+			npc.netAlways = false;
+			if (!following) {
+				return;
 			}
+		}
+
+		/// <summary>Server: one immediate SyncNPC (start / teleport). Clears netSpam so it is not dropped.</summary>
+		public static void RequestFollowPositionSync(NPC npc) {
+			if (npc == null || Main.netMode == NetmodeID.MultiplayerClient) {
+				return;
+			}
+
+			npc.netAlways = false;
+			npc.netSpam = 0;
+			npc.netUpdate = true;
+		}
+
+		/// <summary>Server: capped-rate position sync while following (staggered by npc index).</summary>
+		public static void TickFollowPositionSync(NPC npc) {
+			if (npc == null || Main.netMode == NetmodeID.MultiplayerClient) {
+				return;
+			}
+
+			if ((Main.GameUpdateCount + (uint)npc.whoAmI) % FollowSyncInterval != 0) {
+				return;
+			}
+
+			RequestFollowPositionSync(npc);
+		}
+
+		public static void LogFollowClear(string reason, NPC npc, int ownerWhoAmI) {
+			int npcWho = npc?.whoAmI ?? -1;
+			ModContent.GetInstance<AITownNPCs>()?.Logger.Info(
+				$"Follow cleared reason={reason} npc={npcWho} owner={ownerWhoAmI} netMode={Main.netMode}");
 		}
 
 		public override bool? CanFallThroughPlatforms(NPC npc) {
@@ -232,8 +259,17 @@ namespace AITownNPCs.Common.Ai.Follow
 			return true;
 		}
 
-		public void ClearFollowLocal(NPC npc = null) {
+		public void ClearFollowLocal(NPC npc = null, string reason = "local") {
+			int owner = FollowPlayerWhoAmI;
+			if (owner >= 0) {
+				LogFollowClear(reason, npc, owner);
+				if (npc != null) {
+					ClearReverseFollowLink(npc, owner);
+				}
+			}
+
 			FollowPlayerWhoAmI = -1;
+			OwnerInactiveGrace = 0;
 			ResetTimers();
 			ResetFlightState(npc);
 			ApplyFollowNetFlags(npc, following: false);

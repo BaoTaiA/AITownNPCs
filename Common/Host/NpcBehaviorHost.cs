@@ -31,7 +31,8 @@ namespace AITownNPCs.Common.Host
 			}
 
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-			if (follow.IsFollowing) {
+			// HasFollowOwner keeps vanilla town AI off during brief owner-inactive grace.
+			if (follow.HasFollowOwner) {
 				return false;
 			}
 

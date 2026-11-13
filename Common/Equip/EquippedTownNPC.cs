@@ -130,7 +130,7 @@ namespace AITownNPCs.Common.Equip
 		}
 
 		// Equipment runtime sync is ModPacket-only (SyncSlot / SyncAll).
-		// Do not piggyback slots on ExtraAI — conflicts with follow netAlways.
+		// Do not piggyback slots on ExtraAI — keep SyncNPC payloads small.
 
 		public override void OnKill(NPC npc) {
 			// Do not drop equipped gear on death (including nurse / dryad).

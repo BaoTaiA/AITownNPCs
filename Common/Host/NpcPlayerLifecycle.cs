@@ -17,16 +17,19 @@ namespace AITownNPCs.Common.Host
 
 			NpcOwnershipSystem.ReleaseAllEquipLocksForPlayer(playerWhoAmI);
 
+			// Do not StopFollow immediately — brief disconnect/telnet flicker used to clear
+			// follow with announce:false. PostUpdateNPCs drops follow after OwnerInactiveGraceTicks.
 			if (playerWhoAmI >= 0 && playerWhoAmI < Main.maxPlayers) {
 				Player player = Main.player[playerWhoAmI];
 				var followMp = player.GetModPlayer<NpcFollowPlayer>();
 				if (followMp.HasFollower) {
 					NPC npc = Main.npc[followMp.FollowingNpcWhoAmI];
 					if (npc.active) {
-						NpcFollowNetSystem.StopFollow(npc, announce: false);
-					}
-					else {
-						followMp.FollowingNpcWhoAmI = -1;
+						FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+						if (follow.OwnerInactiveGrace == 0) {
+							ModContent.GetInstance<AITownNPCs>()?.Logger.Info(
+								$"Follow disconnect grace start npc={npc.whoAmI} owner={playerWhoAmI}");
+						}
 					}
 				}
 			}

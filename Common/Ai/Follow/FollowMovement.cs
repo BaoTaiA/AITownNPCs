@@ -710,7 +710,7 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			npc.position = spot;
 			npc.velocity = Vector2.Zero;
-			npc.netUpdate = true;
+			FollowingTownNPC.RequestFollowPositionSync(npc);
 			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 			follow.TeleportSettle = TeleportSettleTicks;
 			follow.JumpCooldown = TeleportSettleTicks;

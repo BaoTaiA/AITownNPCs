@@ -179,9 +179,11 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			follow.FollowPlayerWhoAmI = playerWhoAmI;
+			follow.OwnerInactiveGrace = 0;
 			modPlayer.FollowingNpcWhoAmI = best.whoAmI;
 			NpcInteractGate.DismissOpenEquip(best.whoAmI, playerWhoAmI);
 			FollowingTownNPC.ApplyFollowNetFlags(best, following: true);
+			FollowingTownNPC.RequestFollowPositionSync(best);
 			SyncFollow(best.whoAmI, playerWhoAmI);
 			NpcFollowEvents.RaiseFollowStarted(player, best);
 			NpcFollowMessages.AnnounceStart(best, player);
@@ -207,7 +209,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			StopFollow(npc, announce: true);
 		}
 
-		public static void StopFollow(NPC npc, bool announce) {
+		public static void StopFollow(NPC npc, bool announce, string reason = "stop") {
 			if (npc == null || !npc.active) {
 				return;
 			}
@@ -217,7 +219,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			Player player = null;
 			if (owner >= 0 && owner < Main.maxPlayers) {
 				player = Main.player[owner];
-				if (player.active) {
+				if (player != null) {
 					var mp = player.GetModPlayer<NpcFollowPlayer>();
 					if (mp.FollowingNpcWhoAmI == npc.whoAmI) {
 						mp.FollowingNpcWhoAmI = -1;
@@ -225,9 +227,9 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 			}
 
-			follow.ClearFollowLocal(npc);
+			follow.ClearFollowLocal(npc, reason);
 			FollowingTownNPC.ApplyFollowNetFlags(npc, following: false);
-			npc.netUpdate = true;
+			FollowingTownNPC.RequestFollowPositionSync(npc);
 			SyncFollow(npc.whoAmI, -1);
 
 			if (player != null && player.active) {
@@ -274,6 +276,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			follow.FollowPlayerWhoAmI = followPlayer;
+			follow.OwnerInactiveGrace = 0;
 			FollowingTownNPC.ApplyFollowNetFlags(npc, following: followPlayer >= 0);
 			if (followPlayer >= 0 && followPlayer < Main.maxPlayers) {
 				Main.player[followPlayer].GetModPlayer<NpcFollowPlayer>().FollowingNpcWhoAmI = npcWhoAmI;
@@ -298,7 +301,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 
 				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-				if (!follow.IsFollowing) {
+				if (!follow.HasFollowOwner) {
 					continue;
 				}
 
@@ -324,7 +327,7 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				if (Main.npc[i].active) {
-					Main.npc[i].GetGlobalNPC<FollowingTownNPC>().ClearFollowLocal(Main.npc[i]);
+					Main.npc[i].GetGlobalNPC<FollowingTownNPC>().ClearFollowLocal(Main.npc[i], "sync_all");
 				}
 			}
 
@@ -338,6 +341,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				NPC npc = Main.npc[npcWhoAmI];
 				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 				follow.FollowPlayerWhoAmI = followPlayer;
+				follow.OwnerInactiveGrace = 0;
 				FollowingTownNPC.ApplyFollowNetFlags(npc, following: followPlayer >= 0);
 				if (followPlayer >= 0 && followPlayer < Main.maxPlayers) {
 					Main.player[followPlayer].GetModPlayer<NpcFollowPlayer>().FollowingNpcWhoAmI = npcWhoAmI;
@@ -357,7 +361,8 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			// Drop follow if owner vanished.
+			// Drop follow after grace if owner stayed inactive (disconnect / brief flicker).
+			// Use HasFollowOwner — IsFollowing requires active and made the old !active branch dead.
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
 				if (!npc.active) {
@@ -365,16 +370,23 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 
 				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
-				if (!follow.IsFollowing) {
+				if (!follow.HasFollowOwner) {
+					follow.OwnerInactiveGrace = 0;
 					continue;
 				}
 
 				Player p = Main.player[follow.FollowPlayerWhoAmI];
-				if (!p.active) {
-					follow.ClearFollowLocal(npc);
-					npc.netUpdate = true;
-					SyncFollow(npc.whoAmI, -1);
+				if (p != null && p.active) {
+					follow.OwnerInactiveGrace = 0;
+					continue;
 				}
+
+				follow.OwnerInactiveGrace++;
+				if (follow.OwnerInactiveGrace < FollowingTownNPC.OwnerInactiveGraceTicks) {
+					continue;
+				}
+
+				StopFollow(npc, announce: false, reason: "postupdate_inactive");
 			}
 		}
 	}
