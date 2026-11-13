@@ -12,7 +12,7 @@ using Terraria.UI.Chat;
 namespace AITownNPCs.Common.UI
 {
 	/// <summary>
-	/// Multiplayer latency probe + draw under/near the vanilla minimap (info-bar area).
+	/// Multiplayer latency probe + draw at the top-center of the screen.
 	/// </summary>
 	public class LatencyHudSystem : ModSystem
 	{
@@ -81,19 +81,10 @@ namespace AITownNPCs.Common.UI
 			Color color = ColorForMs(ms);
 			Vector2 size = ChatManager.GetStringSize(FontAssets.MouseText.Value, text, Vector2.One);
 
-			float x;
-			float y;
-			if (Main.mapStyle == 1 && Main.miniMapWidth > 0 && Main.miniMapHeight > 0) {
-				x = Main.miniMapX + Main.miniMapWidth * 0.5f - size.X * 0.5f;
-				y = Main.miniMapY + Main.miniMapHeight + 4f;
-			}
-			else {
-				// Minimap hidden: default top-right anchor near where the minimap sits.
-				var backbuffer = Main.graphics.GraphicsDevice.PresentationParameters;
-				int screenW = (int)(backbuffer.BackBufferWidth / Main.UIScale);
-				x = screenW - size.X - 24f;
-				y = 24f;
-			}
+			var backbuffer = Main.graphics.GraphicsDevice.PresentationParameters;
+			int screenW = (int)(backbuffer.BackBufferWidth / Main.UIScale);
+			float x = screenW * 0.5f - size.X * 0.5f;
+			float y = 12f;
 
 			ChatManager.DrawColorCodedStringWithShadow(
 				Main.spriteBatch,
