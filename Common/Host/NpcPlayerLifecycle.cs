@@ -24,7 +24,7 @@ namespace AITownNPCs.Common.Host
 				var followMp = player.GetModPlayer<NpcFollowPlayer>();
 				if (followMp.HasFollower) {
 					NPC npc = Main.npc[followMp.FollowingNpcWhoAmI];
-					if (npc.active) {
+					if (NpcHostRules.IsManagedTownNpc(npc)) {
 						FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 						if (follow.OwnerInactiveGrace == 0) {
 							ModContent.GetInstance<AITownNPCs>()?.Logger.Info(

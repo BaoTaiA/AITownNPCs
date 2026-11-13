@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Host;
 using Terraria;
 
 namespace AITownNPCs.Common.Ai.Follow
@@ -12,7 +13,7 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
-				if (!npc.active) {
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
 					continue;
 				}
 

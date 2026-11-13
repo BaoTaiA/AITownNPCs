@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Host;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -11,7 +12,7 @@ namespace AITownNPCs.Common.Ai.Follow
 		public bool HasFollower =>
 			FollowingNpcWhoAmI >= 0
 			&& FollowingNpcWhoAmI < Main.maxNPCs
-			&& Main.npc[FollowingNpcWhoAmI].active
+			&& NpcHostRules.IsManagedTownNpc(Main.npc[FollowingNpcWhoAmI])
 			&& Main.npc[FollowingNpcWhoAmI].GetGlobalNPC<FollowingTownNPC>().FollowPlayerWhoAmI == Player.whoAmI;
 
 		public override void OnEnterWorld() {

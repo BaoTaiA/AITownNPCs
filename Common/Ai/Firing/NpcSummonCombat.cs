@@ -2,6 +2,7 @@ using AITownNPCs.Common.Ai.Combat;
 using AITownNPCs.Common.Ai.Combat.Boss;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Host;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -26,7 +27,7 @@ namespace AITownNPCs.Common.Ai.Firing
 		/// Dedicated server never does. Other clients are visual-only via SpectatorClient.
 		/// </summary>
 		public static bool IsAuthority(NPC npc) {
-			if (npc == null || !npc.active || Main.netMode == NetmodeID.Server) {
+			if (!NpcHostRules.IsManagedTownNpc(npc) || Main.netMode == NetmodeID.Server) {
 				return false;
 			}
 

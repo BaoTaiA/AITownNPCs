@@ -7,14 +7,24 @@ namespace AITownNPCs.Common.Host
 	public static class NpcHostRules
 	{
 		/// <summary>
+		/// For <see cref="Terraria.ModLoader.GlobalNPC.AppliesToEntity"/> — no <c>active</c> check
+		/// so the global can attach at entity creation. Enemies and town pets are excluded.
+		/// </summary>
+		public static bool AppliesToManagedTownNpc(NPC entity) {
+			return entity != null
+				&& entity.townNPC
+				&& !NPCID.Sets.IsTownPet[entity.type];
+		}
+
+		/// <summary>
 		/// Town NPCs only. Town pets and enemies are not managed hosts.
 		/// </summary>
 		public static bool IsManagedTownNpc(NPC npc) {
-			if (npc == null || !npc.active || !npc.townNPC) {
+			if (npc == null || !npc.active) {
 				return false;
 			}
 
-			return !NPCID.Sets.IsTownPet[npc.type];
+			return AppliesToManagedTownNpc(npc);
 		}
 	}
 }

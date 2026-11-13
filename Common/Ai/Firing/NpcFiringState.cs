@@ -1,3 +1,4 @@
+using AITownNPCs.Common.Host;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
@@ -10,10 +11,14 @@ namespace AITownNPCs.Common.Ai.Firing
 	/// HARD RULE: set <see cref="SpectatorClient"/> before any dummy Main.myPlayer swap;
 	/// during the swap never re-derive authority from Main.myPlayer — only read this flag
 	/// (or SpectatorVisual stamped on the projectile at spawn).
+	/// Scoped to managed town NPCs only (never enemies).
 	/// </summary>
 	public class NpcFiringState : GlobalNPC
 	{
 		public override bool InstancePerEntity => true;
+
+		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) =>
+			NpcHostRules.AppliesToManagedTownNpc(entity);
 
 		/// <summary>Hold-release: frames held this cycle before release.</summary>
 		public int ChannelHoldTicks;
@@ -74,12 +79,14 @@ namespace AITownNPCs.Common.Ai.Firing
 
 		/// <summary>Read only the frozen spectator flag — never re-derive from Main.myPlayer during a dummy swap.</summary>
 		public static bool IsSpectatorClient(NPC npc) {
-			return npc != null && npc.active && npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+			return NpcHostRules.IsManagedTownNpc(npc)
+				&& npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
 		}
 
 		/// <summary>Inverse of <see cref="IsSpectatorClient"/> for the frozen flag.</summary>
 		public static bool IsAuthorityClient(NPC npc) {
-			return npc != null && npc.active && !npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
+			return NpcHostRules.IsManagedTownNpc(npc)
+				&& !npc.GetGlobalNPC<NpcFiringState>().SpectatorClient;
 		}
 
 		public void ResetChannelCycle() {

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Host;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -13,10 +14,14 @@ namespace AITownNPCs.Common.Ai.Follow
 	/// <summary>
 	/// Follow state only. Movement runs in <see cref="Ai.Follow.NpcFollowAI"/>.
 	/// Ownership syncs via ModPacket only — ExtraAI must never clear FollowPlayerWhoAmI.
+	/// Scoped to managed town NPCs only (never enemies).
 	/// </summary>
 	public class FollowingTownNPC : GlobalNPC
 	{
 		public override bool InstancePerEntity => true;
+
+		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) =>
+			NpcHostRules.AppliesToManagedTownNpc(entity);
 
 		public int FollowPlayerWhoAmI = -1;
 
@@ -124,7 +129,11 @@ namespace AITownNPCs.Common.Ai.Follow
 		public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
 			UseFlyingFollow = bitReader.ReadBit();
 			WingLandTimer = binaryReader.ReadByte();
-			npc.noGravity = UseFlyingFollow && HasFollowOwner;
+			// Only mirror flight gravity while following. Never force gravity on idle town NPCs
+			// (and this global no longer applies to enemies at all).
+			if (HasFollowOwner) {
+				npc.noGravity = UseFlyingFollow;
+			}
 		}
 
 		public static void ClearReverseFollowLink(NPC npc, int playerWhoAmI) {

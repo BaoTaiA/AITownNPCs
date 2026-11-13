@@ -47,7 +47,7 @@ namespace AITownNPCs.Common.Ai.Chat
 		/// Others: public chat + bubble.
 		/// </summary>
 		public static void Announce(NPC npc, string reply) {
-			if (npc == null || !npc.active || string.IsNullOrWhiteSpace(reply)) {
+			if (!NpcHostRules.IsManagedTownNpc(npc) || string.IsNullOrWhiteSpace(reply)) {
 				return;
 			}
 

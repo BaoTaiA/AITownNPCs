@@ -296,7 +296,9 @@ namespace AITownNPCs.Common.Equip
 				}
 
 				NPC npc = Main.npc[npcWhoAmI];
-				EquippedTownNPC equip = npc.active ? npc.GetGlobalNPC<EquippedTownNPC>() : null;
+				EquippedTownNPC equip = NpcHostRules.IsManagedTownNpc(npc)
+					? npc.GetGlobalNPC<EquippedTownNPC>()
+					: null;
 				for (int s = 0; s < slotCount; s++) {
 					Item item = ItemIO.Receive(reader, readStack: true);
 					if (equip != null && s < EquippedTownNPC.MaxSlots) {

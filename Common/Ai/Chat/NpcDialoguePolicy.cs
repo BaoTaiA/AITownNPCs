@@ -23,7 +23,7 @@ namespace AITownNPCs.Common.Ai.Chat
 			AinpcServerConfig.Instance?.FollowTriggerDistancePixels ?? 200f;
 
 		public static bool IsFollowingAnyone(NPC npc) {
-			if (npc == null || !npc.active) {
+			if (!NpcHostRules.IsManagedTownNpc(npc)) {
 				return false;
 			}
 

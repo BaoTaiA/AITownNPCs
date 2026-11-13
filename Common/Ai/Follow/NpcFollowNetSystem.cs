@@ -210,7 +210,7 @@ namespace AITownNPCs.Common.Ai.Follow
 		}
 
 		public static void StopFollow(NPC npc, bool announce, string reason = "stop") {
-			if (npc == null || !npc.active) {
+			if (!NpcHostRules.IsManagedTownNpc(npc)) {
 				return;
 			}
 
@@ -261,7 +261,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			NPC npc = Main.npc[npcWhoAmI];
-			if (!npc.active) {
+			if (!NpcHostRules.IsManagedTownNpc(npc)) {
 				return;
 			}
 
@@ -296,7 +296,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			int count = 0;
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
-				if (!npc.active) {
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
 					continue;
 				}
 
@@ -326,19 +326,26 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			for (int i = 0; i < Main.maxNPCs; i++) {
-				if (Main.npc[i].active) {
-					Main.npc[i].GetGlobalNPC<FollowingTownNPC>().ClearFollowLocal(Main.npc[i], "sync_all");
+				NPC npc = Main.npc[i];
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
+					continue;
 				}
+
+				npc.GetGlobalNPC<FollowingTownNPC>().ClearFollowLocal(npc, "sync_all");
 			}
 
 			for (int n = 0; n < count; n++) {
 				int npcWhoAmI = reader.ReadInt32();
 				int followPlayer = reader.ReadInt32();
-				if (npcWhoAmI < 0 || npcWhoAmI >= Main.maxNPCs || !Main.npc[npcWhoAmI].active) {
+				if (npcWhoAmI < 0 || npcWhoAmI >= Main.maxNPCs) {
 					continue;
 				}
 
 				NPC npc = Main.npc[npcWhoAmI];
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
+					continue;
+				}
+
 				FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 				follow.FollowPlayerWhoAmI = followPlayer;
 				follow.OwnerInactiveGrace = 0;
@@ -365,7 +372,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			// Use HasFollowOwner — IsFollowing requires active and made the old !active branch dead.
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
-				if (!npc.active) {
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
 					continue;
 				}
 

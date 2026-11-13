@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AITownNPCs.Common.Ai.Combat.Stance;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -191,7 +192,7 @@ namespace AITownNPCs.Common.Ai.Firing
 					&& NpcDummyPool.TryGetNpcWho(dummy.whoAmI, out int npcWho)
 					&& npcWho >= 0
 					&& npcWho < Main.maxNPCs
-					&& Main.npc[npcWho].active) {
+					&& NpcHostRules.IsManagedTownNpc(Main.npc[npcWho])) {
 					Main.npc[npcWho].GetGlobalNPC<NpcFiringState>().SummonRetryUntil =
 						Main.GameUpdateCount + 60;
 				}

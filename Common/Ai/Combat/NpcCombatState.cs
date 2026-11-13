@@ -1,5 +1,6 @@
 using System.IO;
 using AITownNPCs.Common.Ai.Combat.Normal;
+using AITownNPCs.Common.Host;
 using Terraria;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -8,10 +9,14 @@ namespace AITownNPCs.Common.Ai.Combat
 {
 	/// <summary>
 	/// Per-NPC combat runtime: mode, sticky target, aim mirror for ExtraAI.
+	/// Scoped to managed town NPCs only (never enemies).
 	/// </summary>
 	public class NpcCombatState : GlobalNPC
 	{
 		public override bool InstancePerEntity => true;
+
+		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) =>
+			NpcHostRules.AppliesToManagedTownNpc(entity);
 
 		public int ItemAnimation;
 		public int ItemAnimationMax;

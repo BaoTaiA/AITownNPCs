@@ -11,10 +11,14 @@ namespace AITownNPCs.Common.Host
 	/// While following: PreAI skips vanilla town AI; PostAI runs
 	/// EvaluateMode → Follow → Role → Combat.Tick (Boss and Normal share follow locomotion).
 	/// Role.IsBusy pauses combat (e.g. nurse throw / dryad ward).
+	/// Scoped to managed town NPCs only (never enemies).
 	/// </summary>
 	public class NpcBehaviorHost : GlobalNPC
 	{
 		public override bool InstancePerEntity => true;
+
+		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) =>
+			NpcHostRules.AppliesToManagedTownNpc(entity);
 
 		/// <summary>
 		/// Skip vanilla AIStyle 7 (home / idle) on every side while this mod hosts locomotion.

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using AITownNPCs.Common.Ai.Follow;
+using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -269,10 +270,13 @@ namespace AITownNPCs.Common.Superpower
 		}
 	}
 
-	/// <summary>Skip vanilla town AI while a visit stay is holding this NPC.</summary>
+	/// <summary>Skip vanilla town AI while a visit stay is holding this NPC. Town NPCs only.</summary>
 	public class NpcVisitGlobal : GlobalNPC
 	{
 		public override bool InstancePerEntity => true;
+
+		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) =>
+			NpcHostRules.AppliesToManagedTownNpc(entity);
 
 		/// <summary>Client copy of visit-stay; server uses <see cref="NpcVisitState.IsStaying"/>.</summary>
 		public bool ClientStay;

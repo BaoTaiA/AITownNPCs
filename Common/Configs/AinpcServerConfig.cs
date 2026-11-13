@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 using AITownNPCs.Common.Ai.Chat;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Configs.UI;
+using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Loc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -236,7 +237,7 @@ namespace AITownNPCs.Common.Configs
 
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC npc = Main.npc[i];
-				if (!npc.active) {
+				if (!NpcHostRules.IsManagedTownNpc(npc)) {
 					continue;
 				}
 

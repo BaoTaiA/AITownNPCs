@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Roles;
 using Terraria;
 using Terraria.DataStructures;
@@ -11,6 +12,7 @@ namespace AITownNPCs.Common.Equip
 {
 	/// <summary>
 	/// Equipment storage (up to 12 slots). Combat runtime lives on NpcCombatState.
+	/// Scoped to managed town NPCs only (never enemies).
 	/// </summary>
 	public class EquippedTownNPC : GlobalNPC
 	{
@@ -23,6 +25,9 @@ namespace AITownNPCs.Common.Equip
 		public static event Action<int> SummonStaffChanged;
 
 		public override bool InstancePerEntity => true;
+
+		public override bool AppliesToEntity(NPC entity, bool lateInstantiation) =>
+			NpcHostRules.AppliesToManagedTownNpc(entity);
 
 		public Item[] Slots { get; private set; } = CreateEmptySlots();
 

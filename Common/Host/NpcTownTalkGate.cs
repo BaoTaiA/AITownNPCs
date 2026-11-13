@@ -75,7 +75,8 @@ namespace AITownNPCs.Common.Host
 		}
 
 		private static bool IsFollowingNpc(NPC npc) {
-			return npc != null && npc.active && npc.GetGlobalNPC<FollowingTownNPC>().IsFollowing;
+			return NpcHostRules.IsManagedTownNpc(npc)
+				&& npc.GetGlobalNPC<FollowingTownNPC>().IsFollowing;
 		}
 
 		/// <summary>

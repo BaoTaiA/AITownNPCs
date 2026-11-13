@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AITownNPCs.Common.Ai.Follow;
 using AITownNPCs.Common.Equip;
+using AITownNPCs.Common.Host;
 using AITownNPCs.Common.Roles.Dryad;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -62,7 +63,7 @@ namespace AITownNPCs.Common.Ai.Firing
 				&& npcWho >= 0
 				&& npcWho < Main.maxNPCs) {
 				NPC npc = Main.npc[npcWho];
-				if (npc != null && npc.active) {
+				if (NpcHostRules.IsManagedTownNpc(npc)) {
 					FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
 					if (follow.IsFollowing
 						&& follow.FollowPlayerWhoAmI >= 0
