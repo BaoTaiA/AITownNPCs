@@ -158,10 +158,38 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 			return boss;
 		}
 
+		/// <summary>Distance from a point to the locked boss root, or nearest worm segment.</summary>
+		public static float NearestEncounterDistance(Vector2 from, NPC locked) {
+			if (locked == null || !locked.active) {
+				return float.MaxValue;
+			}
+
+			if (!IsWormBossEncounter(locked)) {
+				return Vector2.Distance(from, locked.Center);
+			}
+
+			float best = float.MaxValue;
+			for (int i = 0; i < Main.maxNPCs; i++) {
+				NPC other = Main.npc[i];
+				if (!other.active || other.friendly || !IsPartOfLockedBoss(other, locked)) {
+					continue;
+				}
+
+				float dist = Vector2.Distance(from, other.Center);
+				if (dist < best) {
+					best = dist;
+				}
+			}
+
+			return best;
+		}
+
 		/// <summary>Damageable aim point for the locked boss (root or a part).</summary>
 		public static NPC ResolveFireTarget(NPC attacker, NPC locked, Item weapon = null) {
+			Vector2 from = attacker != null ? attacker.Center : (locked != null ? locked.Center : Vector2.Zero);
 			if (locked == null || !locked.active) {
-				return null;
+				// Lock lost mid-fight (worm split): still shoot nearby boss adds.
+				return FindEncounterFallbackTarget(attacker, from);
 			}
 
 			if (IsWormBossEncounter(locked)) {
@@ -197,8 +225,8 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 				return best;
 			}
 
-			// Invulnerable root with no linked parts (Slime God core): shoot the nearest chaseable foe beside it.
-			return FindNearestChaseableNear(attacker, locked.Center, NpcNormalCombat.LeashDist);
+			// Invulnerable root / multi-worm adds: search from the NPC, not a buried root center.
+			return FindEncounterFallbackTarget(attacker, from);
 		}
 
 		/// <summary>
@@ -256,13 +284,20 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 				}
 			}
 
+			// Locked worm buried / split adds (Desert Nuisance): search from the NPC, not locked.Center.
 			return bestShoot ?? bestClear ?? bestAny
-				?? FindNearestChaseableNear(attacker, locked.Center, NpcNormalCombat.LeashDist);
+				?? FindEncounterFallbackTarget(attacker, from);
 		}
 
-		private static NPC FindNearestChaseableNear(NPC attacker, Vector2 origin, float radius) {
-			NPC best = null;
-			float bestDist = radius;
+		/// <summary>
+		/// Prefer another boss-flagged foe near the attacker (multi-worm fights), else any chaseable.
+		/// </summary>
+		private static NPC FindEncounterFallbackTarget(NPC attacker, Vector2 from) {
+			NPC bestBoss = null;
+			float bestBossDist = PartLinkRadius;
+			NPC bestAny = null;
+			float bestAnyDist = NpcNormalCombat.LeashDist;
+
 			for (int i = 0; i < Main.maxNPCs; i++) {
 				NPC other = Main.npc[i];
 				if (!other.active || other.friendly || other.townNPC || NPCID.Sets.CountsAsCritter[other.type]) {
@@ -278,16 +313,19 @@ namespace AITownNPCs.Common.Ai.Combat.Boss
 					continue;
 				}
 
-				float dist = Vector2.Distance(origin, other.Center);
-				if (dist >= bestDist) {
-					continue;
+				float dist = Vector2.Distance(from, other.Center);
+				if (other.boss && dist < bestBossDist) {
+					bestBossDist = dist;
+					bestBoss = other;
 				}
 
-				bestDist = dist;
-				best = other;
+				if (dist < bestAnyDist) {
+					bestAnyDist = dist;
+					bestAny = other;
+				}
 			}
 
-			return best;
+			return bestBoss ?? bestAny;
 		}
 
 		private static bool IsPartOfLockedBoss(NPC part, NPC locked) {

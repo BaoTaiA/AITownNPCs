@@ -20,6 +20,8 @@ namespace AITownNPCs.Common.Ai.Follow
 		public const float MaxSpeedMph = 50f;
 		public const float MphPerVelocity = 5f;
 		public const float MaxSpeedX = MaxSpeedMph / MphPerVelocity;
+		public const float CombatSpeedMph = 75f;
+		public const float CombatSpeedX = CombatSpeedMph / MphPerVelocity;
 		public const float HorizontalDeadzone = 32f;
 		public const float MaxJumpTiles = 100f;
 		public const float TileSize = 16f;
@@ -29,43 +31,67 @@ namespace AITownNPCs.Common.Ai.Follow
 		public const int JumpCooldownTicks = 45;
 		public const int WingLandTicks = 12;
 		public const float FaceSpeed = 0.35f;
-		public const float SlotMin = 32f;
-		public const float SlotMax = 80f;
+		public const float SlotMin = 16f;
+		public const float SlotMax = 32f;
 		public const float FollowAccel = 0.32f;
+		public const float CombatAccel = 0.7f;
 		public const float PlatformGap = 32f;
+		/// <summary>Legacy name kept for call sites; emergency retreat uses hitbox edge, not Center.</summary>
 		public const float DodgeRange = 32f;
+		/// <summary>Retreat only when this close to the target hitbox edge (not Center — bosses break Center checks).</summary>
+		public const float CombatEdgeDodge = 12f;
+		/// <summary>Boss ground self fall-through: fire target may be at most this far below the follow player.</summary>
+		public const float CombatVerticalChaseTiles = 10f;
+		public const float CombatVerticalChasePixels = CombatVerticalChaseTiles * TileSize;
 		public const float DodgeAccel = 1.5f;
 		public const float DodgeJumpTiles = 6f;
 		public const int TeleportSettleTicks = 45;
+		/// <summary>Soft recall wait after exceeding FollowLostTeleportDistance (~2s at 60 tick).</summary>
+		public const int FollowLostTeleportTicks = 120;
 		public const float WingCatchUpExtraTiles = 6f;
 		public const float WingCatchUpHeightTiles = 4f;
 		public const int WingCatchUpStuckTicks = 15;
+		/// <summary>Skip door I/O only when clearly airborne; StepUp micro-vy still opens doors.</summary>
+		public const float DoorMaxVerticalSpeed = 1.2f;
+		public const int DoorProbeExtraTiles = 2;
 
 		public static void Tick(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer, ref int farTimer) {
 			// Clients predict locomotion only; server owns teleports.
-			// Boss fight: chase boss via Stand (same as Normal). Do not recall-teleport to the
-			// player; de-aggro is EvaluateMode when the player exceeds follow-lost from the boss.
+			// Boss fight: stay with the encounter (no soft recall while near the boss). Hard teleport
+			// and soft rescue still fire when stranded far from both player and boss.
 			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
 			bool bossFight = combat != null && combat.Mode == NpcCombatMode.Boss && combat.HasEngagedTarget;
-			bool allowTeleport = Main.netMode != NetmodeID.MultiplayerClient && !bossFight;
+			bool serverTeleport = Main.netMode != NetmodeID.MultiplayerClient;
 
 			float distToPlayer = Vector2.Distance(npc.Center, player.Center);
-			if (allowTeleport && distToPlayer > TeleportDistance) {
+			float lostDist = AinpcServerConfig.Instance.FollowLostTeleportDistancePixels;
+
+			// Hard safety net — even during boss fights (ocean / out-of-world stranding).
+			if (serverTeleport && distToPlayer > TeleportDistance) {
 				TeleportNearPlayer(npc, player);
 				farTimer = 0;
 				stuckTimer = 0;
 				return;
 			}
 
-			// Soft recall: own config (not chat/follow-start range × 4).
-			// Wings close this gap in the air, so skip the mirror teleport while flying.
-			if (!bossFight && distToPlayer > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels) {
+			bool softRecall = distToPlayer > lostDist;
+			if (bossFight && softRecall) {
+				NPC locked = NpcBossCombat.GetLockedBoss(combat);
+				float toBoss = NpcBossCombat.NearestEncounterDistance(npc.Center, locked);
+				// Still in the fight: do not pull back to the player.
+				if (toBoss <= lostDist) {
+					softRecall = false;
+				}
+			}
+
+			// Soft recall / boss rescue. Wings close the gap in the air — skip mirror teleport.
+			if (softRecall) {
 				if (follow.UseFlyingFollow && NpcWingFlight.HasWings(npc)) {
 					farTimer = 0;
 				}
 				else {
 					farTimer++;
-					if (allowTeleport && farTimer > 300) {
+					if (serverTeleport && farTimer > FollowLostTeleportTicks) {
 						TeleportNearPlayer(npc, player);
 						farTimer = 0;
 						stuckTimer = 0;
@@ -108,14 +134,14 @@ namespace AITownNPCs.Common.Ai.Follow
 
 		/// <summary>
 		/// Wings should chase the player instead of jump-spam and the soft teleport.
-		/// Boss fights and an engaged combat target keep their own locomotion.
+		/// While a combat target is engaged, use <see cref="NeedsCombatWingFlight"/> instead.
 		/// </summary>
 		public static bool NeedsWingCatchUp(NPC npc, Player player, FollowingTownNPC follow) {
 			if (npc == null || player == null || follow == null || !player.active || player.dead) {
 				return false;
 			}
 
-			if (!NpcWingFlight.HasWings(npc) || IsEngagedBossFight(npc) || TryGetChaseTarget(npc, out _)) {
+			if (!NpcWingFlight.HasWings(npc) || TryGetChaseTarget(npc, out _)) {
 				return false;
 			}
 
@@ -133,6 +159,41 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			return Vector2.Distance(npc.Center, player.Center) > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels;
+		}
+
+		/// <summary>
+		/// Normal + Boss: take off to chase Stand / a high target instead of staying grounded.
+		/// </summary>
+		public static bool NeedsCombatWingFlight(NPC npc) {
+			if (npc == null || !NpcWingFlight.HasWings(npc)) {
+				return false;
+			}
+
+			if (!TryGetChaseTarget(npc, out NPC target)) {
+				return false;
+			}
+
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+			Item stance = StanceWeapon(equip);
+			Vector2 anchor = CombatStandAnchor(combat, stance, npc, target);
+
+			// Target or stand clearly above.
+			if (npc.Center.Y - target.Center.Y > TileSize * WingCatchUpHeightTiles) {
+				return true;
+			}
+
+			if (npc.Center.Y - anchor.Y > TileSize * WingCatchUpHeightTiles) {
+				return true;
+			}
+
+			// Ground path stuck against terrain while fighting.
+			if (follow != null && follow.StuckTimer >= WingCatchUpStuckTicks) {
+				return true;
+			}
+
+			return false;
 		}
 
 		static bool IsEngagedBossFight(NPC npc) {
@@ -185,42 +246,7 @@ namespace AITownNPCs.Common.Ai.Follow
 		public static void ApplyFlyingFollow(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer) {
 			RememberTravelSign(player, follow);
 			if (TryGetChaseTarget(npc, out NPC foe)) {
-				if (npc.Distance(foe.Center) <= DodgeRange) {
-					float dir = npc.Center.X >= foe.Center.X ? 1f : -1f;
-					if (Math.Abs(npc.Center.X - foe.Center.X) < 0.5f) {
-						dir = npc.direction != 0 ? -npc.direction : -1f;
-					}
-
-					Vector2 retreat = foe.Center + new Vector2(dir * SlotMax, 0f);
-					NpcWingFlight.Apply(npc, retreat, ref stuckTimer);
-					return;
-				}
-
-				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-				NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
-				if (combat.Targeting.Holding) {
-					NpcWingFlight.Apply(npc, npc.Center, ref stuckTimer);
-					return;
-				}
-
-				Item stance = StanceWeapon(equip);
-				Vector2 anchor = CombatStandAnchor(combat, stance, npc, foe);
-				bool forceChase = MustForceBossChase(combat, npc, foe);
-				bool canShoot = !forceChase
-					&& NpcWeaponReach.CanUse(npc, stance, foe)
-					&& NpcAttackPath.Allows(stance, equip.Ammo, npc.Center, foe.Center);
-				if (canShoot) {
-					Vector2 hold = new Vector2(anchor.X, npc.Center.Y);
-					if (Math.Abs(npc.Center.X - hold.X) <= TileSize) {
-						hold = npc.Center;
-					}
-
-					NpcWingFlight.Apply(npc, hold, ref stuckTimer);
-				}
-				else {
-					NpcWingFlight.Apply(npc, anchor, ref stuckTimer);
-				}
-
+				ApplyFlyingCombat(npc, follow, foe, ref stuckTimer);
 				return;
 			}
 
@@ -238,39 +264,81 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			RememberTravelSign(player, follow);
 			if (TryGetChaseTarget(npc, out NPC target)) {
-				// Palico: combat facing is Sign(dx) toward Stand / retreat motion — never BehindSign.
-				if (npc.Distance(target.Center) <= DodgeRange) {
-					stuckTimer = 0;
-					RetreatFrom(npc, target, follow);
-					return;
-				}
-
-				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
-				NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
-				if (combat.Targeting.Holding) {
-					stuckTimer = 0;
-					BrakeHorizontal(npc);
-					FaceTowardX(npc, target.Center.X);
-					return;
-				}
-
-				Item stance = StanceWeapon(equip);
-				Vector2 anchor = CombatStandAnchor(combat, stance, npc, target);
-				StepToward(npc, follow, anchor.X, MaxSpeedX, ref stuckTimer);
-				bool forceChase = MustForceBossChase(combat, npc, target);
-				bool canShoot = !forceChase
-					&& NpcWeaponReach.CanUse(npc, stance, target)
-					&& NpcAttackPath.Allows(stance, equip.Ammo, npc.Center, target.Center);
-				if (!canShoot) {
-					TryPlatformStep(npc, follow, anchor);
-					FaceTowardX(npc, anchor.X);
-				}
-
+				ApplyGroundCombat(npc, follow, target, ref stuckTimer);
 				return;
 			}
 
 			ApplyPlayerSlot(npc, player, follow, ref stuckTimer);
 			FaceAlongTravel(npc, follow);
+		}
+
+		/// <summary>Emergency edge retreat, else soft StepToward Stand (boss + trash).</summary>
+		static void ApplyGroundCombat(NPC npc, FollowingTownNPC follow, NPC target, ref int stuckTimer) {
+			if (NeedsEmergencyRetreat(npc, target)) {
+				stuckTimer = 0;
+				RetreatFrom(npc, target, follow);
+				return;
+			}
+
+			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+			if (combat.Targeting.Holding) {
+				stuckTimer = 0;
+				BrakeHorizontal(npc);
+				FaceTowardX(npc, target.Center.X);
+				return;
+			}
+
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			Item stance = StanceWeapon(equip);
+			Vector2 anchor = CombatStandAnchor(combat, stance, npc, target);
+			bool forceChase = MustForceBossChase(combat, npc, target);
+			bool canShoot = !forceChase
+				&& NpcWeaponReach.CanUse(npc, stance, target)
+				&& NpcAttackPath.Allows(stance, equip.Ammo, npc.Center, target.Center);
+
+			StepToward(npc, follow, anchor.X, CombatSpeedX, ref stuckTimer, climb: true, fullSpeed: false, accel: CombatAccel);
+			if (!canShoot) {
+				TryPlatformStep(npc, follow, anchor);
+				FaceTowardX(npc, anchor.X);
+			}
+			else {
+				FaceTowardX(npc, target.Center.X);
+			}
+		}
+
+		static void ApplyFlyingCombat(NPC npc, FollowingTownNPC follow, NPC foe, ref int stuckTimer) {
+			if (NeedsEmergencyRetreat(npc, foe)) {
+				float dir = npc.Center.X >= foe.Center.X ? 1f : -1f;
+				if (Math.Abs(npc.Center.X - foe.Center.X) < 0.5f) {
+					dir = npc.direction != 0 ? -npc.direction : -1f;
+				}
+
+				Vector2 retreat = foe.Center + new Vector2(dir * Math.Max(SlotMax, DodgeRange), 0f);
+				NpcWingFlight.Apply(npc, retreat, ref stuckTimer);
+				return;
+			}
+
+			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+			if (combat.Targeting.Holding) {
+				NpcWingFlight.Apply(npc, npc.Center, ref stuckTimer);
+				return;
+			}
+
+			EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+			Item stance = StanceWeapon(equip);
+			Vector2 anchor = CombatStandAnchor(combat, stance, npc, foe);
+			NpcWingFlight.Apply(npc, anchor, ref stuckTimer);
+		}
+
+		/// <summary>True when overlapping / scraping the target hitbox — works for bosses and trash.</summary>
+		static bool NeedsEmergencyRetreat(NPC npc, NPC foe) {
+			if (npc == null || foe == null || !foe.active) {
+				return false;
+			}
+
+			float edge = Vector2.Distance(npc.Center, foe.Hitbox.ClosestPointInRect(npc.Center));
+			float limit = Math.Max(CombatEdgeDodge, npc.width * 0.35f);
+			return edge <= limit;
 		}
 
 		/// <summary>Palico combat navigation: face Stand goal when |dx| &gt; 8.</summary>
@@ -288,20 +356,20 @@ namespace AITownNPCs.Common.Ai.Follow
 			int travel = follow.BehindSign == 0 ? 1 : follow.BehindSign;
 			float gap = SlotMin + (npc.whoAmI % 4) * ((SlotMax - SlotMin) / 3f);
 			bool playerBelow = player.Bottom.Y > npc.Bottom.Y + PlatformGap;
-			bool shaftFollow = playerBelow
-				&& Math.Abs(npc.Center.X - player.Center.X) <= SlotMax + TileSize;
-			float slotX = follow.TeleportSettle > 0 || shaftFollow
+			bool playerAbove = player.Bottom.Y < npc.Bottom.Y - PlatformGap;
+			// Dig-down / settle: share player column. Otherwise keep the behind-slot gap (not stacked on the player).
+			float slotX = follow.TeleportSettle > 0 || playerBelow
 				? player.Center.X
 				: player.Center.X - travel * gap;
 			float dx = slotX - npc.Center.X;
 			if (Math.Abs(dx) <= TileSize) {
 				stuckTimer = 0;
-				EaseHorizontal(npc, shaftFollow ? 0f : player.velocity.X);
+				EaseHorizontal(npc, playerBelow ? 0f : player.velocity.X);
 				TryOpenDoor(npc);
 			}
 			else {
-				// Player is already down the column. Do not step up or hop the shaft lip.
-				StepToward(npc, follow, slotX, MaxSpeedX, ref stuckTimer, climb: !shaftFollow);
+				// Climb stays on: jump only when a real wall blocks the path to slotX.
+				StepToward(npc, follow, slotX, MaxSpeedX, ref stuckTimer, climb: true);
 			}
 
 			Vector2 goal = new Vector2(slotX, player.Center.Y);
@@ -309,8 +377,8 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			if (!TryPlatformStep(npc, follow, goal)) {
-				MatchPlayerJump(npc, player);
+			if (playerAbove) {
+				TryPlatformStep(npc, follow, goal);
 			}
 		}
 
@@ -380,8 +448,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			return m > 0.01f ? m : 1f;
 		}
 
-		private static void EaseHorizontal(NPC npc, float desired) {
-			float accel = FollowAccel;
+		private static void EaseHorizontal(NPC npc, float desired, float accel = FollowAccel) {
 			// Scale accel only when chasing a non-zero target; braking to 0 stays snappy.
 			if (Math.Abs(desired) > 0.05f) {
 				accel *= MoveSpeedScale(npc);
@@ -404,7 +471,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			npc.direction = dir > 0f ? 1 : -1;
 			npc.spriteDirection = npc.direction;
 			float scale = MoveSpeedScale(npc);
-			float desired = dir * MaxSpeedX * scale;
+			float desired = dir * CombatSpeedX * scale;
 			float step = DodgeAccel * scale;
 			if (npc.velocity.X < desired) {
 				npc.velocity.X = Math.Min(npc.velocity.X + step, desired);
@@ -419,6 +486,10 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			if (!IsOnGroundOrPlatform(npc.position, npc.width, npc.height)) {
+				return;
+			}
+
+			if (!HitWallAhead(npc)) {
 				return;
 			}
 
@@ -507,7 +578,15 @@ namespace AITownNPCs.Common.Ai.Follow
 				&& !Main.tileSolid[tile.TileType];
 		}
 
-		private static void StepToward(NPC npc, FollowingTownNPC follow, float goalX, float speed, ref int stuckTimer, bool climb = true) {
+		private static void StepToward(
+			NPC npc,
+			FollowingTownNPC follow,
+			float goalX,
+			float speed,
+			ref int stuckTimer,
+			bool climb = true,
+			bool fullSpeed = false,
+			float accel = FollowAccel) {
 			float dx = goalX - npc.Center.X;
 			float abs = Math.Abs(dx);
 			if (abs < 8f) {
@@ -520,8 +599,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			npc.direction = dir >= 0f ? 1 : -1;
 			npc.spriteDirection = npc.direction;
 			float cap = speed * MoveSpeedScale(npc);
-			float scaled = Math.Min(cap, Math.Max(1.8f, abs * 0.05f));
-			EaseHorizontal(npc, dir * scaled);
+			float scaled = fullSpeed ? cap : Math.Min(cap, Math.Max(1.8f, abs * 0.05f));
+			EaseHorizontal(npc, dir * scaled, accel);
 
 			if (!climb) {
 				stuckTimer = 0;
@@ -592,7 +671,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			if (Math.Abs(npc.velocity.X) < FaceSpeed || npc.velocity.Y != 0f) {
+			if (Math.Abs(npc.velocity.X) < FaceSpeed || Math.Abs(npc.velocity.Y) > DoorMaxVerticalSpeed) {
 				return;
 			}
 
@@ -604,11 +683,11 @@ namespace AITownNPCs.Common.Ai.Follow
 			float ahead = dir > 0 ? npc.Right.X + 4f : npc.Left.X - 4f;
 			float behind = dir > 0 ? npc.Left.X - 8f : npc.Right.X + 8f;
 			TryOpenDoorAt(npc, ahead, dir);
-			TryCloseDoorAt(npc, behind);
+			TryCloseDoorAt(npc, behind, dir);
 		}
 
 		static void TryOpenDoorAt(NPC npc, float worldX, int dir) {
-			if (!TryFindDoor(npc, worldX, open: false, out int x, out int top, out bool gate)) {
+			if (!TryFindDoor(npc, worldX, open: false, dir, out int x, out int top, out bool gate)) {
 				return;
 			}
 
@@ -629,8 +708,8 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 		}
 
-		static void TryCloseDoorAt(NPC npc, float worldX) {
-			if (!TryFindDoor(npc, worldX, open: true, out int x, out int top, out bool gate)) {
+		static void TryCloseDoorAt(NPC npc, float worldX, int travelDir) {
+			if (!TryFindDoor(npc, worldX, open: true, -travelDir, out int x, out int top, out bool gate)) {
 				return;
 			}
 
@@ -644,18 +723,38 @@ namespace AITownNPCs.Common.Ai.Follow
 			NetMessage.SendData(MessageID.ToggleDoorState, -1, -1, null, gate ? 5 : 1, x, top, 1f);
 		}
 
-		static bool TryFindDoor(NPC npc, float worldX, bool open, out int x, out int top, out bool gate) {
-			x = (int)(worldX / TileSize);
+		/// <summary>
+		/// Scan the probe column and up to <see cref="DoorProbeExtraTiles"/> further in <paramref name="scanDir"/>
+		/// so a one-tile lip in front of the door still finds it. Vertical fit allows ~1 tile slack.
+		/// </summary>
+		static bool TryFindDoor(NPC npc, float worldX, bool open, int scanDir, out int x, out int top, out bool gate) {
+			x = 0;
 			top = 0;
 			gate = false;
-			int yTop = (int)(npc.Top.Y / TileSize);
-			int yBot = (int)((npc.Bottom.Y - 1f) / TileSize);
+			int baseX = (int)(worldX / TileSize);
+			int step = scanDir >= 0 ? 1 : -1;
+			for (int col = 0; col <= DoorProbeExtraTiles; col++) {
+				int tileX = baseX + step * col;
+				if (TryFindDoorInColumn(npc, tileX, open, out x, out top, out gate)) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		static bool TryFindDoorInColumn(NPC npc, int tileX, bool open, out int x, out int top, out bool gate) {
+			x = tileX;
+			top = 0;
+			gate = false;
+			int yTop = (int)(npc.Top.Y / TileSize) - 1;
+			int yBot = (int)((npc.Bottom.Y - 1f) / TileSize) + 1;
 			for (int y = yTop; y <= yBot; y++) {
-				if (!WorldGen.InWorld(x, y, 2)) {
+				if (!WorldGen.InWorld(tileX, y, 2)) {
 					continue;
 				}
 
-				Tile tile = Main.tile[x, y];
+				Tile tile = Main.tile[tileX, y];
 				if (!tile.HasUnactuatedTile) {
 					continue;
 				}
@@ -673,7 +772,10 @@ namespace AITownNPCs.Common.Ai.Follow
 				int frameSpan = tileGate ? 90 : 54;
 				int doorTop = y - tile.TileFrameY % frameSpan / 18;
 				int doorTiles = tileGate ? 5 : 3;
-				if (npc.Top.Y < doorTop * TileSize || npc.Bottom.Y > (doorTop + doorTiles) * TileSize + TileSize) {
+				float doorTopPx = doorTop * TileSize;
+				float doorBotPx = (doorTop + doorTiles) * TileSize + TileSize;
+				// One-tile slack for half-blocks / small steps beside the frame.
+				if (npc.Top.Y < doorTopPx - TileSize || npc.Bottom.Y > doorBotPx + TileSize) {
 					continue;
 				}
 
@@ -694,32 +796,11 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			// Half-block polish removed this. A shaft wall is a real wall, and a follower
-			// digging beside the player is always inside this range, so they kept jumping.
-			// Do not zero velocity.X: one-tile lips no longer reach here.
-			if (follow.IsFollowing) {
-				Player owner = Main.player[follow.FollowPlayerWhoAmI];
-				if (owner.active && !owner.dead && npc.Distance(owner.Center) <= TileSize * 40f) {
-					return;
-				}
-			}
-
+			// Follow uses correct slotX (player column when near) + TryDropShaft; combat clears walls here.
 			float wall = MeasureWallHeightPixels(npc);
 			float height = Math.Max(minHeight, wall + TileSize);
 			ApplyJump(npc, height);
 			follow.JumpCooldown = JumpCooldownTicks;
-		}
-
-		private static void MatchPlayerJump(NPC npc, Player player) {
-			if (player.velocity.Y >= 0f || npc.velocity.Y != 0f) {
-				return;
-			}
-
-			if (!IsOnGroundOrPlatform(npc.position, npc.width, npc.height)) {
-				return;
-			}
-
-			npc.velocity.Y = player.velocity.Y;
 		}
 
 		private static void RememberTravelSign(Player player, FollowingTownNPC follow) {

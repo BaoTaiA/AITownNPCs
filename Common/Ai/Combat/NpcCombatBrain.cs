@@ -72,7 +72,8 @@ namespace AITownNPCs.Common.Ai.Combat
 					return;
 				}
 
-				NPC fresh = NpcBossCombat.FindNearestBoss(player, npc, NpcNormalCombat.LeashDist);
+				// Keep radius (not trash leash): worm splits / phase swaps often leave the new root >40 tiles out.
+				NPC fresh = NpcBossCombat.FindNearestBoss(player, npc, NpcBossCombat.PlayerKeepRadius);
 				if (fresh != null) {
 					state.Mode = NpcCombatMode.Boss;
 					state.LockedBossWhoAmI = fresh.whoAmI;
@@ -91,7 +92,7 @@ namespace AITownNPCs.Common.Ai.Combat
 				return;
 			}
 
-			NPC nearestBoss = NpcBossCombat.FindNearestBoss(player, npc, NpcNormalCombat.LeashDist);
+			NPC nearestBoss = NpcBossCombat.FindNearestBoss(player, npc, NpcBossCombat.PlayerKeepRadius);
 			if (nearestBoss != null) {
 				state.Mode = NpcCombatMode.Boss;
 				state.LockedBossWhoAmI = nearestBoss.whoAmI;

@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using AITownNPCs.Common.Ai.Combat;
+using AITownNPCs.Common.Ai.Combat.Boss;
+using AITownNPCs.Common.Ai.Combat.Stance;
+using AITownNPCs.Common.Equip;
 using AITownNPCs.Common.Host;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -93,7 +96,10 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			if (playerFlying || FollowMovement.NeedsWingCatchUp(npc, player, this)) {
+			bool combatWings = FollowMovement.NeedsCombatWingFlight(npc);
+			if (playerFlying
+				|| FollowMovement.NeedsWingCatchUp(npc, player, this)
+				|| combatWings) {
 				UseFlyingFollow = true;
 				FlyGraceTimer = FollowMovement.FlyGraceTicks;
 				WingLandTimer = 0;
@@ -106,6 +112,11 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			if (FlyGraceTimer > 0) {
 				FlyGraceTimer--;
+			}
+
+			// Stay airborne while combat still needs wings (owner may be grounded).
+			if (FollowMovement.NeedsCombatWingFlight(npc)) {
+				return;
 			}
 
 			// Catch-up already returned. Land once the player is walking and this NPC is close enough.
@@ -228,29 +239,47 @@ namespace AITownNPCs.Common.Ai.Follow
 				}
 
 				NPC target = Main.npc[who];
-				return target.active && target.Bottom.Y > npc.Bottom.Y + 24f;
-			}
-
-			if (combat.Mode == NpcCombatMode.Boss) {
-				int bossWho = combat.LockedBossWhoAmI;
-				if (bossWho < 0 || bossWho >= Main.maxNPCs) {
+				if (!target.active || target.Bottom.Y <= npc.Bottom.Y + 24f) {
 					return false;
 				}
 
-				NPC boss = Main.npc[bossWho];
-				return boss.active && boss.Bottom.Y > npc.Bottom.Y + 24f;
+				// Same as target-above: already in range → stay; only drop when we cannot shoot.
+				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+				return !CanShootFromHere(npc, equip, target);
 			}
 
-			if (FollowMovement.IsPlayerInFlight(player)) {
-				return true;
-			}
-
-			if (UseFlyingFollow) {
-				if (player.Bottom.Y > npc.Bottom.Y + 32f) {
+			if (combat.Mode == NpcCombatMode.Boss && combat.HasEngagedTarget) {
+				// Owner dropped: always follow down.
+				if (player.Bottom.Y > npc.Bottom.Y + 24f) {
 					return true;
 				}
 
-				return false;
+				// Self chase down toward the fire target.
+				EquippedTownNPC equip = npc.GetGlobalNPC<EquippedTownNPC>();
+				Item weapon = StanceWeapon(equip);
+				NPC locked = NpcBossCombat.GetLockedBoss(combat);
+				NPC aim = NpcBossCombat.ResolveFireTarget(npc, locked, weapon);
+				if (aim == null || !aim.active) {
+					return false;
+				}
+
+				float dropBelowNpc = aim.Bottom.Y - npc.Bottom.Y;
+				if (dropBelowNpc <= 24f) {
+					return false;
+				}
+
+				if (CanShootFromHere(npc, equip, aim)) {
+					return false;
+				}
+
+				// Wings: no vertical leash — flight handles chase. Ground: stay within ~10 tiles of the player.
+				if (NpcWingFlight.HasWings(npc)) {
+					return true;
+				}
+
+				float dropBelowPlayer = aim.Bottom.Y - player.Bottom.Y;
+				return dropBelowPlayer > 24f
+					&& dropBelowPlayer <= FollowMovement.CombatVerticalChasePixels;
 			}
 
 			if (player.Bottom.Y > npc.Bottom.Y + 24f) {
@@ -258,6 +287,34 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			return false;
+		}
+
+		/// <summary>Matches ground combat canShoot: range + path clear (or through-walls).</summary>
+		static bool CanShootFromHere(NPC npc, EquippedTownNPC equip, NPC target) {
+			Item weapon = StanceWeapon(equip);
+			if (weapon == null || weapon.IsAir || target == null || !target.active) {
+				return false;
+			}
+
+			Item ammo = equip?.Ammo;
+			return NpcWeaponReach.CanUse(npc, weapon, target)
+				&& NpcAttackPath.Allows(weapon, ammo, npc.Center, target.Center);
+		}
+
+		static Item StanceWeapon(EquippedTownNPC equip) {
+			if (equip == null) {
+				return null;
+			}
+
+			if (!equip.Weapon.IsAir && NpcEquipHelper.IsAllowedWeapon(equip.Weapon)) {
+				return equip.Weapon;
+			}
+
+			if (NpcEquipHelper.IsSummonOrSentryStaff(equip.SummonStaff)) {
+				return equip.SummonStaff;
+			}
+
+			return equip.Weapon;
 		}
 
 		/// <summary>
