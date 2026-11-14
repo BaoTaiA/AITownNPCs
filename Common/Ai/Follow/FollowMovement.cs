@@ -10,6 +10,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.Audio;
 using Terraria.ID;
+using Terraria.ModLoader;
 
 namespace AITownNPCs.Common.Ai.Follow
 {
@@ -36,6 +37,9 @@ namespace AITownNPCs.Common.Ai.Follow
 		public const float DodgeAccel = 1.5f;
 		public const float DodgeJumpTiles = 6f;
 		public const int TeleportSettleTicks = 45;
+		public const float WingCatchUpExtraTiles = 6f;
+		public const float WingCatchUpHeightTiles = 4f;
+		public const int WingCatchUpStuckTicks = 15;
 
 		public static void Tick(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer, ref int farTimer) {
 			// Clients predict locomotion only; server owns teleports.
@@ -54,13 +58,19 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			// Soft recall: own config (not chat/follow-start range × 4).
+			// Wings close this gap in the air, so skip the mirror teleport while flying.
 			if (!bossFight && distToPlayer > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels) {
-				farTimer++;
-				if (allowTeleport && farTimer > 300) {
-					TeleportNearPlayer(npc, player);
+				if (follow.UseFlyingFollow && NpcWingFlight.HasWings(npc)) {
 					farTimer = 0;
-					stuckTimer = 0;
-					return;
+				}
+				else {
+					farTimer++;
+					if (allowTeleport && farTimer > 300) {
+						TeleportNearPlayer(npc, player);
+						farTimer = 0;
+						stuckTimer = 0;
+						return;
+					}
 				}
 			}
 			else {
@@ -94,6 +104,40 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			return IsPlayerUsingWingFlight(player);
+		}
+
+		/// <summary>
+		/// Wings should chase the player instead of jump-spam and the soft teleport.
+		/// Boss fights and an engaged combat target keep their own locomotion.
+		/// </summary>
+		public static bool NeedsWingCatchUp(NPC npc, Player player, FollowingTownNPC follow) {
+			if (npc == null || player == null || follow == null || !player.active || player.dead) {
+				return false;
+			}
+
+			if (!NpcWingFlight.HasWings(npc) || IsEngagedBossFight(npc) || TryGetChaseTarget(npc, out _)) {
+				return false;
+			}
+
+			float dx = Math.Abs(player.Center.X - npc.Center.X);
+			if (dx > SlotMax + TileSize * WingCatchUpExtraTiles) {
+				return true;
+			}
+
+			if (npc.Center.Y - player.Center.Y > TileSize * WingCatchUpHeightTiles) {
+				return true;
+			}
+
+			if (follow.StuckTimer >= WingCatchUpStuckTicks && dx > SlotMax) {
+				return true;
+			}
+
+			return Vector2.Distance(npc.Center, player.Center) > AinpcServerConfig.Instance.FollowLostTeleportDistancePixels;
+		}
+
+		static bool IsEngagedBossFight(NPC npc) {
+			NpcCombatState combat = npc.GetGlobalNPC<NpcCombatState>();
+			return combat != null && combat.Mode == NpcCombatMode.Boss && combat.HasEngagedTarget;
 		}
 
 		public static bool IsPlayerOnFlyingMount(Player player) {
@@ -253,9 +297,11 @@ namespace AITownNPCs.Common.Ai.Follow
 			if (Math.Abs(dx) <= TileSize) {
 				stuckTimer = 0;
 				EaseHorizontal(npc, shaftFollow ? 0f : player.velocity.X);
+				TryOpenDoor(npc);
 			}
 			else {
-				StepToward(npc, follow, slotX, MaxSpeedX, ref stuckTimer);
+				// Player is already down the column. Do not step up or hop the shaft lip.
+				StepToward(npc, follow, slotX, MaxSpeedX, ref stuckTimer, climb: !shaftFollow);
 			}
 
 			Vector2 goal = new Vector2(slotX, player.Center.Y);
@@ -290,15 +336,14 @@ namespace AITownNPCs.Common.Ai.Follow
 				return false;
 			}
 
-			npc.position.X = player.Center.X - npc.width * 0.5f;
-			npc.velocity.X = 0f;
-			if (StandingOnPlatform(npc)) {
-				npc.position.Y += 8f;
-			}
-			else {
-				npc.position.Y += 2f;
+			float drop = StandingOnPlatform(npc) ? 8f : 2f;
+			Vector2 next = new Vector2(player.Center.X - npc.width * 0.5f, npc.position.Y + drop);
+			if (Collision.SolidCollision(next, npc.width, npc.height)) {
+				return false;
 			}
 
+			npc.position = next;
+			npc.velocity.X = 0f;
 			npc.velocity.Y = 2f;
 			return true;
 		}
@@ -368,6 +413,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				npc.velocity.X = Math.Max(npc.velocity.X - step, desired);
 			}
 
+			TryOpenDoor(npc);
 			if (follow.JumpCooldown > 0 || npc.velocity.Y != 0f) {
 				return;
 			}
@@ -461,7 +507,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				&& !Main.tileSolid[tile.TileType];
 		}
 
-		private static void StepToward(NPC npc, FollowingTownNPC follow, float goalX, float speed, ref int stuckTimer) {
+		private static void StepToward(NPC npc, FollowingTownNPC follow, float goalX, float speed, ref int stuckTimer, bool climb = true) {
 			float dx = goalX - npc.Center.X;
 			float abs = Math.Abs(dx);
 			if (abs < 8f) {
@@ -477,16 +523,60 @@ namespace AITownNPCs.Common.Ai.Follow
 			float scaled = Math.Min(cap, Math.Max(1.8f, abs * 0.05f));
 			EaseHorizontal(npc, dir * scaled);
 
-			bool blocked = Collision.SolidCollision(
-				npc.position + new Vector2(npc.velocity.X, 0f),
-				npc.width,
-				npc.height);
-			if (!blocked && !HitWallAhead(npc)) {
+			if (!climb) {
+				stuckTimer = 0;
+				TryOpenDoor(npc);
+				return;
+			}
+
+			StepUpIfGrounded(npc);
+			TryOpenDoor(npc);
+			if (!HitWallAhead(npc)) {
 				stuckTimer = 0;
 				return;
 			}
 
 			stuckTimer++;
+			if (stuckTimer > 2 && follow.TeleportSettle <= 0 && !ShouldDeferWallJump(npc, follow)) {
+				TryWallJump(npc, follow, TileSize * 3f);
+				stuckTimer = 0;
+			}
+		}
+
+		/// <summary>
+		/// Let stuck time climb into wing catch-up instead of hopping the same wall.
+		/// </summary>
+		static bool ShouldDeferWallJump(NPC npc, FollowingTownNPC follow) {
+			if (!follow.IsFollowing || !NpcWingFlight.HasWings(npc)) {
+				return false;
+			}
+
+			if (IsEngagedBossFight(npc) || TryGetChaseTarget(npc, out _)) {
+				return false;
+			}
+
+			Player player = Main.player[follow.FollowPlayerWhoAmI];
+			if (!player.active || player.dead) {
+				return false;
+			}
+
+			if (NeedsWingCatchUp(npc, player, follow)) {
+				return true;
+			}
+
+			float dx = Math.Abs(player.Center.X - npc.Center.X);
+			return dx > SlotMax && npc.velocity.Y == 0f && HitWallAhead(npc);
+		}
+
+		static void StepUpIfGrounded(NPC npc) {
+			if (Math.Abs(npc.velocity.X) < 0.05f || npc.velocity.Y != 0f) {
+				return;
+			}
+
+			if (!IsOnGroundOrPlatform(npc.position, npc.width, npc.height)) {
+				return;
+			}
+
 			Collision.StepUp(
 				ref npc.position,
 				ref npc.velocity,
@@ -494,11 +584,105 @@ namespace AITownNPCs.Common.Ai.Follow
 				npc.height,
 				ref npc.stepSpeed,
 				ref npc.gfxOffY);
+		}
 
-			if (stuckTimer > 2 && follow.TeleportSettle <= 0) {
-				TryWallJump(npc, follow, TileSize * 3f);
-				stuckTimer = 0;
+		/// <summary>Vanilla town walk: open a closed door ahead, close an open door just behind.</summary>
+		static void TryOpenDoor(NPC npc) {
+			if (Main.netMode == NetmodeID.MultiplayerClient) {
+				return;
 			}
+
+			if (Math.Abs(npc.velocity.X) < FaceSpeed || npc.velocity.Y != 0f) {
+				return;
+			}
+
+			if (!IsOnGroundOrPlatform(npc.position, npc.width, npc.height)) {
+				return;
+			}
+
+			int dir = npc.velocity.X > 0f ? 1 : -1;
+			float ahead = dir > 0 ? npc.Right.X + 4f : npc.Left.X - 4f;
+			float behind = dir > 0 ? npc.Left.X - 8f : npc.Right.X + 8f;
+			TryOpenDoorAt(npc, ahead, dir);
+			TryCloseDoorAt(npc, behind);
+		}
+
+		static void TryOpenDoorAt(NPC npc, float worldX, int dir) {
+			if (!TryFindDoor(npc, worldX, open: false, out int x, out int top, out bool gate)) {
+				return;
+			}
+
+			bool opened = gate
+				? WorldGen.ShiftTallGate(x, top, false)
+				: WorldGen.OpenDoor(x, top, dir);
+			if (!opened && !gate) {
+				dir = -dir;
+				opened = WorldGen.OpenDoor(x, top, dir);
+			}
+
+			if (!opened) {
+				return;
+			}
+
+			if (Main.netMode == NetmodeID.Server) {
+				NetMessage.SendData(MessageID.ToggleDoorState, -1, -1, null, gate ? 4 : 0, x, top, dir);
+			}
+		}
+
+		static void TryCloseDoorAt(NPC npc, float worldX) {
+			if (!TryFindDoor(npc, worldX, open: true, out int x, out int top, out bool gate)) {
+				return;
+			}
+
+			bool closed = gate
+				? WorldGen.ShiftTallGate(x, top, true)
+				: WorldGen.CloseDoor(x, top);
+			if (!closed || Main.netMode != NetmodeID.Server) {
+				return;
+			}
+
+			NetMessage.SendData(MessageID.ToggleDoorState, -1, -1, null, gate ? 5 : 1, x, top, 1f);
+		}
+
+		static bool TryFindDoor(NPC npc, float worldX, bool open, out int x, out int top, out bool gate) {
+			x = (int)(worldX / TileSize);
+			top = 0;
+			gate = false;
+			int yTop = (int)(npc.Top.Y / TileSize);
+			int yBot = (int)((npc.Bottom.Y - 1f) / TileSize);
+			for (int y = yTop; y <= yBot; y++) {
+				if (!WorldGen.InWorld(x, y, 2)) {
+					continue;
+				}
+
+				Tile tile = Main.tile[x, y];
+				if (!tile.HasUnactuatedTile) {
+					continue;
+				}
+
+				bool tileGate = open
+					? tile.TileType == TileID.TallGateOpen
+					: tile.TileType == TileID.TallGateClosed;
+				bool tileDoor = tileGate || (open
+					? TileLoader.CloseDoorID(tile) >= 0
+					: TileLoader.IsClosedDoor(tile));
+				if (!tileDoor) {
+					continue;
+				}
+
+				int frameSpan = tileGate ? 90 : 54;
+				int doorTop = y - tile.TileFrameY % frameSpan / 18;
+				int doorTiles = tileGate ? 5 : 3;
+				if (npc.Top.Y < doorTop * TileSize || npc.Bottom.Y > (doorTop + doorTiles) * TileSize + TileSize) {
+					continue;
+				}
+
+				gate = tileGate;
+				top = doorTop;
+				return true;
+			}
+
+			return false;
 		}
 
 		private static void TryWallJump(NPC npc, FollowingTownNPC follow, float minHeight) {
@@ -510,13 +694,12 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
+			// Half-block polish removed this. A shaft wall is a real wall, and a follower
+			// digging beside the player is always inside this range, so they kept jumping.
+			// Do not zero velocity.X: one-tile lips no longer reach here.
 			if (follow.IsFollowing) {
 				Player owner = Main.player[follow.FollowPlayerWhoAmI];
-				if (owner != null
-					&& owner.active
-					&& !owner.dead
-					&& npc.Distance(owner.Center) <= TileSize * 40f) {
-					npc.velocity.X = 0f;
+				if (owner.active && !owner.dead && npc.Distance(owner.Center) <= TileSize * 40f) {
 					return;
 				}
 			}
@@ -628,21 +811,9 @@ namespace AITownNPCs.Common.Ai.Follow
 				npc.velocity.X = dirX * cap;
 			}
 
-			bool blocked = Collision.SolidCollision(
-				npc.position + new Vector2(npc.velocity.X, 0f),
-				npc.width,
-				npc.height);
-
-			if (blocked || HitWallAhead(npc)) {
+			StepUpIfGrounded(npc);
+			if (HitWallAhead(npc)) {
 				stuckTimer++;
-				Collision.StepUp(
-					ref npc.position,
-					ref npc.velocity,
-					npc.width,
-					npc.height,
-					ref npc.stepSpeed,
-					ref npc.gfxOffY);
-
 				if (npc.velocity.Y == 0f && stuckTimer > 4) {
 					float wallPx = MeasureWallHeightPixels(npc);
 					ApplyJump(npc, Math.Max(wallPx + TileSize, TileSize * 3f));
@@ -674,12 +845,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			int tiles = 0;
 			for (int i = 0; i < (int)MaxJumpTiles; i++) {
 				int y = tileY - i;
-				if (!WorldGen.InWorld(tileX, y)) {
-					break;
-				}
-
-				Tile tile = Framing.GetTileSafely(tileX, y);
-				if (!tile.HasUnactuatedTile || !Main.tileSolid[tile.TileType] || Main.tileSolidTop[tile.TileType]) {
+				if (!WorldGen.InWorld(tileX, y) || !IsFullSolid(Framing.GetTileSafely(tileX, y))) {
 					break;
 				}
 
@@ -689,17 +855,24 @@ namespace AITownNPCs.Common.Ai.Follow
 			return tiles * TileSize;
 		}
 
+		/// <summary>A real wall is two full solid tiles. Slopes, half-blocks, and one-tile steps are walked.</summary>
 		public static bool HitWallAhead(NPC npc) {
 			int tileX = (int)((npc.Center.X + npc.direction * (npc.width / 2f + 4f)) / 16f);
 			int tileY = (int)((npc.Bottom.Y - 8f) / 16f);
-			if (!WorldGen.InWorld(tileX, tileY)) {
+			if (!WorldGen.InWorld(tileX, tileY) || !WorldGen.InWorld(tileX, tileY - 1)) {
 				return false;
 			}
 
-			Tile tile = Framing.GetTileSafely(tileX, tileY);
-			Tile above = Framing.GetTileSafely(tileX, tileY - 1);
-			return tile.HasUnactuatedTile && Main.tileSolid[tile.TileType]
-				&& (!above.HasUnactuatedTile || !Main.tileSolid[above.TileType]);
+			return IsFullSolid(Framing.GetTileSafely(tileX, tileY))
+				&& IsFullSolid(Framing.GetTileSafely(tileX, tileY - 1));
+		}
+
+		static bool IsFullSolid(Tile tile) {
+			return tile.HasUnactuatedTile
+				&& Main.tileSolid[tile.TileType]
+				&& !Main.tileSolidTop[tile.TileType]
+				&& !tile.IsHalfBlock
+				&& tile.Slope == SlopeType.Solid;
 		}
 
 		public static void TeleportNearPlayer(NPC npc, Player player) {

@@ -93,7 +93,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			if (playerFlying) {
+			if (playerFlying || FollowMovement.NeedsWingCatchUp(npc, player, this)) {
 				UseFlyingFollow = true;
 				FlyGraceTimer = FollowMovement.FlyGraceTicks;
 				WingLandTimer = 0;
@@ -108,7 +108,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				FlyGraceTimer--;
 			}
 
-			// Player is already walking. Do not wait for the NPC to reach their feet.
+			// Catch-up already returned. Land once the player is walking and this NPC is close enough.
 			bool playerGrounded = FollowMovement.IsOnGroundOrPlatform(player);
 			if (playerGrounded && FlyGraceTimer <= 0) {
 				UseFlyingFollow = false;
@@ -258,6 +258,57 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// Drop sit / sleep / talk / party state so FindFrame uses the walk cycle.
+		/// Dryad ward writes ai[0] = 14 again from the circle projectile after NPC update.
+		/// </summary>
+		public void ClearVanillaPose(NPC npc) {
+			if (npc == null) {
+				return;
+			}
+
+			int aiCount = Math.Min(4, npc.ai.Length);
+			for (int i = 0; i < aiCount; i++) {
+				npc.ai[i] = 0f;
+			}
+
+			int localCount = Math.Min(4, npc.localAI.Length);
+			for (int i = 0; i < localCount; i++) {
+				npc.localAI[i] = 0f;
+			}
+		}
+
+		public override void FindFrame(NPC npc, int frameHeight) {
+			if (!IsFollowing || frameHeight <= 0) {
+				return;
+			}
+
+			int extra = NPCID.Sets.ExtraFramesCount[npc.type];
+			int attack = NPCID.Sets.AttackFrameCount[npc.type];
+			int walk = Main.npcFrameCount[npc.type] - extra - attack;
+			if (walk <= 1) {
+				return;
+			}
+
+			int index = npc.frame.Y / frameHeight;
+			if (index < walk) {
+				return;
+			}
+
+			bool walking = Math.Abs(npc.velocity.X) > FollowMovement.FaceSpeed
+				&& Math.Abs(npc.velocity.Y) < 0.4f
+				&& FollowMovement.IsOnGroundOrPlatform(npc.position, npc.width, npc.height);
+			if (!walking) {
+				npc.frame.Y = 0;
+				npc.frameCounter = 0;
+				return;
+			}
+
+			npc.frameCounter += Math.Abs(npc.velocity.X);
+			int step = (int)(npc.frameCounter / 8.0);
+			npc.frame.Y = (step % walk) * frameHeight;
 		}
 
 		public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {

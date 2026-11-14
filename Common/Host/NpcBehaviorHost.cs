@@ -60,6 +60,11 @@ namespace AITownNPCs.Common.Host
 			if (!NpcRoleRegistry.IsBusy(npc)) {
 				NpcCombatBrain.Tick(npc);
 			}
+
+			FollowingTownNPC follow = npc.GetGlobalNPC<FollowingTownNPC>();
+			if (follow.HasFollowOwner) {
+				follow.ClearVanillaPose(npc);
+			}
 		}
 
 		public override void TownNPCAttackCooldown(NPC npc, ref int cooldown, ref int randExtraCooldown) {
