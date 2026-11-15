@@ -253,7 +253,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			int travel = follow.BehindSign == 0
 				? (player.direction >= 0 ? 1 : -1)
 				: follow.BehindSign;
-			float gap = SlotMin + (npc.whoAmI % 4) * ((SlotMax - SlotMin) / 3f);
+			float gap = FollowSlotGap(npc, player, tight: false);
 			Vector2 slot = new Vector2(player.Center.X - travel * gap, player.Center.Y + 8f);
 			NpcWingFlight.Apply(npc, slot, ref stuckTimer);
 		}
@@ -354,18 +354,17 @@ namespace AITownNPCs.Common.Ai.Follow
 
 		private static void ApplyPlayerSlot(NPC npc, Player player, FollowingTownNPC follow, ref int stuckTimer) {
 			int travel = follow.BehindSign == 0 ? 1 : follow.BehindSign;
-			float gap = SlotMin + (npc.whoAmI % 4) * ((SlotMax - SlotMin) / 3f);
 			bool playerBelow = player.Bottom.Y > npc.Bottom.Y + PlatformGap;
 			bool playerAbove = player.Bottom.Y < npc.Bottom.Y - PlatformGap;
-			// Dig-down / settle: share player column. Otherwise keep the behind-slot gap (not stacked on the player).
-			float slotX = follow.TeleportSettle > 0 || playerBelow
-				? player.Center.X
-				: player.Center.X - travel * gap;
+			// Always stay behind by at least half a body. Dig / settle use the tight half-body gap, never player.Center.
+			bool tight = follow.TeleportSettle > 0 || playerBelow;
+			float gap = FollowSlotGap(npc, player, tight);
+			float slotX = player.Center.X - travel * gap;
 			float dx = slotX - npc.Center.X;
 			if (Math.Abs(dx) <= TileSize) {
 				stuckTimer = 0;
 				EaseHorizontal(npc, playerBelow ? 0f : player.velocity.X);
-				TryOpenDoor(npc);
+				TryOpenDoor(npc, slotX);
 			}
 			else {
 				// Climb stays on: jump only when a real wall blocks the path to slotX.
@@ -382,7 +381,18 @@ namespace AITownNPCs.Common.Ai.Follow
 			}
 		}
 
-		/// <summary>Walk to the dig column and drop in, solid lip or platform.</summary>
+		/// <summary>Behind-slot X gap: normal 1–2 tiles, never under half body width.</summary>
+		static float FollowSlotGap(NPC npc, Player player, bool tight) {
+			float halfBody = Math.Max(npc.width, player.width) * 0.5f;
+			if (tight) {
+				return halfBody;
+			}
+
+			float gap = SlotMin + (npc.whoAmI % 4) * ((SlotMax - SlotMin) / 3f);
+			return Math.Max(gap, halfBody);
+		}
+
+		/// <summary>Walk to the dig column and drop in, solid lip or platform — keep half-body X offset.</summary>
 		private static bool TryDropShaft(NPC npc, Player player, FollowingTownNPC follow) {
 			if (follow.JumpCooldown > 0 || npc.velocity.Y != 0f) {
 				return false;
@@ -392,20 +402,24 @@ namespace AITownNPCs.Common.Ai.Follow
 				return false;
 			}
 
-			if (Math.Abs(npc.Center.X - player.Center.X) > SlotMax + TileSize) {
+			int travel = follow.BehindSign == 0 ? 1 : follow.BehindSign;
+			float halfBody = Math.Max(npc.width, player.width) * 0.5f;
+			float dropCenterX = player.Center.X - travel * halfBody;
+
+			if (Math.Abs(npc.Center.X - dropCenterX) > SlotMax + TileSize) {
 				return false;
 			}
 
-			if (!HoleOpenBelow(npc, player.Center.X)) {
+			if (!HoleOpenBelow(npc, player.Center.X) && !HoleOpenBelow(npc, dropCenterX)) {
 				return false;
 			}
 
-			if (Math.Abs(npc.Center.X - player.Center.X) > TileSize) {
+			if (Math.Abs(npc.Center.X - dropCenterX) > TileSize) {
 				return false;
 			}
 
 			float drop = StandingOnPlatform(npc) ? 8f : 2f;
-			Vector2 next = new Vector2(player.Center.X - npc.width * 0.5f, npc.position.Y + drop);
+			Vector2 next = new Vector2(dropCenterX - npc.width * 0.5f, npc.position.Y + drop);
 			if (Collision.SolidCollision(next, npc.width, npc.height)) {
 				return false;
 			}
@@ -480,7 +494,7 @@ namespace AITownNPCs.Common.Ai.Follow
 				npc.velocity.X = Math.Max(npc.velocity.X - step, desired);
 			}
 
-			TryOpenDoor(npc);
+			TryOpenDoor(npc, npc.Center.X + dir * SlotMax);
 			if (follow.JumpCooldown > 0 || npc.velocity.Y != 0f) {
 				return;
 			}
@@ -592,6 +606,7 @@ namespace AITownNPCs.Common.Ai.Follow
 			if (abs < 8f) {
 				stuckTimer = 0;
 				EaseHorizontal(npc, 0f);
+				TryOpenDoor(npc, goalX);
 				return;
 			}
 
@@ -604,12 +619,12 @@ namespace AITownNPCs.Common.Ai.Follow
 
 			if (!climb) {
 				stuckTimer = 0;
-				TryOpenDoor(npc);
+				TryOpenDoor(npc, goalX);
 				return;
 			}
 
 			StepUpIfGrounded(npc);
-			TryOpenDoor(npc);
+			TryOpenDoor(npc, goalX);
 			if (!HitWallAhead(npc)) {
 				stuckTimer = 0;
 				return;
@@ -665,13 +680,16 @@ namespace AITownNPCs.Common.Ai.Follow
 				ref npc.gfxOffY);
 		}
 
-		/// <summary>Vanilla town walk: open a closed door ahead, close an open door just behind.</summary>
-		static void TryOpenDoor(NPC npc) {
+		/// <summary>
+		/// Palico-style doors: open toward travel intent (<paramref name="goalX"/>), not raw |vx|.
+		/// Still uses WorldGen open-flip for normal doors; tall gates have no flip.
+		/// </summary>
+		static void TryOpenDoor(NPC npc, float goalX) {
 			if (Main.netMode == NetmodeID.MultiplayerClient) {
 				return;
 			}
 
-			if (Math.Abs(npc.velocity.X) < FaceSpeed || Math.Abs(npc.velocity.Y) > DoorMaxVerticalSpeed) {
+			if (Math.Abs(npc.velocity.Y) > DoorMaxVerticalSpeed) {
 				return;
 			}
 
@@ -679,11 +697,30 @@ namespace AITownNPCs.Common.Ai.Follow
 				return;
 			}
 
-			int dir = npc.velocity.X > 0f ? 1 : -1;
-			float ahead = dir > 0 ? npc.Right.X + 4f : npc.Left.X - 4f;
+			int dir = DoorIntentDir(npc, goalX);
+			if (dir == 0) {
+				return;
+			}
+
+			// Match CompanionDoors probe offset (+8) so lips in front of the frame still register.
+			float ahead = dir > 0 ? npc.Right.X + 8f : npc.Left.X - 8f;
 			float behind = dir > 0 ? npc.Left.X - 8f : npc.Right.X + 8f;
 			TryOpenDoorAt(npc, ahead, dir);
 			TryCloseDoorAt(npc, behind, dir);
+		}
+
+		/// <summary>Sign toward goal when meaningful; else velocity / facing (Palico desired).</summary>
+		static int DoorIntentDir(NPC npc, float goalX) {
+			float dx = goalX - npc.Center.X;
+			if (Math.Abs(dx) > 8f) {
+				return dx > 0f ? 1 : -1;
+			}
+
+			if (Math.Abs(npc.velocity.X) >= FaceSpeed) {
+				return npc.velocity.X > 0f ? 1 : -1;
+			}
+
+			return npc.direction != 0 ? npc.direction : 0;
 		}
 
 		static void TryOpenDoorAt(NPC npc, float worldX, int dir) {
